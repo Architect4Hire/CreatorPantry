@@ -358,6 +358,23 @@ describe('RecipeScalingPreviewComponent', () => {
     expect(cells[3]).toContain('Whole items — pick a sensible count yourself.');
   });
 
+  it('notes a line whose unit words CreatorPantry does not recognise, so "2 knob" is not read as settled', async () => {
+    const harness = await createFixture({
+      savedIngredientGroups: [
+        {
+          ...SAVED_GROUPS[0],
+          ingredients: [{ ...SAVED_GROUPS[0].ingredients[0], displayText: '1 knob butter', unitText: 'knob' }],
+        },
+      ],
+    });
+    harness.fixture.componentInstance.factorValue.set(2);
+
+    await scale(harness, (req) => req.flush(scalingPayload({ lines: [scaledLine({ displayText: '1 knob butter' })] })));
+
+    const row = rowCells(harness.fixture, 0).join(' ');
+    expect(row).toContain('“knob” isn’t a CreatorPantry unit — set its unit in Ingredients so it converts.');
+  });
+
   it('shows the non-linear caution for an extreme factor', async () => {
     const harness = await createFixture();
     harness.fixture.componentInstance.factorValue.set(40);

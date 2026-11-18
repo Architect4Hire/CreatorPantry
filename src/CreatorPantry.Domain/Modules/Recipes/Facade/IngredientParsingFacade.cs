@@ -10,9 +10,31 @@ namespace CreatorPantry.Domain.Modules.Recipes.Facade;
 
 internal sealed class IngredientParsingFacade(
     IValidator<ParseIngredientLinesViewModel> validator,
+    IValidator<MatchUnitWordsViewModel> unitWordsValidator,
     IIngredientFacade ingredients,
-    IMeasurementFacade units) : IIngredientParsingFacade
+    IMeasurementFacade units,
+    IIngredientUnitTextResolver unitTexts) : IIngredientParsingFacade
 {
+    public async Task<OperationResult<MatchUnitWordsResult>> MatchUnitWordsAsync(
+        MatchUnitWordsViewModel model, CancellationToken cancellationToken)
+    {
+        var validation = await unitWordsValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<MatchUnitWordsResult>.Failure(OperationError.Validation(
+                IngredientParsingErrorCodes.UnitWordsInvalidRequest,
+                "The unit words could not be accepted as submitted.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        var words = model.Words!.Select(word => word!).ToList();
+        var resolved = await unitTexts.ResolveAsync(words, cancellationToken);
+
+        return OperationResult<MatchUnitWordsResult>.Success(new MatchUnitWordsResult(
+            [.. words.Select(word => new UnitWordMatch(
+                word, IngredientUnitResolution.For(word, resolved)?.MeasurementUnitId))]));
+    }
+
     public async Task<OperationResult<ParseIngredientLinesResult>> ParseAsync(
         ParseIngredientLinesViewModel model, CancellationToken cancellationToken)
     {

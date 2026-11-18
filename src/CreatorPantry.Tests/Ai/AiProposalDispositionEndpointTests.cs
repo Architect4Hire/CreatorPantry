@@ -842,6 +842,105 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
         Assert.All(lines, line => Assert.Equal(millilitre, line.GetProperty("measurementUnitId").GetGuid()));
     }
 
+    /// <summary>
+    /// An accepted change to a line's unit words records the catalogue unit those words name, beside them — and a
+    /// word the catalogue does not know clears the old unit rather than leave "knob" scaling as millilitres.
+    /// </summary>
+    /// <remarks>
+    /// End to end because the new unit's dimension has to reach the merge: a recognised unit written without one is
+    /// the <c>CK_RecipeIngredients_Unit_Dimension</c> 500 the test above guards, by a second route.
+    /// </remarks>
+    [Fact]
+    public async Task An_accepted_unit_text_change_records_the_catalogue_unit_it_names()
+    {
+        using var client = await SignInAsync();
+        var millilitre = await AddUnitAsync(MeasurementDimension.Volume);
+        var zentigram = await AddNamedUnitAsync("zentigram", "zentigrams", "zg", MeasurementDimension.Mass);
+
+        var seeded = await SeedAsync(
+            client,
+            changes: detail =>
+            {
+                var lines = detail.GetProperty("ingredientGroups").EnumerateArray().First()
+                    .GetProperty("ingredients").EnumerateArray().Select(line => line.GetProperty("id").GetGuid())
+                    .ToList();
+
+                return
+                [
+                    new()
+                    {
+                        Id = Guid.NewGuid(),
+                        ChangeKind = AiChangeKind.Set,
+                        TargetKind = AiChangeTargetKind.Ingredient,
+                        TargetId = lines[0],
+                        FieldName = "unitText",
+                        BeforeValue = null,
+                        AfterValue = "Zentigrams",
+                    },
+                    new()
+                    {
+                        Id = Guid.NewGuid(),
+                        ChangeKind = AiChangeKind.Set,
+                        TargetKind = AiChangeTargetKind.Ingredient,
+                        TargetId = lines[1],
+                        FieldName = "unitText",
+                        BeforeValue = null,
+                        AfterValue = "knob",
+                    },
+                ];
+            },
+            ingredients:
+            [
+                new { displayText = "200 ml olive oil", quantity = 200m, measurementUnitId = millilitre },
+                new { displayText = "100 ml butter", quantity = 100m, measurementUnitId = millilitre },
+                new { displayText = "100 ml milk", quantity = 100m, measurementUnitId = millilitre },
+            ]);
+
+        var response = await AcceptSelectedAsync(client, seeded, seeded.ChangeIds);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var lines = (await BodyOf(await client.GetAsync(
+                $"{Recipes()}/{seeded.RecipeId}", TestContext.Current.CancellationToken)))
+            .GetProperty("ingredientGroups").EnumerateArray().First()
+            .GetProperty("ingredients").EnumerateArray().ToList();
+
+        // The words stay exactly as accepted; the unit is the catalogue's, beside them.
+        Assert.Equal("Zentigrams", lines[0].GetProperty("unitText").GetString());
+        Assert.Equal(zentigram, lines[0].GetProperty("measurementUnitId").GetGuid());
+
+        Assert.Equal("knob", lines[1].GetProperty("unitText").GetString());
+        Assert.Equal(JsonValueKind.Null, lines[1].GetProperty("measurementUnitId").ValueKind);
+
+        Assert.Equal(millilitre, lines[2].GetProperty("measurementUnitId").GetGuid());
+    }
+
+    private async Task<Guid> AddNamedUnitAsync(
+        string displayName, string pluralName, string abbreviation, MeasurementDimension dimension)
+    {
+        var id = Guid.NewGuid();
+
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.MeasurementUnits.Add(new MeasurementUnit
+        {
+            Id = id,
+            Code = $"{abbreviation}-{id:N}"[..12],
+            DisplayName = displayName,
+            PluralName = pluralName,
+            Abbreviation = abbreviation,
+            Dimension = dimension,
+            System = MeasurementSystem.Metric,
+            BaseUnitFactor = 0.01m,
+            DisplayPrecision = 0,
+        });
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return id;
+    }
+
     private async Task<Guid> AddUnitAsync(MeasurementDimension dimension)
     {
         var id = Guid.NewGuid();

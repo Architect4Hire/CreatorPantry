@@ -99,6 +99,23 @@ public sealed class RecipeConceptsAiTaskHandlerTests
     }
 
     /// <summary>
+    /// The schema the model is shown names the exact <c>schemaVersion</c> the validator requires. Without it every
+    /// first answer guessed a version, was refused, and spent the request's one correction on a field the server
+    /// already knew.
+    /// </summary>
+    [Fact]
+    public async Task The_schema_sent_to_the_model_pins_the_templates_schema_version()
+    {
+        var client = FakeChatClient.Returning(TwoConcepts);
+
+        await Run(client, inputs: null);
+
+        var systemMessage = client.LastMessages!.Single(message => message.Role == ChatRole.System).Text;
+
+        Assert.Contains("\"const\": \"recipe.concepts.v1\"", systemMessage, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The dish name leads the brief, and it is the creator's own words wherever it lands.
     /// </summary>
     /// <remarks>

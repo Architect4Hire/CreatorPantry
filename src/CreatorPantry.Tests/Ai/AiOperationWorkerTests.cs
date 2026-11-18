@@ -432,7 +432,7 @@ public sealed class AiOperationWorkerTests : IDisposable
 
             var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
                 .WithTask("Propose nothing; this is a fixture.")
-                .WithOutputSchema(AiOutputSchema.Json)
+                .WithOutputSchema(AiOutputSchema.Json, Schema)
                 .Build();
 
             var outcome = await gateway.CompleteAsync(

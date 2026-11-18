@@ -2,6 +2,7 @@ using System.Globalization;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Measurement.Facade;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
@@ -54,6 +55,7 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 internal sealed class RecipeFirstDraftAiTaskHandler(
     IAiCompletionGateway gateway,
     IPromptTemplateStore templates,
+    IMeasurementFacade measurement,
     IClock clock) : IAiTaskHandler
 {
     /// <summary>The template's one declared input. Named here because the template file names it too.</summary>
@@ -64,14 +66,24 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
     {
         var template = templates.Get(AiTaskCatalog.RecipeFirstDraft);
 
-        var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
+        var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>
             {
                 [MeasurementSystemInput] = MeasurementPhrase(context.Inputs),
             }))
-            .WithOutputSchema(AiRecipeDraftOutputSchema.Json)
-            .WithPreferences(context.WorkspaceId, RenderBrief(context.Inputs))
-            .Build();
+            .WithOutputSchema(AiRecipeDraftOutputSchema.Json, template.OutputSchemaVersion)
+            .WithPreferences(context.WorkspaceId, RenderBrief(context.Inputs));
+
+        // The catalogue's unit words, so the draft's units land on words acceptance can match. Platform reference
+        // data with no workspace in it; the workspace on the segment is the builder's required stamp, as for the
+        // dish-facet vocabulary. Absent when the catalogue has nothing to offer, and the template says what to do
+        // then — the match at acceptance and the editor's flags still stand behind every unit either way.
+        if (await RenderUnitWordsAsync(cancellationToken) is { } unitWords)
+        {
+            builder.AddReference(context.WorkspaceId, unitWords);
+        }
+
+        var envelope = builder.Build();
 
         var outcome = await gateway.CompleteAsync(
             new AiCompletionRequest<AiRecipeDraftOutputDocument>(
@@ -120,6 +132,42 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
             ? AiTaskHandlerOutcome.ForProposal(assembly.Proposal!, outcome.Attempts)
             : AiTaskHandlerOutcome.ForFailure(
                 assembly.Failure!.Category, assembly.Failure.Message, outcome.Attempts);
+    }
+
+    /// <summary>
+    /// The unit words the catalogue recognises, rendered for the References segment, or <c>null</c> when there
+    /// are none to show or the catalogue cannot say which words it recognises.
+    /// </summary>
+    /// <remarks>
+    /// A failed match is a missing list, not a failed draft: the words only make a match likelier, and the match
+    /// itself runs again, deterministically, when the draft is accepted.
+    /// </remarks>
+    private async Task<string?> RenderUnitWordsAsync(CancellationToken cancellationToken)
+    {
+        var units = await measurement.ListActiveUnitsAsync(cancellationToken);
+        var candidates = AiRecipeDraftUnitWords.Candidates(units);
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        // In batches the match accepts, so a catalogue that grows past one batch still gets its whole list rather
+        // than silently losing it.
+        var matches = new List<UnitMatchResult>(candidates.Count);
+
+        foreach (var batch in candidates.Chunk(CreatorPantry.Domain.Managers.Paging.ReferencePolicy.MaxMatchCandidates))
+        {
+            var answer = await measurement.ResolveCandidatesAsync(batch, cancellationToken);
+            if (!answer.Succeeded)
+            {
+                return null;
+            }
+
+            matches.AddRange(answer.Value!);
+        }
+
+        return AiRecipeDraftUnitWords.Render(units, candidates, matches);
     }
 
     /// <summary>

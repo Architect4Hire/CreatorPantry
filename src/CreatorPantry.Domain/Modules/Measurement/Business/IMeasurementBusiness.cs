@@ -27,6 +27,9 @@ public interface IMeasurementBusiness
     Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
         IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
 
+    /// <summary>Every active unit, in code order. The facade caches it.</summary>
+    Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken);
+
     /// <summary>Loads the flattened match index the facade caches and passes back into <see cref="ResolveCandidates"/>.</summary>
     Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
 

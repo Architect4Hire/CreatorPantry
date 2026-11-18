@@ -249,7 +249,11 @@ export class RecipeUnitConversionComponent {
           ingredient.quantity === null
             ? 'no amount recorded'
             : ingredient.measurementUnitId === null
-              ? 'no unit recorded'
+              ? // Words with no catalogue unit behind them — typically an AI draft's "knob" — are a unit the
+                // creator can settle in the editor, which "no unit recorded" would have hidden.
+                ingredient.unitText?.trim()
+                ? `“${ingredient.unitText.trim()}” isn’t a CreatorPantry unit`
+                : 'no unit recorded'
               : null,
         quantity: ingredient.quantity,
         unitId: ingredient.measurementUnitId,

@@ -40,4 +40,26 @@ public sealed class IngredientToolsController(IIngredientParsingFacade parsingFa
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
+
+    /// <summary>
+    /// Checks unit words against the CreatorPantry unit catalogue, the way accepting a generated draft will.
+    /// </summary>
+    /// <remarks>
+    /// For the draft review screen: a generated line's unit arrives as a word, and a word with no unit behind it
+    /// is one the creator should know about before accepting. Read-only — nothing is stored, and no word is
+    /// rewritten. Viewer, like parse: it reads platform reference data and changes nothing.
+    /// </remarks>
+    [HttpPost("match-units")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<MatchUnitWordsResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> MatchUnits(
+        string workspaceSlug,
+        MatchUnitWordsViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var result = await parsingFacade.MatchUnitWordsAsync(model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
 }

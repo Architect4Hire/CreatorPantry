@@ -25,5 +25,7 @@ public interface IMeasurementDataLayer
         IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<MeasurementUnitRecord>> ListActiveUnitsAsync(CancellationToken cancellationToken);
 }
 

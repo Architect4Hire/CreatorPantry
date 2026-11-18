@@ -238,7 +238,7 @@ internal sealed class ChannelPostsAiTaskHandler(
             {
                 [ChannelsInput] = ChannelBrief(requested),
             }))
-            .WithOutputSchema(AiChannelPostsOutputSchema.Json);
+            .WithOutputSchema(AiChannelPostsOutputSchema.Json, template.OutputSchemaVersion);
 
         if (brand is not null)
         {

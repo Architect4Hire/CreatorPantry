@@ -337,6 +337,52 @@ public sealed class RecipeReadinessEvaluatorTests
         Assert.Contains("2 ingredient lines match", finding.Detail);
     }
 
+    // ---- Ingredient units ----
+
+    private static RecipeReadinessIngredientLine UnitLine(string displayText, string? unitText, Guid? unitId) =>
+        new(Guid.NewGuid(), displayText, IngredientMatchStatus.Matched, Guid.NewGuid(), unitText, unitId);
+
+    /// <summary>
+    /// A unit the catalogue does not know is advice, never a bar — "a glug" is a real unit to a creator — and the
+    /// evidence names the line in the creator's own words and points at its unit.
+    /// </summary>
+    [Fact]
+    public void A_unit_the_catalogue_does_not_recognise_is_a_recommendation_naming_the_line()
+    {
+        var result = Evaluate(Ready() with
+        {
+            IngredientLines =
+            [
+                UnitLine("2 c. flour", "c.", unitId: null),
+                UnitLine("1 knob butter", "knob", unitId: null),
+                UnitLine("200 g sugar", "g", Guid.NewGuid()),
+            ],
+        });
+
+        var finding = Recommendation(result, RecipeReadinessCatalogue.IngredientsUnitUnrecognized);
+        Assert.False(result.HasBlockers);
+
+        Assert.Contains("2 ingredient lines use units", finding.Detail);
+        Assert.Equal(["2 c. flour", "1 knob butter"], finding.Evidence.Select(evidence => evidence.Label));
+        Assert.All(finding.Evidence, evidence =>
+        {
+            Assert.Equal(RecipeReadinessEvidenceKind.RecipeIngredientLine, evidence.Kind);
+            Assert.Equal(nameof(RecipeReadinessIngredientLine.UnitText), evidence.FieldName);
+        });
+    }
+
+    /// <summary>A line that names no unit — "3 eggs" — has nothing to recognise, so it is not reported.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_line_with_no_unit_text_is_not_an_unrecognised_unit(string? unitText)
+    {
+        var result = Evaluate(Ready() with { IngredientLines = [UnitLine("3 eggs", unitText, unitId: null)] });
+
+        Satisfied(result, RecipeReadinessCatalogue.IngredientsUnitUnrecognized);
+    }
+
     // ---- Outstanding AI work ----
 
     /// <summary>

@@ -161,6 +161,9 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         IReadOnlyList<string> candidateTexts, IReadOnlyList<IngredientMatchIndexEntry> index) =>
         candidateTexts.Select(text => new IngredientMatchResult { InputText = text }).ToList();
 
+    public Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken) =>
+        Count<IReadOnlyList<MeasurementUnitServiceModel>>([]);
+
     Task<IReadOnlyList<UnitMatchIndexEntry>> IMeasurementBusiness.LoadMatchIndexAsync(CancellationToken cancellationToken) =>
         Count<IReadOnlyList<UnitMatchIndexEntry>>([]);
 

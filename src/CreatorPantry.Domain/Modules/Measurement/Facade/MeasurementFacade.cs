@@ -40,6 +40,26 @@ internal sealed class MeasurementFacade(
         IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
         business.FindUnitsByCodesAsync(codes, cancellationToken);
 
+    public async Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken)
+    {
+        if (await cache.GetAsync<MeasurementUnitServiceModel[]>(ActiveUnitsCacheKey, cancellationToken) is { } cached)
+        {
+            return cached;
+        }
+
+        var all = await business.ListActiveUnitsAsync(cancellationToken);
+        await cache.SetAsync(ActiveUnitsCacheKey, all.ToArray(), ReferencePolicy.CacheLifetime, cancellationToken);
+
+        return all;
+    }
+
+    /// <summary>
+    /// Its own key space — <c>all</c> rather than a query segment — so the whole catalogue and a page of it can
+    /// never be served to each other.
+    /// </summary>
+    private static string ActiveUnitsCacheKey =>
+        CacheKeys.Global(ReferencePolicy.CacheCategory, $"{Resource}:{ReferencePolicy.CacheSchemaVersion}:all");
+
     public async Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(
         IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken)
     {

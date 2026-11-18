@@ -118,7 +118,7 @@ internal sealed class PhotographyConceptAiTaskHandler(
 
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(NoTemplateInputs))
-            .WithOutputSchema(AiPhotographyConceptOutputSchema.Json);
+            .WithOutputSchema(AiPhotographyConceptOutputSchema.Json, template.OutputSchemaVersion);
 
         if (source.Json is { } recipeJson)
         {

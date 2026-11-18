@@ -191,12 +191,18 @@ public interface IRecipeBusiness
     /// is a decision worth recording on the proposal, but not a version worth putting in a history a creator
     /// reads.
     /// </para>
+    /// <para>
+    /// <strong><paramref name="resolvedUnits"/> is the facade's catalogue reading of every proposed unit
+    /// text.</strong> Business cannot ask another module's facade itself (backend.md), so the facade resolves the
+    /// words and this applies them: a line whose unit text changes takes the unit it was recognised as, or none.
+    /// </para>
     /// </remarks>
     Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
         Guid recipeId,
         Guid expectedVersionId,
         Guid aiProposalId,
         IReadOnlyList<ProposedRecipeChange> changes,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> resolvedUnits,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -1262,9 +1268,11 @@ internal sealed class RecipeBusiness(
         Guid expectedVersionId,
         Guid aiProposalId,
         IReadOnlyList<ProposedRecipeChange> changes,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> resolvedUnits,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(changes);
+        ArgumentNullException.ThrowIfNull(resolvedUnits);
 
         var loaded = await dataLayer.GetForUpdateAsync(recipeId, cancellationToken);
         if (loaded is null)
@@ -1281,7 +1289,7 @@ internal sealed class RecipeBusiness(
             return Conflict();
         }
 
-        var plan = RecipeProposalApplication.Plan(loaded, changes);
+        var plan = RecipeProposalApplication.Plan(loaded, changes, resolvedUnits);
 
         if (!plan.Succeeded)
         {
@@ -1293,15 +1301,24 @@ internal sealed class RecipeBusiness(
 
         // No submitted yield unit, because no proposal can name a unit at all: AiDiffFields lists no identifier
         // field, on the grounds that a model choosing a Guid is a model inventing one. So every unit in the plan is
-        // one a line already has — but the plan still carries those units, because touching any ingredient resubmits
-        // the whole list, and the merge derives each line's dimension from this map. An empty map once wrote every
-        // unit with no dimension, which CK_RecipeIngredients_Unit_Dimension refuses: accepting any ingredient
-        // change on a recipe with a measured line was a 500. The recipe's own stored dimensions are the answer.
+        // one a line already has, or one the facade recognised a proposed unit text as — but the plan still
+        // carries those units, because touching any ingredient resubmits the whole list, and the merge derives
+        // each line's dimension from this map. An empty map once wrote every unit with no dimension, which
+        // CK_RecipeIngredients_Unit_Dimension refuses: accepting any ingredient change on a recipe with a measured
+        // line was a 500. The recipe's own stored dimensions, plus the recognised ones, are the answer.
+        var unitDimensions = new Dictionary<Guid, MeasurementDimension>(
+            StoredIngredientUnitDimensions(loaded.Recipe.Recipe));
+
+        foreach (var unit in resolvedUnits.Values)
+        {
+            unitDimensions[unit.MeasurementUnitId] = unit.Dimension;
+        }
+
         return await MergeAsync(
             loaded,
             plan.Patch!,
             null,
-            StoredIngredientUnitDimensions(loaded.Recipe.Recipe),
+            unitDimensions,
             RecipeVersionSource.AiProposalAccepted,
             aiProposalId,
             cancellationToken);

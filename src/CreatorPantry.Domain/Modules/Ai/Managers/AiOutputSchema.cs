@@ -1,8 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Schema;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
-
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
 /// <summary>
@@ -23,18 +18,8 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// </remarks>
 public static class AiOutputSchema
 {
-    private static readonly JsonSerializerOptions SchemaJson = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter() },
-
-        // The exporter requires a resolver up front and will not fall back to the reflection-based default the
-        // way ordinary serialization does, so it is named here rather than left to be supplied lazily.
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-    };
-
     private static readonly Lazy<string> Exported = new(() =>
-        SchemaJson.GetJsonSchemaAsNode(typeof(AiOutputDocument)).ToJsonString(
-            new JsonSerializerOptions { WriteIndented = true }));
+        AiOutputSchemaExporter.Export(typeof(AiOutputDocument)));
 
     /// <summary>The schema, as indented JSON suitable for embedding in a prompt.</summary>
     public static string Json => Exported.Value;

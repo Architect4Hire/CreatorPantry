@@ -81,7 +81,7 @@ internal sealed class RecipeConceptsAiTaskHandler(
 
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(NoTemplateInputs))
-            .WithOutputSchema(AiConceptOutputSchema.Json)
+            .WithOutputSchema(AiConceptOutputSchema.Json, template.OutputSchemaVersion)
             .WithPreferences(context.WorkspaceId, RenderBrief(context.Inputs));
 
         if (day is not null)

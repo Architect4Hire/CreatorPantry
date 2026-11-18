@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ingredients.Facade;
 using CreatorPantry.Domain.Modules.Measurement.Facade;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Business;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
@@ -610,7 +611,8 @@ internal sealed class RecipeFacade(
     IWorkspaceFacade workspaces,
     IMeasurementFacade measurement,
     IIngredientFacade ingredients,
-    IIdempotentCommandExecutor idempotency) : IRecipeFacade
+    IIdempotentCommandExecutor idempotency,
+    IIngredientUnitTextResolver unitTexts) : IRecipeFacade
 {
     /// <summary>Stable operation names for the idempotency scope. Changing one orphans in-flight keys.</summary>
     private const string CreateOperation = "recipes.create";
@@ -1192,8 +1194,22 @@ internal sealed class RecipeFacade(
         // checks a validator would make — parsable numbers, text that is not blank — happen where the accepted
         // values are translated, and every invariant a recipe has is checked by Business against the merged
         // recipe, which is where they belong for a patch.
+        //
+        // The one cross-module read this path needs: what each proposed unit text is in the catalogue. Business
+        // may not ask the Measurement facade itself, so the answer is handed down.
+        var resolvedUnits = await unitTexts.ResolveAsync(
+            changes
+                .Where(change => change is
+                {
+                    Kind: ProposedRecipeChangeKind.Set,
+                    Target: ProposedRecipeTarget.Ingredient,
+                    FieldName: "unitText",
+                })
+                .Select(change => change.Value),
+            cancellationToken);
+
         return await business.ApplyProposedChangesAsync(
-            recipeId, expectedVersionId, aiProposalId, changes, cancellationToken);
+            recipeId, expectedVersionId, aiProposalId, changes, resolvedUnits, cancellationToken);
     }
 
     public async Task<OperationResult<CreatedRecipeServiceModel>> CreateFromProposalAsync(
@@ -1208,7 +1224,15 @@ internal sealed class RecipeFacade(
         // eventually disagree with it. Building the ViewModel is the point: an accepted draft is held to the
         // bounds a creator’s own recipe is held to, including the one that matters, which is that a recipe
         // has a title. That is what makes an untitled draft fail atomically.
-        var prepared = await PrepareCreateAsync(ToCreateModel(draft), cancellationToken);
+        //
+        // The draft's units arrive as words, because a model may not name a unit id. Recognising them first is
+        // what makes a generated line scale and convert like a typed one; a word the catalogue does not know is
+        // kept as written, with no unit, and flagged for the creator downstream.
+        var resolvedUnits = await unitTexts.ResolveAsync(
+            draft.IngredientGroups.SelectMany(group => group.Ingredients).Select(line => line.UnitText),
+            cancellationToken);
+
+        var prepared = await PrepareCreateAsync(ToCreateModel(draft, resolvedUnits), cancellationToken);
 
         if (prepared.Error is { } error)
         {
@@ -1232,7 +1256,9 @@ internal sealed class RecipeFacade(
     /// Built rather than bypassed so that one validator, one canonicalizer and one create path serve both. The
     /// status is fixed to <c>Draft</c> here rather than taken from anything: see the interface remarks.
     /// </remarks>
-    private static CreateRecipeViewModel ToCreateModel(ProposedRecipeDraft draft) => new()
+    private static CreateRecipeViewModel ToCreateModel(
+        ProposedRecipeDraft draft,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> resolvedUnits) => new()
     {
         Title = draft.Title,
         Description = draft.Description,
@@ -1264,6 +1290,8 @@ internal sealed class RecipeFacade(
                         DisplayTextSource = IngredientDisplayTextSource.Creator,
                         IngredientNameText = line.IngredientNameText,
                         UnitText = line.UnitText,
+                        // Additive: the recognised unit sits beside the words, which stay as written.
+                        MeasurementUnitId = IngredientUnitResolution.For(line.UnitText, resolvedUnits)?.MeasurementUnitId,
                         Quantity = line.Quantity,
                         QuantityUpper = line.QuantityUpper,
                         PreparationNote = line.PreparationNote,

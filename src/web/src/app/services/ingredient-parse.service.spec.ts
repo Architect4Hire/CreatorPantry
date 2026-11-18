@@ -105,4 +105,46 @@ describe('IngredientParseService', () => {
 
     expect(await call).toEqual({ status: 'unavailable' });
   });
+
+  describe('matchUnitWords', () => {
+    const MATCH_URL = 'https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/match-units';
+
+    it('POSTs the words with credentials and decodes each word with its unit or none', async () => {
+      const call = service.matchUnitWords('cozy-fall', ['tbsp', 'knob']);
+      const req = http.expectOne(MATCH_URL);
+
+      expect(req.request.method).toBe('POST');
+      expect(req.request.withCredentials).toBeTrue();
+      expect(req.request.body).toEqual({ words: ['tbsp', 'knob'] });
+
+      req.flush({
+        words: [
+          { word: 'tbsp', measurementUnitId: 'unit-tbsp' },
+          { word: 'knob', measurementUnitId: null },
+        ],
+      });
+
+      expect(await call).toEqual({
+        status: 'matched',
+        words: [
+          { word: 'tbsp', measurementUnitId: 'unit-tbsp' },
+          { word: 'knob', measurementUnitId: null },
+        ],
+      });
+    });
+
+    it('asks nothing for no words', async () => {
+      expect(await service.matchUnitWords('cozy-fall', [])).toEqual({ status: 'unavailable' });
+    });
+
+    it('reports a failure or an unreadable body as unavailable, so a caller warns about nothing it cannot know', async () => {
+      const failed = service.matchUnitWords('cozy-fall', ['tbsp']);
+      http.expectOne(MATCH_URL).flush({}, { status: 500, statusText: 'Server Error' });
+      expect(await failed).toEqual({ status: 'unavailable' });
+
+      const garbled = service.matchUnitWords('cozy-fall', ['tbsp']);
+      http.expectOne(MATCH_URL).flush({ words: [{ word: 'tbsp', measurementUnitId: 7 }] });
+      expect(await garbled).toEqual({ status: 'unavailable' });
+    });
+  });
 });

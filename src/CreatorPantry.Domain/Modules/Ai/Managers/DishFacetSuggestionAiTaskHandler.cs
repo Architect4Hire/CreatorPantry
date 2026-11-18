@@ -98,7 +98,7 @@ internal sealed class DishFacetSuggestionAiTaskHandler(
 
         var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(NoTemplateInputs))
-            .WithOutputSchema(AiDishFacetsOutputSchema.Json)
+            .WithOutputSchema(AiDishFacetsOutputSchema.Json, template.OutputSchemaVersion)
 
             // The workspace on this reference is a required stamp, not a leak check that caught anything: the
             // candidate lists are platform vocabulary with no WorkspaceId at all, cached under a global key,

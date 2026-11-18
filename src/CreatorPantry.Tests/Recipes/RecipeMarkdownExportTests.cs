@@ -274,6 +274,9 @@ public sealed partial class RecipeMarkdownExportTests
             return Task.FromResult<IReadOnlyList<MeasurementUnitServiceModel>>([.. known.Where(unit => unitIds.Contains(unit.Id))]);
         }
 
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
             IReadOnlyCollection<string> codes, CancellationToken cancellationToken)
         {

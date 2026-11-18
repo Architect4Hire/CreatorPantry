@@ -12,7 +12,10 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -120,6 +123,68 @@ public sealed class AiDraftAcceptanceTests : IAsyncDisposable
         Assert.Equal("2 tbsp doubanjiang", recipe.IngredientGroups[0].Ingredients[0].DisplayText);
         Assert.Single(recipe.InstructionGroups);
         Assert.Equal("Fry the paste.", recipe.InstructionGroups[0].Steps[0].Text);
+    }
+
+    /// <summary>
+    /// The routing proof for generated units: the model wrote the word "tbsp", and the recipe it becomes records the
+    /// catalogue's tablespoon beside that word — through the real Measurement match, not a stub of it.
+    /// </summary>
+    [Fact]
+    public async Task A_drafted_unit_word_is_recorded_as_the_catalogue_unit_it_names()
+    {
+        var tablespoon = await AddUnitAsync("tbsp", "tablespoon", "tablespoons", MeasurementDimension.Volume);
+        var seeded = await SeedDraftAsync(WorkspaceA);
+
+        var result = await AcceptAllAsync(WorkspaceA, seeded);
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        var line = (await ReadRecipeAsync(WorkspaceA, result.Value!.RecipeId!.Value)).IngredientGroups[0].Ingredients[0];
+        Assert.Equal("tbsp", line.UnitText);
+        Assert.Equal(tablespoon, line.MeasurementUnitId);
+    }
+
+    /// <summary>
+    /// A word the catalogue does not know is kept exactly as written with no unit behind it — never guessed at, and
+    /// never a reason to refuse the draft. That line is what the editor and the readiness checklist flag.
+    /// </summary>
+    [Fact]
+    public async Task A_drafted_unit_word_the_catalogue_does_not_know_is_kept_with_no_unit()
+    {
+        await AddUnitAsync("cup-us", "cup", "cups", MeasurementDimension.Volume);
+        var seeded = await SeedDraftAsync(WorkspaceA);
+
+        var result = await AcceptAllAsync(WorkspaceA, seeded);
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        var line = (await ReadRecipeAsync(WorkspaceA, result.Value!.RecipeId!.Value)).IngredientGroups[0].Ingredients[0];
+        Assert.Equal("tbsp", line.UnitText);
+        Assert.Null(line.MeasurementUnitId);
+    }
+
+    private async Task<Guid> AddUnitAsync(
+        string code, string displayName, string pluralName, MeasurementDimension dimension)
+    {
+        var id = Guid.NewGuid();
+
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.MeasurementUnits.Add(new MeasurementUnit
+        {
+            Id = id,
+            Code = code,
+            DisplayName = displayName,
+            PluralName = pluralName,
+            Abbreviation = code,
+            Dimension = dimension,
+            System = MeasurementSystem.UsCustomary,
+            BaseUnitFactor = 1m,
+            DisplayPrecision = 2,
+        });
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return id;
     }
 
     /// <summary>Acceptance is the only create step — nothing exists until the creator says so.</summary>

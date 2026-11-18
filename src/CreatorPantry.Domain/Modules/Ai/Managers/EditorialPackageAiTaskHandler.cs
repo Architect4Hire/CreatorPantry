@@ -74,7 +74,7 @@ internal sealed class EditorialPackageAiTaskHandler(
 
         var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>(StringComparer.Ordinal)))
-            .WithOutputSchema(AiEditorialPackageOutputSchema.Json)
+            .WithOutputSchema(AiEditorialPackageOutputSchema.Json, template.OutputSchemaVersion)
             .WithPreferences(context.WorkspaceId, RenderPreferences(requested, context.Inputs))
             .WithSource(context.WorkspaceId, JsonSerializer.Serialize(source))
             .Build();

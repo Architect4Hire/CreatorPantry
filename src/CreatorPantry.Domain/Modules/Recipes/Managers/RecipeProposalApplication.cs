@@ -39,10 +39,20 @@ public static class RecipeProposalApplication
 {
     /// <param name="loaded">The recipe as the caller read it in this unit of work, with its tag vocabulary.</param>
     /// <param name="changes">The accepted changes, in the order the creator reviewed them.</param>
-    public static RecipeProposalPlan Plan(TaggedRecipe loaded, IReadOnlyList<ProposedRecipeChange> changes)
+    /// <param name="resolvedUnits">
+    /// The catalogue unit each proposed <c>unitText</c> was recognised as, resolved by the facade
+    /// (<see cref="IngredientUnitResolution"/>). A unit text missing from it was not recognised. Null is the same
+    /// as empty.
+    /// </param>
+    public static RecipeProposalPlan Plan(
+        TaggedRecipe loaded,
+        IReadOnlyList<ProposedRecipeChange> changes,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit>? resolvedUnits = null)
     {
         ArgumentNullException.ThrowIfNull(loaded);
         ArgumentNullException.ThrowIfNull(changes);
+
+        var units = resolvedUnits ?? NoResolvedUnits;
 
         var recipe = loaded.Recipe.Recipe;
         var builder = new PatchBuilder();
@@ -109,7 +119,7 @@ public static class RecipeProposalApplication
 
                 case ProposedRecipeTarget.IngredientGroup:
                 case ProposedRecipeTarget.Ingredient:
-                    if (ApplyToIngredients(ingredientGroups, change) is { } ingredientError)
+                    if (ApplyToIngredients(ingredientGroups, change, units) is { } ingredientError)
                     {
                         return Refuse(ingredientError);
                     }
@@ -545,11 +555,12 @@ public static class RecipeProposalApplication
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>The vocabulary references are read-only here, exactly as the step's temperature unit is.</strong>
-    /// <c>AiDiffFields</c> names no identifier field, so no proposal can choose a
-    /// <see cref="RecipeIngredient.MeasurementUnitId"/> or an <see cref="RecipeIngredient.IngredientId"/> — a
-    /// model naming a <c>Guid</c> is a model inventing one. They therefore travel through unchanged: the line
-    /// keeps whatever the matching seam resolved for it.
+    /// <strong>No proposal names a vocabulary reference.</strong> <c>AiDiffFields</c> names no identifier
+    /// field, so no proposal can choose a <see cref="RecipeIngredient.MeasurementUnitId"/> or an
+    /// <see cref="RecipeIngredient.IngredientId"/> — a model naming a <c>Guid</c> is a model inventing one. The
+    /// ingredient reference travels through unchanged. The unit follows its own text: when an accepted change
+    /// rewrites <c>unitText</c>, the id becomes whatever the facade's deterministic catalogue match recognised
+    /// that text as (<see cref="IngredientUnitResolution"/>), or nothing — never the old unit beside new words.
     /// </para>
     /// <para>
     /// <strong><see cref="DisplayTextSource"/> is carried, not recomputed.</strong> recipes.md is explicit
@@ -575,7 +586,7 @@ public static class RecipeProposalApplication
 
         public decimal? QuantityUpper { get; set; } = line.QuantityUpper;
 
-        public Guid? MeasurementUnitId { get; } = line.MeasurementUnitId;
+        public Guid? MeasurementUnitId { get; set; } = line.MeasurementUnitId;
 
         public Guid? IngredientId { get; } = line.IngredientId;
 
@@ -605,7 +616,13 @@ public static class RecipeProposalApplication
         return groups;
     }
 
-    private static string? ApplyToIngredients(List<DraftIngredientGroup> groups, ProposedRecipeChange change)
+    private static readonly IReadOnlyDictionary<string, ResolvedIngredientUnit> NoResolvedUnits =
+        new Dictionary<string, ResolvedIngredientUnit>(StringComparer.Ordinal);
+
+    private static string? ApplyToIngredients(
+        List<DraftIngredientGroup> groups,
+        ProposedRecipeChange change,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> units)
     {
         if (change.TargetId is not { } targetId)
         {
@@ -614,7 +631,7 @@ public static class RecipeProposalApplication
 
         return change.Target is ProposedRecipeTarget.IngredientGroup
             ? ApplyToIngredientGroup(groups, change, targetId)
-            : ApplyToIngredientLine(groups, change, targetId);
+            : ApplyToIngredientLine(groups, change, targetId, units);
     }
 
     private static string? ApplyToIngredientGroup(
@@ -652,7 +669,10 @@ public static class RecipeProposalApplication
     }
 
     private static string? ApplyToIngredientLine(
-        List<DraftIngredientGroup> groups, ProposedRecipeChange change, Guid targetId)
+        List<DraftIngredientGroup> groups,
+        ProposedRecipeChange change,
+        Guid targetId,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> units)
     {
         var group = groups.FirstOrDefault(candidate => candidate.Ingredients.Any(line => line.Id == targetId));
 
@@ -666,7 +686,7 @@ public static class RecipeProposalApplication
         switch (change.Kind)
         {
             case ProposedRecipeChangeKind.Set:
-                return SetIngredientField(group.Ingredients[index], change);
+                return SetIngredientField(group.Ingredients[index], change, units);
 
             case ProposedRecipeChangeKind.Remove:
                 group.Ingredients.RemoveAt(index);
@@ -683,7 +703,10 @@ public static class RecipeProposalApplication
         }
     }
 
-    private static string? SetIngredientField(DraftIngredient line, ProposedRecipeChange change)
+    private static string? SetIngredientField(
+        DraftIngredient line,
+        ProposedRecipeChange change,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> units)
     {
         switch (change.FieldName)
         {
@@ -708,6 +731,12 @@ public static class RecipeProposalApplication
 
             case "unitText":
                 line.UnitText = Trimmed(change.Value);
+
+                // The recognised unit follows the words. Keeping the old id beside new text would leave a line
+                // that reads "grams" and scales as cups; an unrecognised word clears it instead, which is what
+                // the editor and the readiness checklist flag for the creator to settle.
+                var unit = IngredientUnitResolution.For(line.UnitText, units);
+                line.MeasurementUnitId = unit?.MeasurementUnitId;
 
                 return null;
 

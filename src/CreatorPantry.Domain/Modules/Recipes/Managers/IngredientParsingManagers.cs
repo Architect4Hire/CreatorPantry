@@ -25,6 +25,9 @@ public static class IngredientParsingErrorCodes
 {
     /// <summary>The request body failed shape or format validation — too many lines, an over-long line, or a blank one.</summary>
     public const string LinesInvalidRequest = "recipes.ingredient-lines.invalid_request";
+
+    /// <summary>The unit words failed shape validation — none, too many, an over-long one, or a blank one.</summary>
+    public const string UnitWordsInvalidRequest = "recipes.ingredient-units.invalid_request";
 }
 
 /// <summary>A batch of free-form recipe ingredient lines to tokenize and match. Nothing here is persisted.</summary>
@@ -70,3 +73,42 @@ public sealed record ParsedIngredientLine(
 
 /// <summary>The parsed batch, in the order the lines were submitted.</summary>
 public sealed record ParseIngredientLinesResult(IReadOnlyList<ParsedIngredientLine> Lines);
+
+/// <summary>
+/// Unit words to check against the catalogue — a generated draft's "tbsp" or "knob", before it is accepted. Nothing
+/// here is persisted, and no word is rewritten.
+/// </summary>
+public sealed record MatchUnitWordsViewModel(IReadOnlyList<string?>? Words);
+
+public sealed class MatchUnitWordsViewModelValidator : AbstractValidator<MatchUnitWordsViewModel>
+{
+    public MatchUnitWordsViewModelValidator()
+    {
+        RuleFor(model => model.Words!)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+                .WithMessage("At least one unit word is required.")
+            .Must(words => words.Count > 0)
+                .WithMessage("At least one unit word is required.")
+            .Must(words => words.Count <= IngredientParsingPolicy.MaxLines)
+                .WithMessage($"No more than {IngredientParsingPolicy.MaxLines} unit words may be checked at once.")
+            .Must(words => words.All(word => !string.IsNullOrWhiteSpace(word)))
+                .WithMessage("A unit word cannot be blank.")
+            .Must(words => words.All(word => word!.Length <= IngredientParsingPolicy.MaxLineLength))
+                .WithMessage($"A unit word can be at most {IngredientParsingPolicy.MaxLineLength} characters.")
+            .OverridePropertyName(nameof(MatchUnitWordsViewModel.Words));
+    }
+}
+
+/// <summary>
+/// One submitted word, and the catalogue unit an ingredient line would record for it.
+/// </summary>
+/// <param name="Word">The word exactly as submitted.</param>
+/// <param name="MeasurementUnitId">
+/// The unit accepting a draft would record beside this word, or <see langword="null"/> when it would record none
+/// — no match, an ambiguous one, a temperature unit or a retired unit. Null is what the review screen flags.
+/// </param>
+public sealed record UnitWordMatch(string Word, Guid? MeasurementUnitId);
+
+/// <summary>The checked words, in the order they were submitted.</summary>
+public sealed record MatchUnitWordsResult(IReadOnlyList<UnitWordMatch> Words);

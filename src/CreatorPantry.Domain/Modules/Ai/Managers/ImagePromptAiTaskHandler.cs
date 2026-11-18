@@ -364,7 +364,7 @@ internal sealed class ImagePromptAiTaskHandler(
     {
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(NoTemplateInputs))
-            .WithOutputSchema(AiImagePromptOutputSchema.Json)
+            .WithOutputSchema(AiImagePromptOutputSchema.Json, template.OutputSchemaVersion)
 
             // The concept and the recipe share one source segment: both are this workspace's own stored
             // material, and PromptEnvelopeBuilder permits exactly one source — only References accumulate.

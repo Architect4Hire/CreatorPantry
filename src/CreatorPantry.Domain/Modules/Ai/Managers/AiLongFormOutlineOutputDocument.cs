@@ -1,8 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
-using System.Text.Json.Schema;
-using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using CreatorPantry.Domain.Modules.Content.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
@@ -80,15 +76,8 @@ public sealed record AiLongFormOutlineWarning
 /// </summary>
 public static class AiLongFormOutlineOutputSchema
 {
-    private static readonly JsonSerializerOptions SchemaJson = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter() },
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-    };
-
     private static readonly Lazy<string> Exported = new(() =>
-        SchemaJson.GetJsonSchemaAsNode(typeof(AiLongFormOutlineOutputDocument)).ToJsonString(
-            new JsonSerializerOptions { WriteIndented = true }));
+        AiOutputSchemaExporter.Export(typeof(AiLongFormOutlineOutputDocument)));
 
     /// <summary>The schema, as indented JSON suitable for embedding in a prompt.</summary>
     public static string Json => Exported.Value;

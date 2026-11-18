@@ -15,11 +15,18 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// The vocabulary entry this line resolved to, or <c>null</c> when it resolved to none. Null and
 /// <see cref="IngredientMatchStatus.Matched"/> cannot both hold: a check constraint already forbids it.
 /// </param>
+/// <param name="UnitText">The unit as the line words it, or <c>null</c> when it names none.</param>
+/// <param name="MeasurementUnitId">
+/// The catalogue unit that wording was recognised as, or <c>null</c>. Unit text with no id is a unit the line
+/// will not scale or convert by.
+/// </param>
 public sealed record RecipeReadinessIngredientLine(
     Guid Id,
     string DisplayText,
     IngredientMatchStatus MatchStatus,
-    Guid? IngredientId);
+    Guid? IngredientId,
+    string? UnitText = null,
+    Guid? MeasurementUnitId = null);
 
 /// <summary>
 /// One unresolved issue from a test of the version being evaluated.

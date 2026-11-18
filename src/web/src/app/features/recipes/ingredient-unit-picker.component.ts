@@ -14,6 +14,11 @@ import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
  * catalogue knows the word. Sharing one control would have meant a mode flag hiding two different promises
  * about the creator's text.
  *
+ * A line linked to a catalogue unit shows that unit's own name in the box — "pound", not the "lb" a generated
+ * draft wrote — the same name a creator sees when they pick it from the list. Only the display: the line's word
+ * is still what {@link unitLabel} carries and what a save keeps (recipes.md), and the editor says it under the
+ * field when the two differ. Text the creator types replaces it exactly as before.
+ *
  * It reads no data and holds no state. The catalogue arrives as {@link catalogue}, the line's current unit as
  * {@link unitId}/{@link unitLabel}, and what the creator does goes back out — the match machinery that decides
  * what a pick or an edit means to a recipe line stays with the editor that owns the line.
@@ -27,7 +32,7 @@ import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
     [options]="options()"
     mode="free-text"
     placeholder="e.g. cups"
-    [value]="unitLabel()"
+    [value]="shownText()"
     (valueChange)="textChanged.emit($event)"
     [selected]="selection()"
     (selectedChange)="onSelected($event)"
@@ -72,6 +77,12 @@ export class IngredientUnitPickerComponent {
 
     return this.options().find((option) => option.id === unitId) ?? null;
   });
+
+  /**
+   * What the box shows: the linked catalogue unit's name when there is one and the list can name it, otherwise the
+   * line's own word. The combobox only reports text the creator types or picks, so showing the name is not an edit.
+   */
+  protected readonly shownText = computed(() => this.selection()?.label ?? this.unitLabel());
 
   /** What an empty list means, which is not always "there is no such unit". */
   protected readonly emptyText = computed(() => {

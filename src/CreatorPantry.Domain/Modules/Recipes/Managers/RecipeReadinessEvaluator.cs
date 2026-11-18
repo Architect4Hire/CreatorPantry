@@ -157,6 +157,7 @@ public static class RecipeReadinessEvaluator
         RecipeReadinessCatalogue.AttributionPresent => AttributionPresent(facts),
         RecipeReadinessCatalogue.IngredientsAmbiguous => IngredientsAmbiguous(facts),
         RecipeReadinessCatalogue.IngredientsUnrecognized => IngredientsUnrecognized(facts),
+        RecipeReadinessCatalogue.IngredientsUnitUnrecognized => IngredientsUnitUnrecognized(facts),
         RecipeReadinessCatalogue.AiSafetyCautionOutstanding => AiSafetyCautionOutstanding(external),
         RecipeReadinessCatalogue.AiWarningOutstanding => AiWarningOutstanding(external),
         RecipeReadinessCatalogue.AiChangesPending => AiChangesPending(external),
@@ -309,6 +310,35 @@ public static class RecipeReadinessEvaluator
                 Sentence(unresolved.Count, "ingredient line is", "ingredient lines are")
                     + " not recognised, so those lines carry no dietary or allergen references.",
                 [.. unresolved.Select(EvidenceFor)])
+            : RuleOutcome.Satisfied();
+
+    /// <summary>
+    /// Every unit an ingredient line names is a catalogue unit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Unit text with no unit id is a word the catalogue did not recognise — typically a generated draft's
+    /// "c." or "knob" — and the line will not scale or convert by it. A line with no unit text at all ("3 eggs")
+    /// names no unit and is not reported.
+    /// </para>
+    /// <para>
+    /// Advice, not a bar, like <see cref="IngredientsUnrecognized"/>: some units are genuinely not in the
+    /// catalogue ("a glug"), and recipes.md keeps the creator's word whatever the catalogue knows. The point is
+    /// that the creator sees each one, rather than learning about it when a scaled batch comes out wrong.
+    /// </para>
+    /// </remarks>
+    private static RuleOutcome IngredientsUnitUnrecognized(RecipeReadinessFacts facts) =>
+        facts.IngredientLines
+            .Where(line => !string.IsNullOrWhiteSpace(line.UnitText) && line.MeasurementUnitId is null)
+            .ToList() is { Count: > 0 } unrecognised
+            ? RuleOutcome.Unmet(
+                Sentence(unrecognised.Count, "ingredient line uses a unit", "ingredient lines use units")
+                    + " CreatorPantry does not recognise, so those lines will not scale or convert.",
+                [.. unrecognised.Select(line => new RecipeReadinessEvidence(
+                    RecipeReadinessEvidenceKind.RecipeIngredientLine,
+                    line.Id,
+                    nameof(RecipeReadinessIngredientLine.UnitText),
+                    line.DisplayText))])
             : RuleOutcome.Satisfied();
 
     private static List<RecipeReadinessIngredientLine> Lines(

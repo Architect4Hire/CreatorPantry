@@ -342,6 +342,8 @@ public sealed class RecipeJsonLdExportTests
 
         public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(IReadOnlyCollection<string> codes, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 

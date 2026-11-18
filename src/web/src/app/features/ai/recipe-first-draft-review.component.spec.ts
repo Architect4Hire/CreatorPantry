@@ -18,6 +18,30 @@ import {
 } from '../../services/recipe-draft.service';
 import { RecipeDraftFieldEdit, RecipeFirstDraftReviewComponent } from './recipe-first-draft-review.component';
 import { RecipeStudioHost } from './recipe-studio-host';
+import { IngredientParseService, MatchUnitWordsOutcome } from '../../services/ingredient-parse.service';
+
+/**
+ * The server's unit check, scripted: each word maps to the unit it would be recorded as, or null for none. A word
+ * the script does not name is recognised. `available: false` is a check that could not be made.
+ */
+class StubIngredientParseService {
+  answers: Record<string, string | null> = {};
+  available = true;
+  readonly calls: { readonly workspaceSlug: string; readonly words: readonly string[] }[] = [];
+
+  matchUnitWords(workspaceSlug: string, words: readonly string[]): Promise<MatchUnitWordsOutcome> {
+    this.calls.push({ workspaceSlug, words });
+    if (!this.available) return Promise.resolve({ status: 'unavailable' });
+
+    return Promise.resolve({
+      status: 'matched',
+      words: words.map((word) => ({
+        word,
+        measurementUnitId: word in this.answers ? this.answers[word] : `unit-${word}`,
+      })),
+    });
+  }
+}
 
 const REQUEST_ID = 'op-draft-1';
 
@@ -172,6 +196,7 @@ class StubConfirmService {
 describe('RecipeFirstDraftReviewComponent', () => {
   let service: StubRecipeDraftService;
   let confirmService: StubConfirmService;
+  let unitCheck: StubIngredientParseService;
   let fixture: ComponentFixture<RecipeFirstDraftReviewComponent>;
   let edits: RecipeDraftFieldEdit[];
   let discards: number;
@@ -184,6 +209,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
   beforeEach(() => {
     service = new StubRecipeDraftService();
     confirmService = new StubConfirmService();
+    unitCheck = new StubIngredientParseService();
   });
 
   function configure(queryParams: Record<string, string> = { request: REQUEST_ID }): void {
@@ -191,6 +217,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
       providers: [
         { provide: RecipeDraftService, useValue: service },
         { provide: ConfirmService, useValue: confirmService },
+        { provide: IngredientParseService, useValue: unitCheck },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -1094,6 +1121,99 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(element().querySelector('cp-page-head h1')).toBeTruthy();
     expect(element().querySelector('h2')).toBeNull();
     expect(element().querySelector('cp-page-head .lede')?.textContent).toContain('nothing on this page is saved');
+  }));
+
+  // ---- units CreatorPantry does not recognise ----------------------------------------------------------
+
+  /** Two lines with unit words, one the catalogue knows and one it does not, and one line with none. */
+  function unitWordChanges(): AiProposedChange[] {
+    const line = (id: string, text: string): AiProposedChange =>
+      change({ changeId: `${id}-add`, changeKind: 'Add', targetKind: 'Ingredient', targetId: id, afterValue: text });
+    const unit = (id: string, word: string): AiProposedChange =>
+      change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: id, fieldName: 'unitText', afterValue: word });
+
+    return [
+      recipeField('title', 'Brown Butter Gnocchi'),
+      change({
+        changeId: 'g1-add',
+        changeKind: 'Add',
+        targetKind: 'IngredientGroup',
+        targetId: 'g1',
+        afterValue: null,
+      }),
+      line('l1', '1 knob of butter'),
+      unit('l1', 'knob'),
+      line('l2', '2 tbsp grated parmesan'),
+      unit('l2', ' tbsp '),
+      line('l3', '3 eggs'),
+      change({
+        changeId: 'ig1-add',
+        changeKind: 'Add',
+        targetKind: 'InstructionGroup',
+        targetId: 'ig1',
+        afterValue: null,
+      }),
+      change({
+        changeId: 's1-add',
+        changeKind: 'Add',
+        targetKind: 'InstructionStep',
+        targetId: 's1',
+        afterValue: 'Toss.',
+      }),
+    ];
+  }
+
+  it('asks the server about each distinct unit word once, in this workspace', fakeAsync(() => {
+    service.statuses = [ready(unitWordChanges())];
+    render();
+    settle();
+
+    expect(unitCheck.calls).toEqual([{ workspaceSlug: 'cozy-fall', words: ['knob', 'tbsp'] }]);
+  }));
+
+  it('names each line whose unit CreatorPantry does not recognise, and says the draft can still be accepted', fakeAsync(() => {
+    unitCheck.answers = { knob: null };
+    service.statuses = [ready(unitWordChanges())];
+    render();
+    settle();
+
+    const notice = element().querySelector('cp-notice.unit-notice')?.textContent ?? '';
+    expect(notice).toContain('One line uses a unit CreatorPantry doesn’t recognise');
+    expect(notice).toContain('“knob” in “1 knob of butter”');
+    expect(notice).toContain('You can still accept this draft.');
+    expect(notice).not.toContain('tbsp');
+
+    // On the line itself too, in words with a glyph, so it is not colour alone.
+    const pills = Array.from(element().querySelectorAll('cp-status-pill')).map((pill) => pill.textContent?.trim());
+    expect(pills.some((pill) => pill?.includes('Unit “knob” not recognised'))).toBeTrue();
+    expect(pills.some((pill) => pill?.includes('tbsp'))).toBeFalse();
+  }));
+
+  it('says nothing when every unit is recognised', fakeAsync(() => {
+    service.statuses = [ready(unitWordChanges())];
+    render();
+    settle();
+
+    expect(element().querySelector('cp-notice.unit-notice')).toBeNull();
+    expect(text()).not.toContain('not recognised');
+  }));
+
+  it('leaves the warning out when the check cannot be made, rather than guessing', fakeAsync(() => {
+    unitCheck.answers = { knob: null };
+    unitCheck.available = false;
+    service.statuses = [ready(unitWordChanges())];
+    render();
+    settle();
+
+    expect(element().querySelector('cp-notice.unit-notice')).toBeNull();
+  }));
+
+  it('asks nothing for a draft whose lines name no unit', fakeAsync(() => {
+    service.statuses = [ready()];
+    render();
+    settle();
+
+    expect(unitCheck.calls).toEqual([]);
   }));
 
   // ---- ingredient lines that do not say how much -------------------------------------------------------

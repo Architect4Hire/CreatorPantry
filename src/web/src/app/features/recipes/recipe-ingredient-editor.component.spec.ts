@@ -93,6 +93,88 @@ describe('RecipeIngredientEditorComponent', () => {
     expect(pills[1].textContent).toContain('No match');
   });
 
+  describe('units CreatorPantry does not recognise', () => {
+    /** An AI draft's line whose unit words matched nothing in the catalogue: words, and no unit behind them. */
+    const UNRECOGNISED_GROUP: RecipeIngredientGroup = {
+      ...SEEDED_GROUP,
+      ingredients: [
+        ...SEEDED_GROUP.ingredients,
+        {
+          ...SEEDED_GROUP.ingredients[0],
+          id: 'ing3',
+          sortOrder: 2,
+          displayText: '1 knob butter',
+          ingredientNameText: 'butter',
+          unitText: 'knob',
+          quantity: 1,
+          measurementUnitId: null,
+        },
+        {
+          ...SEEDED_GROUP.ingredients[0],
+          id: 'ing4',
+          sortOrder: 3,
+          displayText: '3 eggs',
+          ingredientNameText: 'eggs',
+          unitText: null,
+          quantity: 3,
+          measurementUnitId: null,
+        },
+      ],
+    };
+
+    async function seeded(): Promise<ComponentFixture<RecipeIngredientEditorComponent>> {
+      const fixture = await createFixture();
+      fixture.componentRef.setInput('initialGroups', [UNRECOGNISED_GROUP]);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    function warningFor(fixture: ComponentFixture<RecipeIngredientEditorComponent>, key: string): string {
+      const element: HTMLElement | null = fixture.nativeElement.querySelector(`#row-unit-${key}-warning`);
+      return element?.textContent?.trim() ?? '';
+    }
+
+    it('marks the line under its Unit field, quoting the word and saying what it costs', async () => {
+      const fixture = await seeded();
+
+      const warning = warningFor(fixture, 'ing3');
+      expect(warning).toContain('“knob” isn’t a CreatorPantry unit');
+      expect(warning).toContain('won’t scale or convert');
+      // Described by the warning, so a screen reader hears it with the field — not colour or position alone.
+      const input: HTMLElement = fixture.nativeElement.querySelector('#row-unit-ing3');
+      expect(input.getAttribute('aria-describedby')).toContain('row-unit-ing3-warning');
+    });
+
+    it('leaves recognised units and lines with no unit alone', async () => {
+      const fixture = await seeded();
+
+      expect(warningFor(fixture, 'ing1')).toBe('');
+      expect(warningFor(fixture, 'ing4')).toBe('');
+    });
+
+    it('counts every such line once, at the top of the list', async () => {
+      const fixture = await seeded();
+
+      const notice: HTMLElement = fixture.nativeElement.querySelector('cp-notice.unit-notice');
+      expect(notice.textContent).toContain('1 ingredient uses a unit CreatorPantry doesn’t');
+    });
+
+    it('clears the mark once the creator picks a catalogue unit for the line', async () => {
+      const fixture = await seeded();
+      const group = fixture.componentInstance.groups()[0];
+
+      fixture.componentInstance.onUnitPicked(group.key, 'ing3', {
+        measurementUnitId: 'unit-tbsp',
+        displayName: 'tbsp',
+        kind: 'DisplayName',
+      });
+      fixture.detectChanges();
+
+      expect(warningFor(fixture, 'ing3')).toBe('');
+      expect(fixture.nativeElement.querySelector('cp-notice.unit-notice')).toBeNull();
+    });
+  });
+
   it('adds a group and an ingredient row, each keyboard-operable via a real button', async () => {
     const fixture = await createFixture();
     fixture.componentInstance.addGroup();
@@ -1302,6 +1384,33 @@ describe('RecipeIngredientEditorComponent reference pickers', () => {
   }
 
   // The rule this whole change has to keep: a reference id enriches the line, it does not replace it.
+  /**
+   * An AI draft wrote "2 lb potatoes" and the line is linked to the catalogue's unit. The box shows the unit's
+   * CreatorPantry name, and the line's own word is said under it, because a save still keeps that word.
+   */
+  it('shows a linked unit by its CreatorPantry name and says what the line itself says', fakeAsync(() => {
+    const linked: RecipeIngredientGroup = {
+      ...SEEDED_GROUP,
+      ingredients: [{ ...SEEDED_GROUP.ingredients[0], displayText: '2 c flour', unitText: 'c' }],
+    };
+    const fixture = createEditor([linked]);
+    settleUnits(fixture);
+
+    const box: HTMLInputElement = fixture.nativeElement.querySelector('#row-unit-ing1');
+    expect(box.value).toBe('Cups');
+    expect(fixture.nativeElement.querySelector('#row-unit-ing1-hint')?.textContent).toContain('The line says “c”.');
+    // Showing the name is not an edit: the line keeps its unit and its word.
+    expect(rowFor(fixture, 'ing1').unitId).toBe('unit1');
+    expect(rowFor(fixture, 'ing1').unitLabel).toBe('c');
+  }));
+
+  it('says nothing more when the line already uses the unit’s own name', fakeAsync(() => {
+    const fixture = createEditor();
+    settleUnits(fixture);
+
+    expect(fixture.nativeElement.querySelector('#row-unit-ing1-hint')).toBeNull();
+  }));
+
   it('keeps the creator own line untouched when an ingredient is picked', fakeAsync(() => {
     const fixture = createEditor();
     settleUnits(fixture);

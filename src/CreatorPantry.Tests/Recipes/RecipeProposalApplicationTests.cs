@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
@@ -361,6 +362,69 @@ public sealed class RecipeProposalApplicationTests
     public void The_patch_invents_no_reason()
     {
         Assert.Null(Plan(Set(ProposedRecipeTarget.Recipe, null, "headnote", "New.")).Reason);
+    }
+
+    // ---- an ingredient line's unit follows its words ----------------------------------------------------
+
+    private static (TaggedRecipe Loaded, RecipeIngredient Line) LoadedLine()
+    {
+        var loaded = Loaded();
+
+        return (loaded, loaded.Recipe.Recipe.IngredientGroups.Single().Ingredients.Single());
+    }
+
+    private static CanonicalIngredientLine PlannedLine(
+        TaggedRecipe loaded, IReadOnlyDictionary<string, ResolvedIngredientUnit>? units, params ProposedRecipeChange[] changes)
+    {
+        var plan = RecipeProposalApplication.Plan(loaded, changes, units);
+
+        Assert.True(plan.Succeeded, plan.Error);
+
+        return plan.Patch!.IngredientGroups.Value!.Single().Ingredients.Single();
+    }
+
+    /// <summary>A model's "ounces" is recorded as the catalogue unit the facade recognised it as.</summary>
+    [Fact]
+    public void An_accepted_unit_text_takes_the_catalogue_unit_it_was_recognised_as()
+    {
+        var (loaded, line) = LoadedLine();
+        var ounce = Guid.NewGuid();
+
+        var planned = PlannedLine(
+            loaded,
+            new Dictionary<string, ResolvedIngredientUnit> { ["ounces"] = new(ounce, MeasurementDimension.Mass) },
+            Set(ProposedRecipeTarget.Ingredient, line.Id, "unitText", "  ounces "));
+
+        Assert.Equal("ounces", planned.UnitText);
+        Assert.Equal(ounce, planned.MeasurementUnitId);
+    }
+
+    /// <summary>
+    /// The line held grams. Keeping that id beside the words "a knob" would scale and convert a line by a unit it no
+    /// longer says — so an unrecognised word clears it, and the line is flagged instead.
+    /// </summary>
+    [Fact]
+    public void An_unrecognised_unit_text_clears_the_old_unit_rather_than_contradict_it()
+    {
+        var (loaded, line) = LoadedLine();
+        Assert.NotNull(line.MeasurementUnitId);
+
+        var planned = PlannedLine(loaded, null, Set(ProposedRecipeTarget.Ingredient, line.Id, "unitText", "knob"));
+
+        Assert.Equal("knob", planned.UnitText);
+        Assert.Null(planned.MeasurementUnitId);
+    }
+
+    /// <summary>A change that does not touch the unit's words leaves the recognised unit alone.</summary>
+    [Fact]
+    public void A_change_to_another_field_keeps_the_lines_unit()
+    {
+        var (loaded, line) = LoadedLine();
+
+        var planned = PlannedLine(
+            loaded, null, Set(ProposedRecipeTarget.Ingredient, line.Id, "preparationNote", "sifted twice"));
+
+        Assert.Equal(line.MeasurementUnitId, planned.MeasurementUnitId);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------

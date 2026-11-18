@@ -25,6 +25,7 @@ import {
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFieldRowComponent,
+  CpNoticeComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -47,7 +48,7 @@ import {
   PasteTargetGroup,
 } from './ingredient-paste-review.component';
 import { IngredientUnitPickerComponent } from './ingredient-unit-picker.component';
-import { UnitCatalogueState } from './recipe-unit-options';
+import { UnitCatalogueState, recipeUnitName } from './recipe-unit-options';
 
 /** Where a row's ingredient/unit stand relative to the shared catalogue — a UI-only summary, never sent as-is. */
 export type IngredientRowMatchState = 'matched' | 'ambiguous' | 'unmatched' | 'unreviewed';
@@ -370,6 +371,19 @@ export function toEditableGroups(groups: readonly RecipeIngredientGroup[]): Edit
   }));
 }
 
+/**
+ * Whether a line names a unit CreatorPantry did not recognise: words in the unit box and no catalogue unit
+ * behind them.
+ *
+ * Typically a generated draft's "c." or "knob" — the server records the catalogue unit when it recognises the
+ * model's word, and leaves it as written when it does not. Such a line keeps the creator's wording (recipes.md),
+ * but it will not scale or convert, so the editor says so on the line rather than let a scaled batch find out.
+ * A line with no unit words ("3 eggs") names no unit and is not flagged.
+ */
+export function unitNeedsAttention(row: Pick<EditableIngredientRow, 'unitId' | 'unitLabel'>): boolean {
+  return row.unitId === null && row.unitLabel.trim() !== '';
+}
+
 function matchStateFromServer(status: string): IngredientRowMatchState {
   switch (status) {
     case 'Matched':
@@ -423,6 +437,7 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
     CpDialogComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
+    CpNoticeComponent,
     CpStatusPillComponent,
     IngredientPasteReviewComponent,
     IngredientUnitPickerComponent,
@@ -573,6 +588,37 @@ export class RecipeIngredientEditorComponent {
       ? 'Unit list unavailable. Units you type are still saved as you wrote them.'
       : '',
   );
+
+  /** How many lines name a unit CreatorPantry does not recognise — the count the list's notice states. */
+  protected readonly unrecognisedUnitCount = computed(() =>
+    this.groups().reduce((count, group) => count + group.ingredients.filter(unitNeedsAttention).length, 0),
+  );
+
+  /** The sentence under a line's Unit field when its unit is not recognised, or '' when it is fine. */
+  protected unitWarning(row: EditableIngredientRow): string {
+    return unitNeedsAttention(row)
+      ? `“${row.unitLabel.trim()}” isn’t a CreatorPantry unit, so this line won’t scale or convert. ` +
+          'Pick a unit from the list, or keep your wording.'
+      : '';
+  }
+
+  /**
+   * The line's own word for its unit, said under the field when the box shows a different name for it.
+   *
+   * A line linked to a catalogue unit shows that unit's name in the box ("pound"), but the line itself still says
+   * what it was written with ("2 lb potatoes"), and a save keeps that word. Saying so keeps both visible, so the
+   * box never looks as though it rewrote the recipe. Nothing when the two read the same, or the list cannot name it.
+   */
+  protected unitHint(row: EditableIngredientRow): string {
+    const catalogue = this.unitCatalogue();
+    const written = row.unitLabel.trim();
+    if (row.unitId === null || written === '' || catalogue.status !== 'ready') return '';
+
+    const unit = catalogue.units.find((candidate) => candidate.id === row.unitId);
+    if (!unit) return '';
+
+    return recipeUnitName(unit).toLowerCase() === written.toLowerCase() ? '' : `The line says “${written}”.`;
+  }
 
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly injector = inject(Injector);

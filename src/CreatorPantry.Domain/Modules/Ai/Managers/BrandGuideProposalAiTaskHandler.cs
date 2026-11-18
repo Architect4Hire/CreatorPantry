@@ -96,7 +96,7 @@ internal sealed class BrandGuideProposalAiTaskHandler(
 
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>(StringComparer.Ordinal)))
-            .WithOutputSchema(AiBrandGuideOutputSchema.Json)
+            .WithOutputSchema(AiBrandGuideOutputSchema.Json, template.OutputSchemaVersion)
             .WithPreferences(context.WorkspaceId, RenderPreferences(request, supplied))
 
             // The creator's own answers: where the guidance is being written from, and creator data rather than

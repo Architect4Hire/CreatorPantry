@@ -44,9 +44,46 @@ public sealed class PromptEnvelopeBuilder
     /// <summary>The rendered prompt template body. Required.</summary>
     public PromptEnvelopeBuilder WithTask(string body) => Add(PromptSegmentKind.Task, body, null);
 
-    /// <summary>The JSON Schema the answer must satisfy. Required.</summary>
-    public PromptEnvelopeBuilder WithOutputSchema(string schema) =>
-        Add(PromptSegmentKind.OutputSchema, schema, null);
+    /// <summary>The JSON Schema the answer must satisfy, exactly as given. Required.</summary>
+    /// <remarks>
+    /// A schema that declares a <c>schemaVersion</c> property must also say which value it takes, and this
+    /// overload refuses one that does not. Every capability's answer is checked for an exact version first, so
+    /// a schema that leaves the value open is a request a model can only fail; ten capabilities shipped that way
+    /// and spent every request's one correction on it. A capability passes its template's version to
+    /// <see cref="WithOutputSchema(string, string)"/>, which pins it.
+    /// </remarks>
+    /// <exception cref="PromptEnvelopeException">The schema declares <c>schemaVersion</c> with no <c>const</c>.</exception>
+    public PromptEnvelopeBuilder WithOutputSchema(string schema)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+
+        if (DeclaresUnpinnedSchemaVersion(schema))
+        {
+            throw new PromptEnvelopeException(
+                "The output schema declares 'schemaVersion' without the value the validator requires. Pass the "
+                + "template's output schema version to WithOutputSchema(schema, schemaVersion).");
+        }
+
+        return Add(PromptSegmentKind.OutputSchema, schema, null);
+    }
+
+    private static bool DeclaresUnpinnedSchemaVersion(string schema)
+    {
+        JsonNode? document;
+
+        try
+        {
+            document = JsonNode.Parse(schema);
+        }
+        catch (JsonException)
+        {
+            // Not JSON at all says nothing about a version, and is not this check's to judge.
+            return false;
+        }
+
+        return document?["properties"]?["schemaVersion"] is JsonObject version
+            && !version.ContainsKey("const");
+    }
 
     /// <summary>
     /// The JSON Schema the answer must satisfy, with its <c>schemaVersion</c> pinned to the one value the
@@ -63,6 +100,8 @@ public sealed class PromptEnvelopeBuilder
     /// <param name="schemaVersion">The template's output schema version, exactly as the validator compares it.</param>
     public PromptEnvelopeBuilder WithOutputSchema(string schema, string schemaVersion)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(schemaVersion);
+
         var document = JsonNode.Parse(schema);
 
         if (document?["properties"]?["schemaVersion"] is JsonObject version)

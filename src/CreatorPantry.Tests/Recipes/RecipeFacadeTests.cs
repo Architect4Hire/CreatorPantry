@@ -61,6 +61,7 @@ public sealed class RecipeFacadeTests
             .AddSingleton<CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade>(_ingredients)
             .AddSingleton<IWorkspaceFacade>(_workspaces)
             .AddSingleton<IIdempotentCommandExecutor>(_idempotency)
+            .AddSingleton<IIngredientUnitTextResolver, IngredientUnitTextResolver>()
             .AddSingleton<IRecipeFacade, RecipeFacade>()
             .BuildServiceProvider()
             .GetRequiredService<IRecipeFacade>();
@@ -156,6 +157,156 @@ public sealed class RecipeFacadeTests
 
         var line = _business.Input!.IngredientGroups[0].Ingredients[0];
         Assert.Equal(IngredientDisplayTextSource.Creator, line.DisplayTextSource);
+    }
+
+    // ---- Recognising a generated draft's units ----
+
+    private Guid KnownUnit(string text, MeasurementDimension dimension, bool ambiguous = false)
+    {
+        var id = Guid.NewGuid();
+        _references.Units[id] = new MeasurementUnitServiceModel(
+            id, text, text, text + "s", text, dimension, MeasurementSystem.UsCustomary, 1m, 2);
+        var candidate = new UnitMatchCandidate(id, text, UnitMatchKind.Abbreviation);
+        _references.Matches[text] = ambiguous
+            ? new UnitMatchResult { InputText = text, IsAmbiguous = true, Alternates = [candidate] }
+            : new UnitMatchResult { InputText = text, Resolved = candidate };
+
+        return id;
+    }
+
+    private static ProposedRecipeDraft DraftWithUnits(params string?[] unitTexts) => new()
+    {
+        Title = "Weeknight Mapo Tofu",
+        IngredientGroups =
+        [
+            new ProposedRecipeDraftIngredientGroup(
+                null,
+                [.. unitTexts.Select((unit, index) => new ProposedRecipeDraftIngredient
+                {
+                    DisplayText = $"line {index}",
+                    Quantity = 1m,
+                    UnitText = unit,
+                })]),
+        ],
+        Instructions = [new ProposedRecipeDraftInstructionGroup(null, [new ProposedRecipeDraftStep("Fry it.", null, 2)])],
+    };
+
+    private IReadOnlyList<CanonicalIngredientLine> CreatedLines() =>
+        [.. _business.Input!.IngredientGroups.SelectMany(group => group.Ingredients)];
+
+    /// <summary>
+    /// The point of the feature: a model's "tbsp" arrives as words, and the recipe it becomes records the catalogue
+    /// unit beside them, so the line scales and converts like a typed one.
+    /// </summary>
+    [Fact]
+    public async Task A_drafts_unit_text_is_recorded_as_the_catalogue_unit_it_names()
+    {
+        var tablespoon = KnownUnit("tbsp", MeasurementDimension.Volume);
+
+        var result = await CreateFromProposalAsync(DraftWithUnits(" tbsp "));
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        var line = Assert.Single(CreatedLines());
+        Assert.Equal(tablespoon, line.MeasurementUnitId);
+        Assert.Equal("tbsp", line.UnitText);
+        Assert.Equal(MeasurementDimension.Volume, _business.IngredientUnitDimensions![tablespoon]);
+    }
+
+    /// <summary>
+    /// Unrecognised and ambiguous words keep the creator's wording and get no unit — never a guess. That is the
+    /// line the editor and the readiness checklist flag.
+    /// </summary>
+    [Fact]
+    public async Task Unrecognised_and_ambiguous_unit_text_is_kept_as_written_with_no_unit()
+    {
+        KnownUnit("t", MeasurementDimension.Volume, ambiguous: true);
+
+        var result = await CreateFromProposalAsync(DraftWithUnits("knob", "t", null));
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        Assert.All(CreatedLines(), line => Assert.Null(line.MeasurementUnitId));
+        Assert.Equal(["knob", "t", null], CreatedLines().Select(line => line.UnitText));
+    }
+
+    /// <summary>
+    /// "°F" on an ingredient line is refused by the database, and by the create validator before it. Recognising
+    /// it would turn a flaggable line into a refused draft.
+    /// </summary>
+    [Fact]
+    public async Task A_temperature_unit_is_never_recorded_on_an_ingredient_line()
+    {
+        KnownUnit("deg f", MeasurementDimension.Temperature);
+
+        var result = await CreateFromProposalAsync(DraftWithUnits("deg f"));
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        Assert.Null(Assert.Single(CreatedLines()).MeasurementUnitId);
+    }
+
+    /// <summary>A retired unit resolves by name but is no longer offered, so it is not recorded.</summary>
+    [Fact]
+    public async Task A_unit_the_catalogue_no_longer_offers_is_not_recorded()
+    {
+        var retired = KnownUnit("gill", MeasurementDimension.Volume);
+        _references.Units.Remove(retired);
+
+        var result = await CreateFromProposalAsync(DraftWithUnits("gill"));
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        Assert.Null(Assert.Single(CreatedLines()).MeasurementUnitId);
+    }
+
+    /// <summary>Recognising a unit enriches a line. A catalogue that cannot answer must not cost the creator the draft.</summary>
+    [Fact]
+    public async Task A_catalogue_that_cannot_answer_leaves_every_unit_as_written()
+    {
+        KnownUnit("tbsp", MeasurementDimension.Volume);
+        _references.ResolveFails = true;
+
+        var result = await CreateFromProposalAsync(DraftWithUnits("tbsp"));
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        Assert.Null(Assert.Single(CreatedLines()).MeasurementUnitId);
+    }
+
+    /// <summary>The same word on ten lines is one question to the catalogue, not ten.</summary>
+    [Fact]
+    public async Task Each_distinct_unit_text_is_asked_about_once()
+    {
+        KnownUnit("cup", MeasurementDimension.Volume);
+
+        await CreateFromProposalAsync(DraftWithUnits("cup", "cup ", "knob", "", null));
+
+        Assert.Equal(["cup", "knob"], Assert.Single(_references.ResolvedBatches));
+    }
+
+    /// <summary>
+    /// An accepted change to a line's unit text arrives with the catalogue's reading of the new words, so Business
+    /// can keep the id in step with the text rather than leave the old unit beside it.
+    /// </summary>
+    [Fact]
+    public async Task An_accepted_unit_text_change_is_handed_down_with_its_catalogue_unit()
+    {
+        var grams = KnownUnit("grams", MeasurementDimension.Mass);
+        var line = Guid.NewGuid();
+
+        await Facade().ApplyProposedChangesAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            [
+                new ProposedRecipeChange(
+                    ProposedRecipeChangeKind.Set, ProposedRecipeTarget.Ingredient, line, "unitText", "grams", null),
+                new ProposedRecipeChange(
+                    ProposedRecipeChangeKind.Set, ProposedRecipeTarget.Ingredient, line, "preparationNote", "cups", null),
+            ],
+            TestContext.Current.CancellationToken);
+
+        // Only the unit text was asked about: a preparation note that happens to read like a unit is not one.
+        Assert.Equal(["grams"], Assert.Single(_references.ResolvedBatches));
+        var resolved = Assert.Single(_business.AppliedResolvedUnits!);
+        Assert.Equal("grams", resolved.Key);
+        Assert.Equal(new ResolvedIngredientUnit(grams, MeasurementDimension.Mass), resolved.Value);
     }
 
     /// <summary>The same bar as typing the recipe out by hand.</summary>
@@ -2234,14 +2385,19 @@ public sealed class RecipeFacadeTests
         public (Guid RecipeId, Guid ExpectedVersionId, Guid ProposalId, IReadOnlyList<ProposedRecipeChange> Changes)?
             AppliedProposal { get; private set; }
 
+        /// <summary>The catalogue reading of each proposed unit text the facade handed down with it.</summary>
+        public IReadOnlyDictionary<string, ResolvedIngredientUnit>? AppliedResolvedUnits { get; private set; }
+
         public Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
             Guid recipeId,
             Guid expectedVersionId,
             Guid aiProposalId,
             IReadOnlyList<ProposedRecipeChange> changes,
+            IReadOnlyDictionary<string, ResolvedIngredientUnit> resolvedUnits,
             CancellationToken cancellationToken)
         {
             Calls++;
+            AppliedResolvedUnits = resolvedUnits;
             RequestedRecipeId = recipeId;
             AppliedProposal = (recipeId, expectedVersionId, aiProposalId, changes);
 
@@ -2429,7 +2585,9 @@ public sealed class RecipeFacadeTests
         public Task<MeasurementDimension?> FindUsableUnitDimensionAsync(Guid unitId, CancellationToken cancellationToken)
         {
             UnitLookups++;
-            return Task.FromResult(UnitDimension);
+
+            // A unit this stub's catalogue holds answers with its own dimension, as the real catalogue would.
+            return Task.FromResult(Units.TryGetValue(unitId, out var unit) ? unit.Dimension : UnitDimension);
         }
 
         // The list and resolve endpoints are not exercised here; the facade under test never calls them.
@@ -2451,13 +2609,47 @@ public sealed class RecipeFacadeTests
             return Task.FromResult(found);
         }
 
+        // Not exercised here: the whole-catalogue read is the first-draft prompt's.
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
             IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        /// <summary>
+        /// The catalogue's answer for each unit text a test cares about; anything else is unresolved. Matched by the
+        /// text exactly as asked, which is the facade's trimmed key.
+        /// </summary>
+        public Dictionary<string, Domain.Modules.Measurement.Managers.UnitMatchResult> Matches { get; } = [];
+
+        /// <summary>Every batch of unit texts the facade asked about, in order.</summary>
+        public List<IReadOnlyList<string>> ResolvedBatches { get; } = [];
+
+        /// <summary>When set, the resolve call fails as an over-long batch would.</summary>
+        public bool ResolveFails { get; set; }
+
         public Task<OperationResult<IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult>>> ResolveCandidatesAsync(
-            IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken)
+        {
+            ResolvedBatches.Add(candidateTexts);
+
+            if (ResolveFails)
+            {
+                return Task.FromResult(OperationResult<IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult>>
+                    .Failure(OperationError.Validation("reference.candidates.invalid", "No.", [])));
+            }
+
+            IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult> answers =
+            [
+                .. candidateTexts.Select(text => Matches.TryGetValue(text, out var match)
+                    ? match
+                    : new Domain.Modules.Measurement.Managers.UnitMatchResult { InputText = text }),
+            ];
+
+            return Task.FromResult(OperationResult<IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult>>
+                .Success(answers));
+        }
 
         public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Vocabulary.Managers.ReferenceEntryServiceModel>>> ListFoodCategoriesAsync(
             Domain.Modules.Vocabulary.Managers.ReferenceQueryViewModel model, CancellationToken cancellationToken) =>

@@ -11891,6 +11891,96 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/ingredient-tools/match-units": {
+      "post": {
+        "tags": [
+          "IngredientTools"
+        ],
+        "summary": "Checks unit words against the CreatorPantry unit catalogue, the way accepting a generated draft will.",
+        "description": "For the draft review screen: a generated line\u0027s unit arrives as a word, and a word with no unit behind it\nis one the creator should know about before accepting. Read-only \u2014 nothing is stored, and no word is\nrewritten. Viewer, like parse: it reads platform reference data and changes nothing.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Checks unit words against the CreatorPantry unit catalogue, the way accepting a generated draft will.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchUnitWords"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchUnitWords"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchUnitWords"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchUnitWordsResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchUnitWordsResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchUnitWordsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/long-form-drafts": {
       "get": {
         "tags": [
@@ -39036,6 +39126,37 @@
           }
         }
       },
+      "MatchUnitWords": {
+        "required": [
+          "words"
+        ],
+        "type": "object",
+        "properties": {
+          "words": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "MatchUnitWordsResult": {
+        "required": [
+          "words"
+        ],
+        "type": "object",
+        "properties": {
+          "words": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnitWordMatch"
+            }
+          }
+        }
+      },
       "MeasurementDimension": {
         "enum": [
           "Mass",
@@ -47933,6 +48054,25 @@
           },
           "isAmbiguous": {
             "type": "boolean"
+          }
+        }
+      },
+      "UnitWordMatch": {
+        "required": [
+          "word",
+          "measurementUnitId"
+        ],
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "measurementUnitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

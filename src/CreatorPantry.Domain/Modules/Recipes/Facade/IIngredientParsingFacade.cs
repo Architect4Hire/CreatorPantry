@@ -12,4 +12,13 @@ public interface IIngredientParsingFacade
 {
     Task<OperationResult<ParseIngredientLinesResult>> ParseAsync(
         ParseIngredientLinesViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether each unit word is one an ingredient line would record as a CreatorPantry unit, asked exactly the
+    /// way accepting a draft asks it — so a word flagged before acceptance is the word the recipe would hold with
+    /// no unit, and no other.
+    /// </summary>
+    /// <returns>Each word with its unit or none, or <see cref="IngredientParsingErrorCodes.UnitWordsInvalidRequest"/>.</returns>
+    Task<OperationResult<MatchUnitWordsResult>> MatchUnitWordsAsync(
+        MatchUnitWordsViewModel model, CancellationToken cancellationToken);
 }

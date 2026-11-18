@@ -25,6 +25,9 @@ public interface IMeasurementUnitRepository
     Task<IReadOnlyList<MeasurementUnitRecord>> FindByCodesAsync(
         IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
 
+    /// <summary>Every active unit, ordered by code so a rendered list does not depend on storage order.</summary>
+    Task<IReadOnlyList<MeasurementUnitRecord>> ListActiveAsync(CancellationToken cancellationToken);
+
     /// <summary>
     /// Every active unit's code, display name, plural name, and abbreviation, plus every alias of an active
     /// unit, flattened into one list for <see cref="UnitMatcher"/> to resolve candidates against in memory.
@@ -147,6 +150,27 @@ internal sealed class MeasurementUnitRepository(CreatorPantryDbContext context) 
                 unit.BaseUnitFactor,
                 unit.DisplayPrecision))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<MeasurementUnitRecord>> ListActiveAsync(CancellationToken cancellationToken)
+    {
+        var active = await context.MeasurementUnits.AsNoTracking()
+            .Where(unit => unit.IsActive)
+            .Select(unit => new MeasurementUnitRecord(
+                unit.Id,
+                unit.Code,
+                unit.DisplayName,
+                unit.PluralName,
+                unit.Abbreviation,
+                unit.Dimension,
+                unit.System,
+                unit.BaseUnitFactor,
+                unit.DisplayPrecision))
+            .ToListAsync(cancellationToken);
+
+        // Ordered here, ordinally, not by the database: SQL Server's collation and SQLite's binary one disagree
+        // about a hyphenated code, and a list rendered into a prompt should read the same on both.
+        return [.. active.OrderBy(unit => unit.Code, StringComparer.Ordinal)];
     }
 
     public async Task<IReadOnlyList<UnitMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken)

@@ -44,6 +44,17 @@ public interface IMeasurementFacade
         IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Every unit still offered for new input, in code order — the whole catalogue, not a page of it.
+    /// </summary>
+    /// <remarks>
+    /// For a caller that has to name the catalogue as a set: the recipe first-draft prompt lists the unit words a
+    /// model may write, so its answers land on units the match below recognises. A page would make that list
+    /// depend on which page was read. The table is small and bounded by seed data, so it is read whole and cached
+    /// on a global key — platform reference data, with no workspace in it (tenancy.md).
+    /// </remarks>
+    Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Matches each candidate string against the unit catalogue by exact/alias normalization, ranked by
     /// precedence with unresolved ambiguity called out rather than guessed (ING-001, AIREC-GR-003).
     /// </summary>

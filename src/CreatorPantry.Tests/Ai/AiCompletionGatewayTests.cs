@@ -491,7 +491,7 @@ public sealed class AiCompletionGatewayTests
 
         var envelope = new PromptEnvelopeBuilder(Workspace)
             .WithTask("Propose a warmer headnote.")
-            .WithOutputSchema(AiOutputSchema.Json)
+            .WithOutputSchema(AiOutputSchema.Json, Schema)
             .Build();
 
         return await gateway.CompleteAsync(

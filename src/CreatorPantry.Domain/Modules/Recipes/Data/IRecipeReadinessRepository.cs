@@ -161,7 +161,7 @@ internal sealed class RecipeReadinessRepository(CreatorPantryDbContext context) 
             .Where(line => line.RecipeId == recipeId)
             .OrderBy(line => line.SortOrder)
             .Select(line => new RecipeReadinessIngredientLine(
-                line.Id, line.DisplayText, line.MatchStatus, line.IngredientId))
+                line.Id, line.DisplayText, line.MatchStatus, line.IngredientId, line.UnitText, line.MeasurementUnitId))
             .ToListAsync(cancellationToken);
 
         var latestVersionId = head.LatestVersionId;

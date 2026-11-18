@@ -122,6 +122,46 @@ public sealed class PromptEnvelopeTests
         Assert.Contains(PromptEnvelopePolicy.FenceNameOf(missing), failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The versioned overload states the one value the validator accepts, so the model is not left to guess it.
+    /// </summary>
+    [Fact]
+    public void The_versioned_overload_pins_schemaVersion_to_the_templates_value()
+    {
+        var envelope = new PromptEnvelopeBuilder(Workspace)
+            .WithTask("task")
+            .WithOutputSchema(AiConceptOutputSchema.Json, "recipe.concepts.v1")
+            .Build();
+
+        var schema = envelope.Segments.Single(segment => segment.Kind is PromptSegmentKind.OutputSchema).Content;
+
+        Assert.Equal(
+            "recipe.concepts.v1",
+            System.Text.Json.Nodes.JsonNode.Parse(schema)!["properties"]!["schemaVersion"]!["const"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// A schema that declares <c>schemaVersion</c> but leaves its value open is a request a model can only fail
+    /// (every live run guessed "1.0"), so the plain overload refuses one rather than sending it.
+    /// </summary>
+    [Fact]
+    public void A_schema_with_an_unpinned_schemaVersion_is_refused()
+    {
+        var builder = new PromptEnvelopeBuilder(Workspace).WithTask("task");
+
+        var failure = Assert.Throws<PromptEnvelopeException>(() => builder.WithOutputSchema(AiConceptOutputSchema.Json));
+
+        Assert.Contains("schemaVersion", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_versioned_overload_refuses_an_empty_version()
+    {
+        var builder = new PromptEnvelopeBuilder(Workspace).WithTask("task");
+
+        Assert.Throws<ArgumentException>(() => builder.WithOutputSchema(AiConceptOutputSchema.Json, " "));
+    }
+
     [Fact]
     public void A_singular_segment_supplied_twice_refuses()
     {
@@ -436,7 +476,7 @@ public sealed class PromptEnvelopeTests
     private static PromptEnvelopeBuilder Builder() =>
         new PromptEnvelopeBuilder(Workspace)
             .WithTask("Propose a warmer headnote.")
-            .WithOutputSchema(AiOutputSchema.Json);
+            .WithOutputSchema(AiOutputSchema.Json, "recipe.revision.v1");
 
     private static int Occurrences(string haystack, string needle)
     {

@@ -401,6 +401,22 @@ export class RecipeScalingPreviewComponent {
     return amounts;
   });
 
+  /**
+   * The unit words of each saved line CreatorPantry did not recognise, by line — words with no catalogue unit
+   * behind them, typically from an AI draft. The amount still scales; the unit beside it is only words, so the
+   * row says so rather than present "4 knob" as settled.
+   */
+  private readonly unrecognisedUnits = computed<ReadonlyMap<string, string>>(() => {
+    const units = new Map<string, string>();
+    for (const group of this.savedIngredientGroups()) {
+      for (const ingredient of group.ingredients) {
+        const words = ingredient.unitText?.trim();
+        if (words && ingredient.measurementUnitId === null) units.set(ingredient.id, words);
+      }
+    }
+    return units;
+  });
+
   /** Whether any line has a note, so the Notes column is drawn only when it has something in it. */
   readonly hasNotes = computed(() => this.rows().some((row) => row.notes.length > 0));
 
@@ -413,7 +429,8 @@ export class RecipeScalingPreviewComponent {
 
     const saved = this.savedAmounts();
     const readings = this.readings();
-    return result.preview.lines.map((line) => this.toRow(line, saved, readings));
+    const unrecognised = this.unrecognisedUnits();
+    return result.preview.lines.map((line) => this.toRow(line, saved, readings, unrecognised.get(line.id) ?? null));
   });
 
   /**
@@ -461,6 +478,7 @@ export class RecipeScalingPreviewComponent {
     line: RecipeScalingPreviewLine,
     saved: ReadonlyMap<string, string | null>,
     readings: ReadonlyMap<string, QuantityReading>,
+    unrecognisedUnit: string | null,
   ): ScalingRow {
     const afterReading = readings.get(`after:${line.id}`) ?? null;
     // Beside a kitchen reading — "1½ cups" — the exact amount is already said.
@@ -483,7 +501,12 @@ export class RecipeScalingPreviewComponent {
       beforeReading: readings.get(`before:${line.id}`)?.text ?? null,
       afterReading,
       wasScaled: line.wasScaled,
-      notes: line.warnings.map((warning) => WARNING_TEXT[warning]),
+      notes: [
+        ...line.warnings.map((warning) => WARNING_TEXT[warning]),
+        ...(unrecognisedUnit === null
+          ? []
+          : [`“${unrecognisedUnit}” isn’t a CreatorPantry unit — set its unit in Ingredients so it converts.`]),
+      ],
     };
   }
 

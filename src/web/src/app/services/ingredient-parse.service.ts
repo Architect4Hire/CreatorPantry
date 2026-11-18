@@ -4,6 +4,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
 import {
+  UnitWordMatch,
+  decodeMatchUnitWordsResponse,
   ParseIngredientLinesRequest,
   ParseIngredientLinesResponse,
   decodeParseIngredientLinesResponse,
@@ -34,8 +36,11 @@ function decodeFieldErrors(error: unknown): Record<string, readonly string[]> {
   return result;
 }
 
-function ingredientToolsUrl(apiBase: ApiBaseService, workspaceSlug: string): string | null {
-  return apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/ingredient-tools/parse`);
+export type MatchUnitWordsOutcome =
+  { readonly status: 'matched'; readonly words: readonly UnitWordMatch[] } | { readonly status: 'unavailable' };
+
+function ingredientToolsUrl(apiBase: ApiBaseService, workspaceSlug: string, tool = 'parse'): string | null {
+  return apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/ingredient-tools/${tool}`);
 }
 
 /**
@@ -61,6 +66,26 @@ export class IngredientParseService {
       return response ? { status: 'parsed', lines: response.lines } : { status: 'unavailable' };
     } catch (error) {
       if (statusCodeOf(error) === 400) return { status: 'validation_failed', fieldErrors: decodeFieldErrors(error) };
+      return { status: 'unavailable' };
+    }
+  }
+
+  /**
+   * Whether each unit word is one an ingredient line would record as a CreatorPantry unit — asked the way
+   * accepting a generated draft asks it, so a word this flags is a word the recipe would hold with no unit.
+   *
+   * Every failure is `unavailable`: the caller only uses this to warn, and a warning it could not compute is one
+   * it leaves out rather than one it guesses at.
+   */
+  async matchUnitWords(workspaceSlug: string, words: readonly string[]): Promise<MatchUnitWordsOutcome> {
+    const url = ingredientToolsUrl(this.apiBase, workspaceSlug, 'match-units');
+    if (!url || words.length === 0) return { status: 'unavailable' };
+
+    try {
+      const raw = await firstValueFrom(this.http.post<unknown>(url, { words }, { withCredentials: true }));
+      const response = decodeMatchUnitWordsResponse(raw);
+      return response ? { status: 'matched', words: response.words } : { status: 'unavailable' };
+    } catch {
       return { status: 'unavailable' };
     }
   }

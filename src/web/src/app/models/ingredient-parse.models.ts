@@ -323,3 +323,32 @@ export interface ParseIngredientLinesRequest {
 export function encodeParseIngredientLinesRequest(request: ParseIngredientLinesRequest): Record<string, unknown> {
   return { lines: request.lines };
 }
+
+/**
+ * Mirrors UnitWordMatch — one word checked by POST .../ingredient-tools/match-units. `measurementUnitId` is the
+ * unit accepting a draft would record beside the word, or null when it would record none: no match, an ambiguous
+ * one, a temperature unit or a retired unit. Null is what the draft review flags.
+ */
+export interface UnitWordMatch {
+  readonly word: string;
+  readonly measurementUnitId: string | null;
+}
+
+/** Mirrors MatchUnitWordsResult. */
+export interface MatchUnitWordsResponse {
+  readonly words: readonly UnitWordMatch[];
+}
+
+export function decodeMatchUnitWordsResponse(value: unknown): MatchUnitWordsResponse | null {
+  if (!isRecord(value) || !Array.isArray(value['words'])) return null;
+
+  const words: UnitWordMatch[] = [];
+  for (const item of value['words'] as unknown[]) {
+    if (!isRecord(item) || typeof item['word'] !== 'string') return null;
+    const unitId = item['measurementUnitId'];
+    if (unitId !== null && typeof unitId !== 'string') return null;
+    words.push({ word: item['word'], measurementUnitId: unitId });
+  }
+
+  return { words };
+}

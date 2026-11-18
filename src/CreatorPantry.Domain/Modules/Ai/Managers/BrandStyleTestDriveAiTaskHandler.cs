@@ -174,7 +174,7 @@ internal sealed class BrandStyleTestDriveAiTaskHandler(
     {
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>(StringComparer.Ordinal)))
-            .WithOutputSchema(AiBrandStyleSamplesOutputSchema.Json)
+            .WithOutputSchema(AiBrandStyleSamplesOutputSchema.Json, template.OutputSchemaVersion)
 
             // The creator's own words when they named a subject, so it travels as data rather than instruction
             // even though the platform's default is the server's own string.

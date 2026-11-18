@@ -247,6 +247,24 @@ describe('RecipeUnitConversionComponent', () => {
     expect(options.map((option) => option.disabled)).toEqual([false, false, true, true]);
   });
 
+  it('names a unit word CreatorPantry does not recognise instead of saying no unit was recorded', async () => {
+    const { fixture } = await createFixture();
+    fixture.componentRef.setInput('savedIngredientGroups', [
+      {
+        ...SAVED_GROUPS[0],
+        ingredients: [{ ...SAVED_GROUPS[0].ingredients[1], displayText: '1 knob butter', unitText: ' knob ' }],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector(
+      `#${fixture.componentInstance.prefillFieldId}`,
+    );
+    const option = Array.from(select.options).find((candidate) => candidate.value !== '');
+    expect(option?.textContent?.trim()).toBe('1 knob butter — “knob” isn’t a CreatorPantry unit');
+    expect(option?.disabled).toBeTrue();
+  });
+
   it('fills the amount and unit from a resolved line', async () => {
     const { fixture } = await createFixture();
 

@@ -169,12 +169,25 @@ workspace:
 ```csharp
 var envelope = new PromptEnvelopeBuilder(workspace.Id)
     .WithTask(template.Render(inputs))
-    .WithOutputSchema(AiOutputSchema.Json)
+    .WithOutputSchema(AiOutputSchema.Json, template.OutputSchemaVersion)
     .WithSource(workspace.Id, snapshotJson)          // where the content was READ from
     .AddReference(workspace.Id, retrievedPassage)    // retrieval is where leaks originate
     .WithUntrustedText(workspace.Id, creatorRequest)
     .Build();
 ```
+
+**Always pass the template's `OutputSchemaVersion`.** It pins `schemaVersion` to the one value the validator
+accepts. An exported schema only says the field is a string and no template body names the value, so a model
+left to guess writes "1.0", is refused, and spends the request's one correction on it — whatever is wrong with
+the second answer is then final. Ten capabilities shipped that way. The one-argument overload now refuses a
+schema that declares `schemaVersion` without a pinned value, so the mistake fails in your handler tests rather
+than in a creator's request.
+
+Export a new capability's schema with `AiOutputSchemaExporter.Export(typeof(YourOutputDocument))`, never with
+`GetJsonSchemaAsNode` and options of your own. The validators refuse unknown fields and nulls in non-nullable
+places; the shared exporter states both in the schema (`additionalProperties: false`, non-null items), so a
+model that follows the schema it was shown is not refused for it. `AiOutputSchemaExporterTests` lists every
+schema — add yours to `EverySchema`.
 
 The workspace argument on each is not ceremony — it is the last place a retrieval bug that returned a
 neighbour's row can be caught before the content reaches a model.

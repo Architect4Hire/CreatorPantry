@@ -50,6 +50,7 @@ internal abstract class StubRecipeBusinessBase : IRecipeBusiness
         Guid expectedVersionId,
         Guid aiProposalId,
         IReadOnlyList<ProposedRecipeChange> changes,
+        IReadOnlyDictionary<string, ResolvedIngredientUnit> resolvedUnits,
         CancellationToken cancellationToken) => throw Unused();
 
     public virtual Task<RecipeSearchPageServiceModel> SearchAsync(

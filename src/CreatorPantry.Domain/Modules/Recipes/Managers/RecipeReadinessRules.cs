@@ -184,9 +184,9 @@ public static class RecipeReadinessCatalogue
     /// <remarks>
     /// 1.1.0 moved <see cref="MediaHeroMissing"/> from a blocker to a recommendation. A stored or screenshotted
     /// result from 1.0.0 was held to the stricter rule, which is exactly why the version travels on every
-    /// evaluation and on every approval that relied on one.
+    /// evaluation and on every approval that relied on one. 1.2.0 added <see cref="IngredientsUnitUnrecognized"/>.
     /// </remarks>
-    public const string Version = "1.1.0";
+    public const string Version = "1.2.0";
 
     // ---- Required fields ----
 
@@ -207,6 +207,8 @@ public static class RecipeReadinessCatalogue
     public const string IngredientsAmbiguous = "recipe.ingredients.ambiguous";
 
     public const string IngredientsUnrecognized = "recipe.ingredients.unrecognized";
+
+    public const string IngredientsUnitUnrecognized = "recipe.ingredients.unitUnrecognized";
 
     // ---- Outstanding AI work ----
 
@@ -269,6 +271,8 @@ public static class RecipeReadinessCatalogue
             "No ingredient line is ambiguous between two or more vocabulary entries."),
         new(IngredientsUnrecognized, RecipeReadinessSeverity.Recommendation,
             "Every ingredient line is recognised, so the lines can carry dietary and allergen references."),
+        new(IngredientsUnitUnrecognized, RecipeReadinessSeverity.Recommendation,
+            "Every unit an ingredient line names is a CreatorPantry unit, so the line can be scaled and converted."),
 
         new(AiSafetyCautionOutstanding, RecipeReadinessSeverity.Blocker,
             "No safety or culinary caution from an AI proposal is still unanswered."),

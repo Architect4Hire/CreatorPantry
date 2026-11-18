@@ -11,6 +11,7 @@ using CreatorPantry.Domain.Modules.Auth.Data;
 using CreatorPantry.Domain.Modules.Measurement.Seeding;
 using CreatorPantry.Domain.Modules.Vocabulary.Seeding;
 using CreatorPantry.Domain.Modules.Ingredients.Seeding;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.Tests.Reference;
 
@@ -319,6 +320,31 @@ public sealed class ReferenceRepositoryTests : IAsyncLifetime
         Assert.Equal(MeasurementSystem.Metric, found.Single(unit => unit.Code == "g").System);
         Assert.Equal(MeasurementSystem.UsCustomary, found.Single(unit => unit.Code == "oz").System);
         Assert.Empty(await units.FindByCodesAsync([], TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// The whole active catalogue, in code order, so a list rendered from it (the first-draft prompt's unit words)
+    /// does not depend on storage order. A retired unit is not offered for new input, so it is not listed.
+    /// </summary>
+    [Fact]
+    public async Task Every_active_unit_is_listed_in_code_order_and_a_retired_one_is_not()
+    {
+        await using (var context = _catalog.CreateContext())
+        {
+            var retired = await context.MeasurementUnits.SingleAsync(
+                unit => unit.Code == "dl", TestContext.Current.CancellationToken);
+            retired.IsActive = false;
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        var listed = await Units().ListActiveAsync(TestContext.Current.CancellationToken);
+
+        await using var read = _catalog.CreateContext();
+        var active = await read.MeasurementUnits.CountAsync(unit => unit.IsActive, TestContext.Current.CancellationToken);
+
+        Assert.Equal(active, listed.Count);
+        Assert.DoesNotContain(listed, unit => unit.Code == "dl");
+        Assert.Equal(listed.Select(unit => unit.Code).Order(StringComparer.Ordinal), listed.Select(unit => unit.Code));
     }
 
     private IControlledVocabularyRepository Vocabularies() => new ControlledVocabularyRepository(_catalog.CreateContext());

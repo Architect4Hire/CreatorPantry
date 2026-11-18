@@ -113,6 +113,37 @@ describe('IngredientUnitPickerComponent', () => {
     expect(picked).toEqual([]);
   });
 
+  /**
+   * A generated draft wrote "gms", and the line is linked to the catalogue's gram. The box shows "gram", the name
+   * a creator would have picked, and showing it is not an edit: nothing is reported until the creator types.
+   */
+  it('shows a linked unit by its catalogue name, without reporting that as an edit', async () => {
+    const fixture = await createFixture();
+    const typed: string[] = [];
+    const picked: UnitMatchCandidate[] = [];
+    fixture.componentInstance.textChanged.subscribe((text) => typed.push(text));
+    fixture.componentInstance.unitPicked.subscribe((candidate) => picked.push(candidate));
+
+    fixture.componentRef.setInput('unitId', 'g');
+    fixture.componentRef.setInput('unitLabel', 'gms');
+    fixture.detectChanges();
+    box(fixture).dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(box(fixture).value).toBe('gram');
+    expect(typed).toEqual([]);
+    expect(picked).toEqual([]);
+  });
+
+  it('shows the line’s own word when it is linked to nothing', async () => {
+    const fixture = await createFixture();
+    fixture.componentRef.setInput('unitId', null);
+    fixture.componentRef.setInput('unitLabel', 'knob');
+    fixture.detectChanges();
+
+    expect(box(fixture).value).toBe('knob');
+  });
+
   it('marks the line’s own unit as chosen', async () => {
     const fixture = await createFixture();
     fixture.componentRef.setInput('unitId', 'g');

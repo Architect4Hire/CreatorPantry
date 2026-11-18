@@ -16,7 +16,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RecipeStudioHost } from './recipe-studio-host';
 import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
+import { EMPTY, Observable, defer, distinctUntilChanged, expand, from, of, switchMap, timer } from 'rxjs';
 import {
   CpAnchorNavComponent,
   CpAnchorNavItem,
@@ -32,6 +32,7 @@ import {
   CpNoticeComponent,
   CpPageHeadComponent,
   CpSkeletonComponent,
+  CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
@@ -55,6 +56,7 @@ import {
   missingRequiredFieldsOf,
 } from '../../models/recipe-draft.models';
 import { RecipeDraftRewrite, RecipeDraftService, WatchRecipeDraftOutcome } from '../../services/recipe-draft.service';
+import { IngredientParseService } from '../../services/ingredient-parse.service';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
 
 /** Same cadence as the other two AI surfaces, so all three behave identically. */
@@ -160,6 +162,7 @@ interface EditTarget {
     CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpSkeletonComponent,
+    CpStatusPillComponent,
     RouterLink,
     CpBackLinkComponent,
     ShellNavIconComponent,
@@ -176,6 +179,7 @@ export class RecipeFirstDraftReviewComponent {
   protected readonly lede =
     'A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this page is saved until you create one from it.';
   private readonly drafts = inject(RecipeDraftService);
+  private readonly ingredientTools = inject(IngredientParseService);
   private readonly confirmService = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -249,6 +253,26 @@ export class RecipeFirstDraftReviewComponent {
 
   constructor() {
     this.restoreFromUrl();
+
+    // Ask once per distinct set of unit words — a poll that returns the same draft asks nothing new. An answer
+    // for an earlier set is dropped by switchMap, so a slow reply can never flag the wrong draft's lines.
+    toObservable(this.draftUnitWords)
+      .pipe(
+        distinctUntilChanged((before, after) => before.join('\n') === after.join('\n')),
+        switchMap((words) =>
+          words.length === 0 ? of(null) : from(this.ingredientTools.matchUnitWords(this.workspaceSlug, words)),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((outcome) =>
+        this.unrecognisedUnitWords.set(
+          new Set(
+            outcome?.status === 'matched'
+              ? outcome.words.filter((word) => word.measurementUnitId === null).map((word) => word.word.trim())
+              : [],
+          ),
+        ),
+      );
 
     // A creator's rewrites live only in this component — there is nothing to save them to — so leaving the
     // page loses them. `?request=` resumes the draft itself, which makes the loss worse rather than better:
@@ -413,6 +437,55 @@ export class RecipeFirstDraftReviewComponent {
       .map((line) => this.valueOf(`${line.changeId}:displayText`, line.displayText) ?? '')
       .filter((text) => text.trim().length > 0 && !ingredientLineStatesAmount(text)),
   );
+
+  /**
+   * The draft's distinct unit words, trimmed and sorted — the words accepting it will match to CreatorPantry units.
+   *
+   * The unit field's own word, not the line's display text: a creator can reword the line here, but acceptance
+   * records the unit from this field, so this is the word that becomes a recognised unit or an unrecognised one.
+   */
+  private readonly draftUnitWords = computed<readonly string[]>(() =>
+    [
+      ...new Set(
+        this.draft()
+          .ingredientGroups.flatMap((group) => group.items)
+          .map((line) => line.unitText?.trim() ?? '')
+          .filter((word) => word.length > 0),
+      ),
+    ].sort(),
+  );
+
+  /**
+   * The unit words the server said it would record with no unit. Empty until it answers, and empty when it cannot
+   * — a warning that could not be worked out is left out rather than guessed at.
+   */
+  private readonly unrecognisedUnitWords = signal<ReadonlySet<string>>(new Set());
+
+  /**
+   * Lines whose unit CreatorPantry does not recognise, with the word and the line as it reads now.
+   *
+   * Advice, not a bar: the draft can be accepted, and the line keeps its word. But it will not scale or convert
+   * until the creator picks a unit in the recipe's ingredients, and saying so here — before acceptance — is how
+   * they know which lines to look at there. The same check acceptance makes, asked of the server, so this list is
+   * exactly the lines the recipe will flag.
+   */
+  readonly linesWithUnrecognisedUnit = computed<readonly { readonly unit: string; readonly text: string }[]>(() => {
+    const unknown = this.unrecognisedUnitWords();
+    if (unknown.size === 0) return [];
+
+    return this.draft()
+      .ingredientGroups.flatMap((group) => group.items)
+      .filter((line) => unknown.has(line.unitText?.trim() ?? ''))
+      .map((line) => ({
+        unit: line.unitText!.trim(),
+        text: this.valueOf(`${line.changeId}:displayText`, line.displayText) ?? line.displayText,
+      }));
+  });
+
+  /** Whether one draft line's unit is one CreatorPantry does not recognise, for the mark beside it. */
+  unitIsUnrecognised(unitText: string | null): boolean {
+    return this.unrecognisedUnitWords().has(unitText?.trim() ?? '');
+  }
 
   readonly ingredientCount = computed(() => countItems(this.draft().ingredientGroups));
   readonly stepCount = computed(() => countItems(this.draft().instructionGroups));

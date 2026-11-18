@@ -45,6 +45,10 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeReadinessBusiness, RecipeReadinessBusiness>();
         services.AddScoped<IRecipeFacade, RecipeFacade>();
 
+        // One answer to "is this unit word a CreatorPantry unit?", shared by draft acceptance, accepted changes and
+        // the draft review screen, so a flag shown before acceptance agrees with the recipe it becomes.
+        services.AddScoped<IIngredientUnitTextResolver, IngredientUnitTextResolver>();
+
         // The dashboard's reads (13.11): counts and capped lists, nothing else.
         services.AddScoped<IRecipeDashboardRepository, RecipeDashboardRepository>();
         services.AddScoped<IRecipeDashboardDataLayer, RecipeDashboardDataLayer>();
@@ -63,6 +67,7 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IValidator<UnlinkRecipeAssetViewModel>, UnlinkRecipeAssetViewModelValidator>();
         services.AddScoped<IValidator<AttachTestImageViewModel>, AttachTestImageViewModelValidator>();
         services.AddScoped<IIngredientParsingFacade, IngredientParsingFacade>();
+        services.AddScoped<IValidator<MatchUnitWordsViewModel>, MatchUnitWordsViewModelValidator>();
         services.AddScoped<IValidator<CreateRecipeTestRunViewModel>, CreateRecipeTestRunViewModelValidator>();
         services.AddScoped<IValidator<UpdateRecipeTestRunViewModel>, UpdateRecipeTestRunViewModelValidator>();
         services.AddScoped<IValidator<TestRunHistoryViewModel>, TestRunHistoryViewModelValidator>();

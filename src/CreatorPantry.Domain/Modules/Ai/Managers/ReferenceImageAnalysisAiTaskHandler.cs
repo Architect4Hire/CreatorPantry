@@ -447,7 +447,7 @@ internal sealed class ReferenceImageAnalysisAiTaskHandler(
     {
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(NoTemplateInputs))
-            .WithOutputSchema(AiReferenceImageOutputSchema.Json)
+            .WithOutputSchema(AiReferenceImageOutputSchema.Json, template.OutputSchemaVersion)
 
             // The workspace argument is the envelope's own, so this call cannot catch a cross-workspace
             // image — it compares a value with itself. What keeps a neighbour's picture out is the brand

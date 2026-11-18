@@ -110,7 +110,7 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
             var gateway = BuildGateway(chatClient, clock);
             var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
                 .WithTask("Propose nothing; this is a fixture.")
-                .WithOutputSchema(AiOutputSchema.Json)
+                .WithOutputSchema(AiOutputSchema.Json, "fixture.worker.v1")
                 .Build();
 
             var outcome = await gateway.CompleteAsync(

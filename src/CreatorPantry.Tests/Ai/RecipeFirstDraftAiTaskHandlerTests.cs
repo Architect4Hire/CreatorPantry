@@ -1,7 +1,12 @@
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
+using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Measurement.Facade;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -170,6 +175,78 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
         Assert.DoesNotContain("Sichuan", systemMessage, StringComparison.Ordinal);
     }
 
+    // ---- the catalogue's unit words ----------------------------------------------------------------------
+
+    private static string UserMessage(FakeChatClient client) =>
+        client.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+
+    private static string SystemMessage(FakeChatClient client) =>
+        client.LastMessages!.Single(message => message.Role == ChatRole.System).Text;
+
+    /// <summary>
+    /// The model is shown the words acceptance will match, so its units land on catalogue units. They arrive as
+    /// a REFERENCES segment of the user message -- platform data to read, not instructions -- and only words that
+    /// lead back to their own unit are offered.
+    /// </summary>
+    [Fact]
+    public async Task The_catalogues_own_unit_words_reach_the_model_as_references()
+    {
+        var client = FakeChatClient.Returning(MinimalDraft);
+
+        var outcome = await Run(client, inputs: null);
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        var user = UserMessage(client);
+
+        Assert.Contains("Unit words CreatorPantry recognises", user, StringComparison.Ordinal);
+        Assert.Contains("- tablespoon, tablespoons", user, StringComparison.Ordinal);
+        Assert.Contains("- c, cup, cups", user, StringComparison.Ordinal);
+        Assert.Contains("- g, gram, grams", user, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unit words CreatorPantry recognises", SystemMessage(client), StringComparison.Ordinal);
+    }
+
+    /// <summary>"t" names two units, so the match would refuse it; offering it would teach a word that gets flagged.</summary>
+    [Fact]
+    public async Task A_word_two_units_share_is_not_offered()
+    {
+        var client = FakeChatClient.Returning(MinimalDraft);
+
+        await Run(client, inputs: null);
+
+        Assert.DoesNotContain("- t,", UserMessage(client), StringComparison.Ordinal);
+        Assert.Contains("- teaspoon, teaspoons", UserMessage(client), StringComparison.Ordinal);
+    }
+
+    /// <summary>An ingredient measured in degrees is refused downstream, so no temperature unit is offered.</summary>
+    [Fact]
+    public async Task No_temperature_unit_is_offered_for_an_ingredient()
+    {
+        var client = FakeChatClient.Returning(MinimalDraft);
+
+        await Run(client, inputs: null);
+
+        Assert.DoesNotContain("fahrenheit", UserMessage(client), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The list only makes a match likelier. With no catalogue to show, or one that cannot say what it matches, the
+    /// draft still runs -- acceptance matches the words deterministically and the editor flags what it cannot.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_catalogue_that_cannot_help_leaves_the_list_out_and_the_draft_runs(bool resolveFails)
+    {
+        var units = new FakeUnitCatalogue { ResolveFails = resolveFails };
+        if (!resolveFails) units.Units.Clear();
+        var client = FakeChatClient.Returning(MinimalDraft);
+
+        var outcome = await Run(client, inputs: null, units: units);
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.DoesNotContain("Unit words CreatorPantry recognises", UserMessage(client), StringComparison.Ordinal);
+    }
+
     /// <summary>An unsupplied field reads as a complete sentence, not a blank left where a value belonged.</summary>
     [Fact]
     public async Task Unsupplied_inputs_render_as_not_specified()
@@ -301,14 +378,17 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
         Assert.Contains("Use cups and Fahrenheit", userMessage, StringComparison.Ordinal);
     }
 
-    /// <summary>Provenance records the template version that actually wrote the draft.</summary>
+    /// <summary>
+    /// Provenance records the template version that actually wrote the draft: 1.4.0, which carries the measurement
+    /// instruction and asks for units in the catalogue's own words.
+    /// </summary>
     [Fact]
-    public async Task The_proposal_names_the_template_version_that_carries_the_measurement_instruction()
+    public async Task The_proposal_names_the_template_version_that_asks_for_catalogue_unit_words()
     {
         var outcome = await Run(FakeChatClient.Returning(MinimalDraft), inputs: null);
 
         Assert.True(outcome.Succeeded, outcome.FailureSummary);
-        Assert.Equal("1.3.0", outcome.Proposal!.PromptTemplateVersion);
+        Assert.Equal("1.4.0", outcome.Proposal!.PromptTemplateVersion);
     }
 
     // ---- correction ----------------------------------------------------------------------------------------
@@ -428,7 +508,10 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
         """;
 
     private static async Task<AiTaskHandlerOutcome> Run(
-        FakeChatClient client, IReadOnlyDictionary<string, string>? inputs, Guid? workspaceId = null)
+        FakeChatClient client,
+        IReadOnlyDictionary<string, string>? inputs,
+        Guid? workspaceId = null,
+        FakeUnitCatalogue? units = null)
     {
         const string pipelineKey = "test-ai-first-draft";
 
@@ -461,6 +544,7 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
         var handler = new RecipeFirstDraftAiTaskHandler(
             gateway,
             EmbeddedPromptTemplateStore.Load(typeof(AiPolicy).Assembly),
+            units ?? new FakeUnitCatalogue(),
             new StoppedClock());
 
         var context = new AiTaskExecutionContext(
@@ -474,6 +558,79 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
     private sealed class StoppedClock : IClock
     {
         public DateTimeOffset UtcNow { get; } = Now;
+    }
+
+    /// <summary>
+    /// A small unit catalogue and its match: "tablespoon", "cup" and "g" are each one unit's own word, "t" is a word
+    /// two units share, and Fahrenheit measures temperature. Only <see cref="ListActiveUnitsAsync"/> and
+    /// <see cref="ResolveCandidatesAsync"/> are the handler's to call.
+    /// </summary>
+    private sealed class FakeUnitCatalogue : IMeasurementFacade
+    {
+        public static readonly Guid Tablespoon = Guid.Parse("a0000000-0000-0000-0000-000000000001");
+        public static readonly Guid Teaspoon = Guid.Parse("a0000000-0000-0000-0000-000000000002");
+        public static readonly Guid Cup = Guid.Parse("a0000000-0000-0000-0000-000000000003");
+        public static readonly Guid Gram = Guid.Parse("a0000000-0000-0000-0000-000000000004");
+        public static readonly Guid Fahrenheit = Guid.Parse("a0000000-0000-0000-0000-000000000005");
+
+        public List<MeasurementUnitServiceModel> Units { get; } =
+        [
+            new(Tablespoon, "tbsp", "tablespoon", "tablespoons", "t", MeasurementDimension.Volume, MeasurementSystem.UsCustomary, 15m, 2),
+            new(Teaspoon, "tsp", "teaspoon", "teaspoons", "t", MeasurementDimension.Volume, MeasurementSystem.UsCustomary, 5m, 2),
+            new(Cup, "cup-us", "cup", "cups", "c", MeasurementDimension.Volume, MeasurementSystem.UsCustomary, 240m, 2),
+            new(Gram, "g", "gram", "grams", "g", MeasurementDimension.Mass, MeasurementSystem.Metric, 1m, 0),
+            new(Fahrenheit, "fahrenheit", "fahrenheit", "fahrenheit", "F", MeasurementDimension.Temperature, MeasurementSystem.UsCustomary, null, 0),
+        ];
+
+        public bool ResolveFails { get; set; }
+
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<MeasurementUnitServiceModel>>(Units);
+
+        public Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(
+            IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken)
+        {
+            if (ResolveFails)
+            {
+                return Task.FromResult(OperationResult<IReadOnlyList<UnitMatchResult>>.Failure(
+                    OperationError.Validation("reference.candidates.invalid", "No.", [])));
+            }
+
+            IReadOnlyList<UnitMatchResult> answers = [.. candidateTexts.Select(Match)];
+
+            return Task.FromResult(OperationResult<IReadOnlyList<UnitMatchResult>>.Success(answers));
+        }
+
+        /// <summary>Exact words only, the way the real match is exact: a word two units share is ambiguous.</summary>
+        private UnitMatchResult Match(string text)
+        {
+            var hits = Units
+                .Where(unit => new[] { unit.Abbreviation, unit.DisplayName, unit.PluralName }.Contains(text))
+                .Select(unit => new UnitMatchCandidate(unit.Id, unit.DisplayName, UnitMatchKind.DisplayName))
+                .ToList();
+
+            return hits.Count switch
+            {
+                0 => new UnitMatchResult { InputText = text },
+                1 => new UnitMatchResult { InputText = text, Resolved = hits[0] },
+                _ => new UnitMatchResult { InputText = text, IsAmbiguous = true, Alternates = hits },
+            };
+        }
+
+        public Task<MeasurementDimension?> FindUsableUnitDimensionAsync(Guid unitId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<CursorPageServiceModel<MeasurementUnitServiceModel>>> ListUnitsAsync(
+            MeasurementUnitQueryViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+            IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
+            IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     /// <summary>A scripted <see cref="IChatClient"/>: no network, no model, fully deterministic.</summary>

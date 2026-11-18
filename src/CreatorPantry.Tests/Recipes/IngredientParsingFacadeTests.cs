@@ -16,13 +16,22 @@ namespace CreatorPantry.Tests.Recipes;
 /// </summary>
 public sealed class IngredientParsingFacadeTests
 {
+    private static IngredientParsingFacade Facade()
+    {
+        var measurement = new CancellationCheckingMeasurementFacade();
+
+        return new IngredientParsingFacade(
+            new ParseIngredientLinesViewModelValidator(),
+            new MatchUnitWordsViewModelValidator(),
+            new CancellationCheckingIngredientFacade(),
+            measurement,
+            new IngredientUnitTextResolver(measurement));
+    }
+
     [Fact]
     public async Task Cancellation_propagates_into_the_downstream_matchers()
     {
-        var facade = new IngredientParsingFacade(
-            new ParseIngredientLinesViewModelValidator(),
-            new CancellationCheckingIngredientFacade(),
-            new CancellationCheckingMeasurementFacade());
+        var facade = Facade();
 
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
@@ -34,10 +43,7 @@ public sealed class IngredientParsingFacadeTests
     [Fact]
     public async Task A_valid_request_never_reaches_the_downstream_matchers_uncancelled_and_succeeds()
     {
-        var facade = new IngredientParsingFacade(
-            new ParseIngredientLinesViewModelValidator(),
-            new CancellationCheckingIngredientFacade(),
-            new CancellationCheckingMeasurementFacade());
+        var facade = Facade();
 
         var result = await facade.ParseAsync(
             new ParseIngredientLinesViewModel(["2 tsp kosher salt"]), CancellationToken.None);
@@ -115,6 +121,10 @@ public sealed class IngredientParsingFacadeTests
 
         public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
             IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        // Not exercised here: the whole-catalogue read is the first-draft prompt's.
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> ListActiveUnitsAsync(CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(

@@ -26,6 +26,16 @@
   </p>
 }
 
+<!-- Every line whose unit CreatorPantry did not recognise, counted once at the top so a creator opening an AI
+     draft sees there is something to settle before reading line by line. Each such line says so under its Unit
+     field. No live role: this is a standing fact about the list, not news from an action. -->
+@if (unrecognisedUnitCount(); as count) {
+  <cp-notice class="unit-notice" tone="warning">
+    {{ count === 1 ? '1 ingredient uses a unit' : count + ' ingredients use units' }} CreatorPantry doesn’t recognise,
+    so {{ count === 1 ? 'it' : 'they' }} won’t scale or convert. Each one is marked below.
+  </cp-notice>
+}
+
 @if (groups().length === 0) {
   <!-- No button of its own: the toolbar above has the two ways to start, and a third "Add ingredient" in the middle of
        the empty state was the same button twice. -->
@@ -217,7 +227,12 @@
                       <!-- Its own control, not a second use of the yield field's: an ingredient line keeps the creator's
                    own wording whatever the catalogue knows, and a yield unit is an id or nothing. See
                    IngredientUnitPickerComponent. -->
-                      <cp-field label="Unit" [forId]="'row-unit-' + row.key">
+                      <cp-field
+                        label="Unit"
+                        [forId]="'row-unit-' + row.key"
+                        [hint]="unitHint(row)"
+                        [warning]="unitWarning(row)"
+                      >
                         <cp-ingredient-unit-picker
                           [inputId]="'row-unit-' + row.key"
                           [catalogue]="unitCatalogue()"
