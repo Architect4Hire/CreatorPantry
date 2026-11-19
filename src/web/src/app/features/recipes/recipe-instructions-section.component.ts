@@ -8,6 +8,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import {
   CpAnchorNavComponent,
@@ -19,6 +20,7 @@ import {
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { GroupedPlace, handleMoveFor, handleTarget } from './recipe-editor.model';
 import { RecipeFormState } from './recipe-form-state';
 
 /**
@@ -39,6 +41,10 @@ const INSTRUCTION_GROUP_ANCHOR_PREFIX = 'instruction-group-';
   selector: 'cp-recipe-instructions-section',
   standalone: true,
   imports: [
+    CdkDrag,
+    CdkDragHandle,
+    CdkDropList,
+    CdkDropListGroup,
     CpAnchorNavComponent,
     CpButtonComponent,
     CpFieldComponent,
@@ -106,6 +112,54 @@ export class RecipeInstructionsSectionComponent {
    * request to write the next step, and leaving focus on the button would mean finding the step and clicking
    * into it as well. See the ingredient editor's `addRow`.
    */
+  /** What the last move did, in words, for the section's polite live region: a drag or a key moves in silence. */
+  protected readonly moveAnnouncement = signal('');
+
+  /**
+   * A step's move handle, from the keyboard: Up and Down move it one place — into the next phase at either end of
+   * one, when the method has phases — and Home and End to the top or the bottom of its own. Focus stays on the
+   * handle, which goes with the step. Any other key is the browser's.
+   */
+  onStepHandleKeydown(event: KeyboardEvent, stepKey: string): void {
+    const move = handleMoveFor(event);
+    if (move === null) return;
+    event.preventDefault();
+
+    const to = handleTarget(
+      this.form.instructionGroups(),
+      (group) => group.steps,
+      stepKey,
+      move,
+      this.form.showInstructionGroups(),
+    );
+    if (to === null) {
+      this.moveAnnouncement.set(move === 'up' || move === 'first' ? 'Already at the top.' : 'Already at the bottom.');
+      return;
+    }
+    this.moveStep(stepKey, to);
+    afterNextRender(
+      () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="step-handle-${stepKey}"]`)?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /** A step dropped where it was dragged to: its own phase, or another. Each list carries its group's key. */
+  onStepDropped(event: CdkDragDrop<string, string, string>): void {
+    if (event.previousContainer === event.container && event.previousIndex === event.currentIndex) return;
+    this.moveStep(event.item.data, { groupKey: event.container.data, index: event.currentIndex });
+  }
+
+  private moveStep(stepKey: string, to: GroupedPlace): void {
+    this.form.moveInstructionStepTo(stepKey, to);
+
+    const groups = this.form.instructionGroups();
+    const groupIndex = groups.findIndex((group) => group.key === to.groupKey);
+    const group = groups[groupIndex];
+    if (!group) return;
+    const where = this.form.showInstructionGroups() ? ` in ${group.title.trim() || `group ${groupIndex + 1}`}` : '';
+    this.moveAnnouncement.set(`Moved step to position ${to.index + 1} of ${group.steps.length}${where}.`);
+  }
+
   addStep(groupKey?: string): void {
     const stepKey = this.form.addInstructionStep(groupKey);
     this.revealAndFocus(`step-text-${stepKey}`);

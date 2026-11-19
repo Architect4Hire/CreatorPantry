@@ -19,10 +19,12 @@ import { EditableIngredientGroup, toEditableGroups } from './recipe-ingredient-e
 import {
   EditableInstructionGroup,
   EditableInstructionStep,
+  GroupedPlace,
   MAX_TIME_MINUTES,
   RecipeFormSnapshot,
   TimingSum,
   moveByKey,
+  moveToPlace,
 } from './recipe-editor.model';
 import { messagesByGroupKey, messagesByRowKey } from './recipe-field-errors';
 import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
@@ -618,6 +620,19 @@ export class RecipeFormState {
     this.instructionGroups.update((groups) =>
       groups.map((group) =>
         group.key === groupKey ? { ...group, steps: group.steps.filter((step) => step.key !== stepKey) } : group,
+      ),
+    );
+  }
+
+  /** Moves a step to a place — in its own group or another — as a drop or a move handle's key asks. */
+  moveInstructionStepTo(stepKey: string, to: GroupedPlace): void {
+    this.instructionGroups.update((groups) =>
+      moveToPlace(
+        groups,
+        (group) => group.steps,
+        (group, steps) => ({ ...group, steps }),
+        stepKey,
+        to,
       ),
     );
   }

@@ -1,7 +1,7 @@
 <!-- The pill states the status in words; its tone and glyph add nothing a reader could otherwise miss. -->
 <div class="status">
   <div class="status-line">
-    <cp-status-pill [tone]="tone()">{{ label() }}</cp-status-pill>
+    <cp-status-pill [tone]="tone()" [busy]="running()">{{ label() }}</cp-status-pill>
 
     @if (connection() === 'degraded') {
       <!-- Said, not implied by the panel going quiet: what follows is the last thing we heard, not the

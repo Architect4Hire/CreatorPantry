@@ -153,6 +153,14 @@ export class AiOperationStatusComponent {
     return this.status() === 'Failed' && failure !== null ? FAILURE_DETAIL[failure] : null;
   });
 
+  /**
+   * Whether the request is running now, so the pill turns: queued or working, and only while the checks are reaching
+   * the server — a degraded panel is showing the last state it heard, and a spinner would claim more than that.
+   */
+  readonly running = computed(
+    () => (this.status() === 'Requested' || this.status() === 'Running') && this.connection() === 'live',
+  );
+
   /** A failure is announced assertively; every other transition is polite. */
   readonly isFailure = computed(() => this.status() === 'Failed');
 

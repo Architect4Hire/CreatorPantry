@@ -640,6 +640,18 @@ describe('RecipeConceptStudioComponent', () => {
     expect(fixture.componentInstance.conceptsListState()).toBe('error');
     expect(element().querySelector('cp-list-shell')?.textContent).toContain("didn't finish");
   }));
+  it('lets the brief’s fields fill the card, as the recipe editor’s do', fakeAsync(() => {
+    render();
+    const card = element().querySelector('.brief-card') as HTMLElement;
+    card.style.width = '60rem';
+    fixture.detectChanges();
+
+    const section = card.querySelector('cp-form-section')!.getBoundingClientRect();
+    const field = input('concept-dish-name').getBoundingClientRect();
+    // Not stopped at the 60ch field measure, leaving a column of empty card beside it.
+    expect(field.width).toBeGreaterThan(section.width - 2);
+  }));
+
   it('reads as a form: one card and named sections of stacked fields, with no legend to repeat', fakeAsync(() => {
     render();
 

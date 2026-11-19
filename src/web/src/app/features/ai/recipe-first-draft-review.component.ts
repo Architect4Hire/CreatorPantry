@@ -129,7 +129,9 @@ interface EditTarget {
  * **Nothing is created until the creator says so, twice.** Reading and rewriting change nothing anywhere. A
  * recipe exists only after "Create recipe from this draft" is pressed and then confirmed (AF.2.2) — one call,
  * which either creates the recipe and records the decision or writes nothing at all. The draft stays labelled
- * as generated and stays editable right up to that point.
+ * as generated and stays editable right up to that point. In a host's preview ({@link RecipeStudioHost.compactDraft})
+ * it is said once, by "Use this draft": the preview edits only the title, and the recipe is edited in the steps
+ * that follow it.
  *
  * **Discarding is still client-side, and the page says so rather than implying otherwise.** It clears the
  * draft from this page and leaves it to expire; the wording never claims a rejection was recorded, because
@@ -194,6 +196,12 @@ export class RecipeFirstDraftReviewComponent {
   protected readonly host = inject(RecipeStudioHost, { optional: true });
 
   readonly workspaceSlug = this.host?.workspaceSlug || this.resolveWorkspaceSlug();
+
+  /**
+   * The draft as a preview with one decision, for a host whose next steps edit what it becomes (see
+   * {@link RecipeStudioHost.compactDraft}). Read once, like the host's other fields.
+   */
+  protected readonly compact = this.host?.compactDraft ?? false;
 
   /** The creator rewrote a value. Their edit, never an acceptance — see {@link RecipeDraftFieldEdit}. */
   readonly fieldEdited = output<RecipeDraftFieldEdit>();
@@ -489,6 +497,64 @@ export class RecipeFirstDraftReviewComponent {
 
   readonly ingredientCount = computed(() => countItems(this.draft().ingredientGroups));
   readonly stepCount = computed(() => countItems(this.draft().instructionGroups));
+
+  /** The draft's size in one line, under its title in the preview: "10 ingredients · 10 steps · 6 pieces of equipment". */
+  readonly sizeLine = computed(() => {
+    const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+    const parts = [
+      plural(this.ingredientCount(), 'ingredient', 'ingredients'),
+      plural(this.stepCount(), 'step', 'steps'),
+    ];
+    const equipment = this.draft().equipment.length;
+    if (equipment > 0) parts.push(plural(equipment, 'piece of equipment', 'pieces of equipment'));
+    return parts.join(' · ');
+  });
+
+  /**
+   * What the draft says about how much it makes and how long it takes, only where it says anything — the preview's
+   * facts. Each value as proposed; the total is the model's own, never added up here (recipes.md).
+   */
+  readonly sizeAndTime = computed<readonly { readonly label: string; readonly value: string }[]>(() => {
+    const { yield: made, timing } = this.draft();
+    const minutes = (value: string | null) => (value === null ? null : `${value} min`);
+    const batch =
+      made.yieldText ?? ([made.yieldQuantity, made.yieldUnitText].filter((part) => part !== null).join(' ') || null);
+    const facts: [string, string | null][] = [
+      ['Yield', batch],
+      ['Serves', made.servingCount],
+      ['Prep', minutes(timing.prepTimeMinutes)],
+      ['Cook', minutes(timing.cookTimeMinutes)],
+      ['Rest', minutes(timing.restTimeMinutes)],
+      ['Total', minutes(timing.totalTimeMinutes)],
+    ];
+    return facts
+      .filter((fact): fact is [string, string] => fact[1] !== null && fact[1].trim().length > 0)
+      .map(([label, value]) => ({ label, value }));
+  });
+
+  /** Whether the draft proposed nothing about yield, servings or time — said in the preview as one sentence. */
+  readonly noSizeOrTime = computed(() => this.sizeAndTime().length === 0);
+
+  /** The equipment as one line: "Loaf pan, parchment paper (optional), whisk". */
+  readonly equipmentLine = computed(() =>
+    this.draft()
+      .equipment.map((item) => {
+        const text = this.valueOf(`${item.changeId}:displayText`, item.displayText) ?? item.displayText;
+        return item.isOptional ? `${text} (optional)` : text;
+      })
+      .join(', '),
+  );
+
+  /**
+   * A line's preparation note when the line does not already say it. A model often writes "3 ripe bananas, mashed"
+   * and then "mashed" as the note as well, and the same word under the line reads as a second instruction.
+   */
+  preparationNoteShown(line: RecipeDraftIngredient): string | null {
+    const note = line.preparationNote?.trim() ?? '';
+    if (note.length === 0) return null;
+    const text = (this.valueOf(`${line.changeId}:displayText`, line.displayText) ?? '').toLowerCase();
+    return text.includes(note.toLowerCase()) ? null : note;
+  }
 
   /** In-page destinations over one long document. Not tabs — everything is present, this only moves you. */
   readonly sections = computed<readonly CpAnchorNavItem[]>(() => {
@@ -841,23 +907,28 @@ export class RecipeFirstDraftReviewComponent {
 
     this.acceptProblemSignal.set(null);
 
-    const confirmed = await this.confirmService.confirm({
-      title: 'Create a recipe from this draft?',
-      message:
-        'A new recipe will be added to your library from this draft' +
-        (rewrites.length > 0
-          ? `, with your ${rewrites.length === 1 ? 'rewrite' : `${rewrites.length} rewrites`} in place of the suggestions.`
-          : ', as it is shown here.') +
-        (this.hasSafetyCaution()
-          ? ' It carries a safety caution above — check that part before you publish anything from it.'
-          : '') +
-        ' You can keep editing it afterwards.',
-      confirmLabel: 'Create recipe',
-      cancelLabel: 'Keep reviewing',
+    // The preview asks nothing more: "Use this draft" says what it does, the only rewrite it allows is the title in
+    // view beside the button, and the recipe it makes is edited in the steps that follow. The full review keeps the
+    // question (AF.2.2), because there it is the last word on rewrites made anywhere in a long page above it.
+    const confirmed =
+      this.compact ||
+      (await this.confirmService.confirm({
+        title: 'Create a recipe from this draft?',
+        message:
+          'A new recipe will be added to your library from this draft' +
+          (rewrites.length > 0
+            ? `, with your ${rewrites.length === 1 ? 'rewrite' : `${rewrites.length} rewrites`} in place of the suggestions.`
+            : ', as it is shown here.') +
+          (this.hasSafetyCaution()
+            ? ' It carries a safety caution above — check that part before you publish anything from it.'
+            : '') +
+          ' You can keep editing it afterwards.',
+        confirmLabel: 'Create recipe',
+        cancelLabel: 'Keep reviewing',
 
-      // Not the danger tone: this creates something and loses nothing.
-      tone: 'neutral',
-    });
+        // Not the danger tone: this creates something and loses nothing.
+        tone: 'neutral',
+      }));
 
     if (!confirmed) return;
 

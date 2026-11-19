@@ -68,4 +68,27 @@ describe('CpStatusPillComponent', () => {
     const iconEl = fixture.nativeElement.querySelector('.icon') as HTMLElement;
     expect(iconEl.textContent).toBe('★');
   });
+
+  it('draws a spinner in place of the glyph while busy, and the glyph again when not', async () => {
+    const fixture = await createFixture();
+    const host = fixture.nativeElement as HTMLElement;
+    host.append('Working');
+    fixture.componentRef.setInput('tone', 'progress');
+    fixture.componentRef.setInput('busy', true);
+    fixture.detectChanges();
+
+    const spinner = host.querySelector('cp-spinner');
+    expect(spinner).not.toBeNull();
+    expect(spinner!.getAttribute('aria-hidden')).toBe('true');
+    expect(host.querySelectorAll('.icon').length).toBe(1);
+    expect(host.textContent).not.toContain('◐');
+    expect(host.textContent).toContain('Working');
+    expect(host.hasAttribute('data-busy')).toBeTrue();
+
+    fixture.componentRef.setInput('busy', false);
+    fixture.detectChanges();
+    expect(host.querySelector('cp-spinner')).toBeNull();
+    expect(host.querySelector('.icon')?.textContent).toBe('◐');
+    expect(host.hasAttribute('data-busy')).toBeFalse();
+  });
 });

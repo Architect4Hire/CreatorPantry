@@ -370,3 +370,102 @@
     position: static;
   }
 }
+
+/*
+ * The preview (RecipeStudioHost.compactDraft): what the draft is and the one decision first, then what it left
+ * open, then the recipe to read. Spacing between parts is the review's own gap; inside a part, a tighter one.
+ */
+.preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+.preview :is(p, ul, ol, h3, h4, dl) {
+  margin: 0;
+}
+
+.preview-decision,
+.preview-part {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+/* The draft's name, as large as a recipe's would be, with the one edit the preview allows beside it. */
+.preview-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.preview-title {
+  font: 500 var(--cp-font-size-xl) / 1.2 var(--cp-font-display);
+  letter-spacing: var(--cp-tracking-display);
+  overflow-wrap: anywhere;
+}
+
+.preview-description {
+  max-width: var(--cp-measure-prose);
+}
+
+.preview-note {
+  font-size: var(--cp-font-size-sm);
+}
+
+.preview-heading {
+  font: 500 var(--cp-font-size-lg) / 1.2 var(--cp-font-display);
+  letter-spacing: var(--cp-tracking-display);
+}
+
+.preview-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  font-size: var(--cp-font-size-md);
+}
+
+.preview-list,
+.preview-steps {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding-left: var(--cp-space-5);
+  line-height: var(--cp-leading-normal);
+}
+
+.preview-list > li::marker,
+.preview-steps > li::marker {
+  color: var(--cp-text-muted);
+}
+
+.preview-steps {
+  gap: var(--cp-space-3);
+}
+
+.preview-steps > li::marker {
+  font-weight: 700;
+}
+
+.preview-step-extra {
+  display: block;
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Ingredients beside the method where there is room for both, one above the other where there is not. */
+.preview-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--cp-space-6) var(--cp-space-8);
+  align-items: start;
+}
+
+@media (min-width: 60rem) {
+  .preview-columns {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.preview-provenance {
+  font-size: var(--cp-font-size-sm);
+}

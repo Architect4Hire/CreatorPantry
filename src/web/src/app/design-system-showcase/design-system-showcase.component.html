@@ -302,6 +302,11 @@
       }
     </div>
     <cp-status-pill tone="error" [iconHidden]="true">Icon hidden — text alone still conveys meaning</cp-status-pill>
+    <p class="section-note">
+      <code>busy</code> is a process running now — an AI request queued or being worked on — and turns
+      <code>cp-spinner</code> in place of the glyph:
+      <cp-status-pill tone="progress" [busy]="true">Working</cp-status-pill>
+    </p>
   </section>
 
   <section aria-labelledby="list-shell-heading">
@@ -365,12 +370,11 @@
   <section aria-labelledby="skeleton-heading">
     <h2 id="skeleton-heading">Skeleton and spinner</h2>
     <p class="section-note">
-      A skeleton holds the space of what is loading — <code>line</code>, <code>block</code>, <code>circle</code> or
-      <code>card</code> — draws none of it, and turns one <code>cp-spinner</code> in it: centred in a panel, held near
-      the top of a tall space, and text-sized at the start of a single line, where the words will begin. It is never
-      used bare, so each example below is a real part part-way through loading; the list shell above shows
-      <code>rows</code> and <code>cards</code>. Hidden from assistive technology — the region that is loading says so
-      once. Still under reduced motion.
+      A skeleton draws the shape of what is loading — <code>line</code>, <code>block</code>, <code>circle</code> or
+      <code>card</code> — with a shine sweeping across it, and no spinner: a part made of several skeletons is one thing
+      arriving. It is never used bare, so each example below is a real part part-way through loading; the list shell
+      above shows <code>rows</code> and <code>cards</code>. Hidden from assistive technology — the region that is
+      loading says so once. Still under reduced motion.
     </p>
     <ul cpCardGrid minColumn="18rem" class="skeleton-examples" aria-label="Parts part-way through loading">
       <li>
@@ -394,8 +398,8 @@
       </li>
     </ul>
     <p class="section-note spinner-demo">
-      <code>cp-spinner</code> on its own takes the size and colour of the text around it <cp-spinner />, and a busy
-      button draws the same one before its words:
+      <code>cp-spinner</code> is for something happening now. It takes the size and colour of the text around it
+      <cp-spinner />, and a busy button draws it before its words:
       <button cpButton type="button" size="sm" variant="secondary" aria-disabled="true" [busy]="true">Saving…</button>
     </p>
   </section>

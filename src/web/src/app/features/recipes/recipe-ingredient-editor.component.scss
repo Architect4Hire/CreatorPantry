@@ -99,37 +99,81 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-2);
+  gap: var(--cp-space-1);
   flex-shrink: 0;
 }
 
+/* Closed, the lines are a list of the recipe's ingredients, a little apart; an open one takes the room it needs. */
 .rows {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: var(--cp-space-3);
+  gap: var(--cp-space-2);
 }
 
 .row {
   display: grid;
-  gap: var(--cp-space-2);
-  padding: var(--cp-space-3);
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-2) var(--cp-space-3);
   border: 1px solid var(--cp-border);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface);
 }
 
-.original-text {
-  margin: 0;
+/* The line being edited stands out from the closed ones around it: more room, and the control edge. */
+.row--open {
+  padding: var(--cp-space-3);
+  border-color: var(--cp-border-control);
+}
+
+/* The handle a line is moved by: quiet, at the start of its line, and the cursor says it can be picked up. */
+.move-handle {
+  flex: none;
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+  cursor: grab;
+}
+
+/* Where the line will land, shown as the line itself, faded — the board's placeholder. */
+.row.cdk-drag-placeholder {
+  opacity: 0.4;
+}
+
+/* The line in hand, lifted out of its list, with the board's floating shadow. */
+.row.cdk-drag-preview {
+  list-style: none;
+  box-shadow: var(--cp-shadow-lg);
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The line settling into place, and its neighbours making room. Nothing moves on its own otherwise. */
+  .row.cdk-drag-animating,
+  .cdk-drop-list-dragging .row:not(.cdk-drag-placeholder) {
+    transition: transform var(--cp-duration-normal) var(--cp-ease);
+  }
+}
+
+/* The line as the recipe will read it, at reading size: closed, it is what the list is made of. */
+.line-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--cp-text);
+  overflow-wrap: anywhere;
+}
+
+/* A line with nothing in it yet says so, quieter than one that has words. */
+.line-text--empty {
+  color: var(--cp-text-muted);
   font-style: italic;
 }
 
 /* Names the composed line as this editor's own reading, so it is not mistaken for text the creator wrote. */
 .line-label {
-  font-style: normal;
+  margin-inline-end: var(--cp-space-1);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
   font-weight: 600;
 }
 
@@ -188,7 +232,8 @@
   flex: 0 1 20rem;
 }
 
-/* The line's status and its actions on one line: the status at the start, the actions pushed to the far end. */
+/* The line's words and its buttons on one line: the words at the start, the buttons pushed to the far end, and the
+   buttons under the words when there is no room beside them. */
 .row-head {
   display: flex;
   flex-wrap: wrap;
@@ -197,11 +242,15 @@
   gap: var(--cp-space-2);
 }
 
+.row-attention {
+  flex: none;
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-2);
+  gap: var(--cp-space-1);
 }
 
 /* The shared catalogue is unreadable. A warning tone rather than a danger one, and it says so with a glyph as

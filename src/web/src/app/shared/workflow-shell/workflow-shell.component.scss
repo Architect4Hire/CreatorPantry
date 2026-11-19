@@ -74,27 +74,67 @@
   justify-self: start;
 }
 
-/* What a finished run suggests next: one row per suggestion, its action after what it is and why. */
+/* A finished run: a drawing beside what was finished and when, in the ink of the page's tool. */
+.finished {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.finished-art {
+  --cp-illustration-size: 4.5rem;
+  flex: none;
+  color: var(--cp-tone-text);
+}
+
+.finished-text {
+  display: grid;
+  gap: var(--cp-space-1);
+}
+
+.finished-lede {
+  margin: 0;
+  font-size: var(--cp-font-size-lg);
+  font-weight: 600;
+}
+
+/* What a finished run suggests next: a card each, the drawing, what it is and why, then its one action. */
 .next {
   display: grid;
-  gap: var(--cp-space-3);
+  gap: var(--cp-space-4);
+  padding-top: var(--cp-space-6);
+  border-top: 1px solid var(--cp-border);
 }
 
 .next-heading {
   margin: 0;
+  font-size: var(--cp-font-size-lg);
+}
+
+.next-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--cp-space-2);
+  height: 100%;
+  justify-items: start;
+  box-sizing: border-box;
+}
+
+.next-art {
+  --cp-illustration-size: 3rem;
+  margin-bottom: var(--cp-space-1);
+  color: var(--cp-tone-text);
+}
+
+.next-title {
+  margin: 0;
   font-size: var(--cp-font-size-md);
 }
 
-.next-list {
-  display: grid;
-  gap: var(--cp-space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.next-why {
+  color: var(--cp-text-muted);
 }
 
-.next-item {
-  display: grid;
-  gap: var(--cp-space-2);
-  justify-items: start;
+.next-card > :last-child {
+  margin-top: var(--cp-space-2);
 }

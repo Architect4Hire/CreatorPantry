@@ -309,6 +309,16 @@ function selectEditTab(harness: RouterTestingHarness, label: 'General' | 'Ingred
   harness.detectChanges();
 }
 
+/** Opens every ingredient line by its Edit button, as a creator would: the list opens with its lines closed. */
+function openIngredientLines(harness: RouterTestingHarness): void {
+  harness
+    .routeNativeElement!.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label^="Edit ingredient"][aria-expanded="false"]',
+    )
+    .forEach((button) => button.click());
+  harness.detectChanges();
+}
+
 /**
  * The tablist of the Edit area's form tabs, found by its own name: whether an areas tablist sits above it
  * depends on the mode, because a recipe being created has none.
@@ -3531,6 +3541,7 @@ describe('RecipeEditorComponent', () => {
         recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: detail });
         const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
         selectEditTab(harness, 'Ingredients');
+        openIngredientLines(harness);
 
         const rowKey = component.form.editedIngredientGroups()[0].ingredients[0].key;
         const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="row-quantity-${rowKey}"]`);
@@ -3718,6 +3729,7 @@ describe('RecipeEditorComponent', () => {
         const recipeService = recipeServiceSpy();
         const { harness, component } = await loadedWithRange(recipeService);
         selectEditTab(harness, 'Ingredients');
+        openIngredientLines(harness);
 
         const quantity = harness.routeNativeElement!.querySelector<HTMLInputElement>('input[id="row-quantity-ing1"]')!;
         expect(quantity).withContext("the row's quantity input").toBeTruthy();
@@ -3738,6 +3750,7 @@ describe('RecipeEditorComponent', () => {
         const recipeService = recipeServiceSpy();
         const { harness, component } = await loadedWithRange(recipeService);
         selectEditTab(harness, 'Ingredients');
+        openIngredientLines(harness);
 
         const prep = harness.routeNativeElement!.querySelector<HTMLInputElement>('[id="row-prep-ing1"]')!;
         prep.value = 'sifted';
@@ -4363,7 +4376,10 @@ describe('RecipeEditorComponent', () => {
         .toBeLessThan(2);
       // Quiet: an arrow and a cross, each named for the step it acts on — never a red "Remove step" button.
       expect(root.querySelector('button[aria-label="Remove step 1"]')?.textContent?.trim()).toBe('✕');
-      expect(root.querySelector('.step-controls button[aria-label="Move step 1 up"]')).toBeTruthy();
+      // Moved by its handle, at the start of its line, rather than by an up and a down button at the end of it.
+      expect(root.querySelector(`#step-handle-${key}`)?.getAttribute('aria-label')).toBe('Move step 1');
+      expect(root.querySelector('button[aria-label="Move step 1 up"]')).toBeNull();
+      expect(rect(`#step-handle-${key}`).right).toBeLessThanOrEqual(text.left);
 
       // Narrow — a phone, or 200% zoom: the words keep the width, and the controls go under them.
       root.style.width = '24rem';
@@ -4373,6 +4389,26 @@ describe('RecipeEditorComponent', () => {
       expect(root.scrollWidth)
         .withContext('nothing spills sideways')
         .toBeLessThanOrEqual(root.clientWidth + 1);
+    });
+
+    it('moves a step with its handle’s arrow keys and says where it went', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      clickButton(harness, 'Add step');
+      const root = harness.routeNativeElement!;
+      const [first, second] = component.form.instructionGroups()[0].steps;
+
+      const handle = root.querySelector<HTMLButtonElement>(`#step-handle-${first.key}`)!;
+      expect(document.getElementById(handle.getAttribute('aria-describedby')!)?.textContent).toContain('arrow keys');
+      const press = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      handle.dispatchEvent(press);
+      harness.detectChanges();
+
+      expect(press.defaultPrevented).toBeTrue();
+      expect(component.form.instructionGroups()[0].steps.map((step) => step.key)).toEqual([second.key, first.key]);
+      expect(root.textContent).toContain('Moved step to position 2 of 2.');
     });
 
     it('asks before removing a step with words in it, and removes an empty one at once', async () => {

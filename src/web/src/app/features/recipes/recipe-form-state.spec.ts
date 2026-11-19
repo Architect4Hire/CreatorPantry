@@ -162,6 +162,29 @@ describe('RecipeFormState', () => {
   });
 
   describe('the instruction list', () => {
+    // What a drop or a move handle's key does: to a place in the step's own phase, or into another.
+    it('moves a step to a place, in its own group or another, keeping every other step in order', () => {
+      const form = createForm();
+      form.addInstructionStep();
+      form.addInstructionStep();
+      const firstGroup = form.instructionGroups()[0];
+      const [mix, bake] = firstGroup.steps;
+      const secondGroupKey = form.addInstructionGroup();
+      const cool = form.addInstructionStep(secondGroupKey);
+
+      form.moveInstructionStepTo(mix.key, { groupKey: firstGroup.key, index: 1 });
+      expect(form.instructionGroups()[0].steps.map((step) => step.key)).toEqual([bake.key, mix.key]);
+
+      form.moveInstructionStepTo(bake.key, { groupKey: secondGroupKey, index: 1 });
+      expect(form.instructionGroups()[0].steps.map((step) => step.key)).toEqual([mix.key]);
+      expect(form.instructionGroups()[1].steps.map((step) => step.key)).toEqual([cool, bake.key]);
+
+      // A step or a group that is not there leaves the list as it was.
+      form.moveInstructionStepTo('missing', { groupKey: firstGroup.key, index: 0 });
+      form.moveInstructionStepTo(mix.key, { groupKey: 'missing', index: 0 });
+      expect(form.instructionGroups()[0].steps.map((step) => step.key)).toEqual([mix.key]);
+    });
+
     it('adds, moves and removes steps and groups by key', () => {
       const form = createForm();
 

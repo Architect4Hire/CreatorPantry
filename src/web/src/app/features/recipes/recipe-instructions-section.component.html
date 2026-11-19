@@ -18,6 +18,13 @@
     <p class="cp-muted"> No instructions yet. Add the first step, and give the method phases only if it has them. </p>
   }
 
+  <!-- A move by drag or by key happens in silence, so it is said here, in words: what moved and where to. -->
+  <div class="cp-sr-only" role="status" aria-live="polite">{{ moveAnnouncement() }}</div>
+  <!-- How a step's handle moves it, said once for every handle. -->
+  <p id="step-move-help" class="cp-sr-only">
+    Drag to move the step, or use the Up and Down arrow keys. Home and End move it to the top or the bottom.
+  </p>
+
   <div class="grouped-layout" [class.has-group-nav]="showInstructionGroupNav()">
     @if (showInstructionGroupNav()) {
       <!-- The same component the ingredient editor renders, so the two navs cannot drift apart. It says
@@ -31,7 +38,8 @@
       />
     }
 
-    <div class="groups">
+    <!-- One drop group across the phases, so a step can be dragged from one into another. -->
+    <div class="groups" cdkDropListGroup>
       @for (group of form.instructionGroups(); track group.key; let groupIndex = $index, groupCount = $count) {
         <section class="group instruction-group" [id]="'instruction-group-' + group.key">
           <!-- Only a method with phases has headings to show; see the same @if in the ingredient editor. -->
@@ -51,26 +59,27 @@
                   [name]="'groupTitle' + group.key"
                 />
               </cp-field>
+              <!-- The same quiet icon buttons as a step's, each saying which group it acts on. -->
               <div class="group-actions">
                 <button
                   cpButton
-                  variant="secondary"
+                  variant="ghost"
                   type="button"
                   [disabled]="groupIndex === 0"
                   [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' up'"
                   (click)="form.moveInstructionGroup(group.key, -1)"
                 >
-                  ↑
+                  <span aria-hidden="true">↑</span>
                 </button>
                 <button
                   cpButton
-                  variant="secondary"
+                  variant="ghost"
                   type="button"
                   [disabled]="groupIndex === groupCount - 1"
                   [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' down'"
                   (click)="form.moveInstructionGroup(group.key, 1)"
                 >
-                  ↓
+                  <span aria-hidden="true">↓</span>
                 </button>
                 <button
                   cpButton
@@ -79,17 +88,40 @@
                   [attr.aria-label]="'Remove group ' + (groupIndex + 1)"
                   (click)="form.removeInstructionGroup(group.key)"
                 >
-                  Remove group
+                  <span aria-hidden="true">✕</span>
                 </button>
               </div>
             </div>
           }
 
           <!-- A method reads as a numbered list, not a stack of cards: the number in a gutter, the step's words beside
-               it, and its controls quiet at the end of the line. A thin rule between steps, nothing boxed. -->
-          <ol class="steps">
-            @for (step of group.steps; track step.key; let stepIndex = $index, stepCount = $count) {
-              <li class="step">
+               it, and its controls quiet at the end of the line. A thin rule between steps, nothing boxed. Each list
+               carries its group's key, so a drop says which phase the step went to. -->
+          <ol
+            class="steps"
+            cdkDropList
+            cdkDropListLockAxis="y"
+            [cdkDropListData]="group.key"
+            (cdkDropListDropped)="onStepDropped($event)"
+          >
+            @for (step of group.steps; track step.key; let stepIndex = $index) {
+              <li class="step" cdkDrag [cdkDragData]="step.key">
+                <!-- The one way to move a step: dragged by the pointer, or moved from the keyboard with the arrow keys
+                     while it has focus (SC 2.5.7). Picked up here only, so the words can still be selected. -->
+                <button
+                  cpButton
+                  variant="ghost"
+                  type="button"
+                  class="move-handle"
+                  cdkDragHandle
+                  [id]="'step-handle-' + step.key"
+                  [attr.aria-label]="'Move step ' + (stepIndex + 1)"
+                  aria-describedby="step-move-help"
+                  (keydown)="onStepHandleKeydown($event, step.key)"
+                >
+                  <span aria-hidden="true">⠿</span>
+                </button>
+
                 <!-- The number the creator reads. The field's own label, "Step N", is what a screen reader hears. -->
                 <span class="step-number" aria-hidden="true">{{ stepIndex + 1 }}</span>
 
@@ -176,29 +208,9 @@
                   }
                 </div>
 
-                <!-- Move and remove, quiet and level with the step's first line: found without reading down the step,
-                     and never the loudest thing on it. Each says which step it acts on. -->
+                <!-- Remove, quiet and level with the step's first line: found without reading down the step, and never
+                     the loudest thing on it. It says which step it acts on. -->
                 <div class="step-controls">
-                  <button
-                    cpButton
-                    variant="ghost"
-                    type="button"
-                    [disabled]="stepIndex === 0"
-                    [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' up'"
-                    (click)="form.moveInstructionStep(group.key, step.key, -1)"
-                  >
-                    <span aria-hidden="true">↑</span>
-                  </button>
-                  <button
-                    cpButton
-                    variant="ghost"
-                    type="button"
-                    [disabled]="stepIndex === stepCount - 1"
-                    [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' down'"
-                    (click)="form.moveInstructionStep(group.key, step.key, 1)"
-                  >
-                    <span aria-hidden="true">↓</span>
-                  </button>
                   <button
                     cpButton
                     variant="ghost"

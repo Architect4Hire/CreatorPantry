@@ -65,13 +65,27 @@
     -->
     <ng-container *ngTemplateOutlet="watchControls" />
   } @else if (operation(); as op) {
-    <cp-ai-operation-status
-      [status]="op.status"
-      [failureCategory]="op.failureCategory"
-      [requestedAt]="op.requestedAt"
-      [statusChangedAt]="op.statusChangedAt"
-      [connection]="connection()"
-    />
+    <!-- In the preview, a draft that has arrived needs no status line: the "Drafted by AI" mark and the decision say
+         it. The line stays for everything else — on its way, failed, expired — where it is the news. -->
+    @if (!(compact && state() === 'proposed')) {
+      <cp-ai-operation-status
+        [status]="op.status"
+        [failureCategory]="op.failureCategory"
+        [requestedAt]="op.requestedAt"
+        [statusChangedAt]="op.statusChangedAt"
+        [connection]="connection()"
+      />
+    }
+
+    <!-- While the draft is being written, its shape under the status that says so (APP-003): a sentence alone gave no
+         sign that anything was happening. The status line is what is read. -->
+    @if (state() === 'watching') {
+      <div class="draft-loading" aria-hidden="true">
+        <cp-skeleton shape="line" />
+        <cp-skeleton shape="block" />
+        <cp-skeleton shape="line" [count]="6" />
+      </div>
+    }
 
     <ng-container *ngTemplateOutlet="watchControls" />
 
@@ -79,7 +93,9 @@
       <p class="draft-notice" role="status">Asking again usually works. Start a new draft request to try.</p>
     }
 
-    @if (state() === 'proposed') {
+    @if (state() === 'proposed' && compact) {
+      <ng-container *ngTemplateOutlet="preview" />
+    } @else if (state() === 'proposed') {
       <!-- The whole page below is the draft, and it has an edge of its own in every card, so the mark alone,
            at the top, before the first part of it (APP-006). The detail is "How this was made", at the end. -->
       <cp-generated-label class="draft-generated" [provenance]="provenance()" />
@@ -345,8 +361,8 @@
                         }
                       </div>
 
-                      @if (line.preparationNote) {
-                        <p class="draft-line-note">{{ line.preparationNote }}</p>
+                      @if (preparationNoteShown(line); as note) {
+                        <p class="draft-line-note">{{ note }}</p>
                       }
 
                       <ng-container
@@ -570,6 +586,224 @@
       <span class="draft-watch-note">This page has stopped checking on its own.</span>
     </div>
   }
+</ng-template>
+
+<!--
+  The draft as a preview with one decision (RecipeStudioHost.compactDraft): what it is and the decision first, what
+  it left open, then the recipe to read — nothing to edit but its name, because the steps that follow are where the
+  recipe is edited. The same acceptance as the full review, with the same blockers; only the asking differs.
+-->
+<ng-template #preview>
+  @let p = draft();
+  <div class="preview">
+    <cp-generated-label class="draft-generated" [provenance]="provenance()" />
+
+    <div class="preview-decision">
+      <div class="preview-title-row">
+        <h3 class="preview-title">{{ valueOf('recipe:title', p.title) ?? 'Untitled draft' }}</h3>
+        @if (isEdited('recipe:title')) {
+          <cp-badge tone="blue">Your wording</cp-badge>
+        }
+        <ng-container
+          *ngTemplateOutlet="editor; context: { $implicit: editTarget('recipe', 'title', 'Title', p.title) }"
+        />
+      </div>
+      <p class="plain cp-muted">{{ sizeLine() }}</p>
+      @if (p.description) {
+        <p class="plain preview-description">{{ p.description }}</p>
+      }
+
+      @if (missingRequired().length > 0) {
+        <cp-notice tone="warning" role="status" class="draft-missing">
+          Not complete enough to become a recipe yet. Still missing: {{ missingRequired().join(', ') }}.
+        </cp-notice>
+      }
+      @if (acceptBlocker(); as blocker) {
+        <cp-notice tone="warning" role="status" class="draft-accept-blocker" id="draft-accept-blocker">
+          {{ blocker }}
+        </cp-notice>
+      }
+      @if (acceptProblem(); as problem) {
+        <cp-notice tone="error" role="alert" class="draft-accept-problem">{{ problem }}</cp-notice>
+      }
+
+      <div class="cp-actions">
+        <!-- aria-disabled rather than disabled, for the reason the full review gives. -->
+        <button
+          cpButton
+          [busy]="accepting()"
+          type="button"
+          variant="primary"
+          class="draft-accept"
+          [attr.aria-disabled]="canAccept() ? null : 'true'"
+          [attr.aria-describedby]="acceptBlocker() ? 'draft-accept-blocker' : 'draft-actions-note'"
+          (click)="accept()"
+        >
+          {{ accepting() ? 'Creating your recipe…' : 'Use this draft' }}
+        </button>
+        <button cpButton type="button" variant="text" class="draft-discard" (click)="discard()">Discard</button>
+      </div>
+      <p class="plain cp-muted preview-note" id="draft-actions-note">
+        Adds it to your recipes and moves on to the next step, where you can change anything in it.
+      </p>
+    </div>
+
+    @if (unresolvedQuestions().length > 0) {
+      <section class="preview-part" aria-labelledby="cp-draft-unresolved">
+        <h3 id="cp-draft-unresolved" class="preview-heading">The draft left these to you</h3>
+        <p class="plain cp-muted">The model wouldn’t guess at these. You can settle them in the next steps.</p>
+        <ul class="preview-list">
+          @for (question of unresolvedQuestions(); track $index) {
+            <li>{{ question.message }}</li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (warnings().length > 0) {
+      <section class="preview-part" aria-labelledby="cp-draft-warnings">
+        <h3 id="cp-draft-warnings" class="preview-heading">Worth checking</h3>
+        <ul class="preview-list">
+          @for (warning of warnings(); track $index) {
+            <li [attr.data-kind]="warning.kind">
+              <strong>{{ warningLabel(warning.kind) }}:</strong> {{ warning.message }}
+            </li>
+          }
+        </ul>
+        <!-- Said whether or not anything is flagged, for the reason the full review gives (ai.md). -->
+        <p class="plain cp-muted">Anything not flagged here simply wasn’t flagged — it hasn’t been checked.</p>
+      </section>
+    }
+
+    <!-- Size and time: only what the draft says, and one sentence when it says nothing. -->
+    @if (noSizeOrTime()) {
+      <p class="plain cp-muted preview-missing">No yield or times yet. You’ll add them in a later step.</p>
+    } @else {
+      <dl cpFacts layout="across" class="preview-facts">
+        @for (fact of sizeAndTime(); track fact.label) {
+          <div cpFact [label]="fact.label">{{ fact.value }}</div>
+        }
+      </dl>
+    }
+
+    @if (linesWithoutAmount().length; as count) {
+      <cp-notice tone="warning" role="status">
+        {{ count === 1 ? 'One line does not say how much' : count + ' lines do not say how much' }}:
+        {{ linesWithoutAmount().join('; ') }}. You can add {{ count === 1 ? 'the amount' : 'the amounts' }} in the
+        ingredients step — a line without one cannot be scaled or converted.
+      </cp-notice>
+    }
+    @if (linesWithUnrecognisedUnit(); as lines) {
+      @if (lines.length > 0) {
+        <cp-notice class="unit-notice" tone="warning" role="status">
+          {{
+            lines.length === 1
+              ? 'One line uses a unit CreatorPantry doesn’t recognise'
+              : lines.length + ' lines use units CreatorPantry doesn’t recognise'
+          }}:
+          @for (line of lines; track $index; let last = $last) {
+            “{{ line.unit }}” in “{{ line.text }}”{{ last ? '.' : ';' }}
+          }
+          You can pick {{ lines.length === 1 ? 'a unit for it' : 'a unit for each' }} in the ingredients step.
+        </cp-notice>
+      }
+    }
+
+    <div class="preview-columns">
+      <section class="preview-part" aria-labelledby="cp-draft-ingredients">
+        <h3 id="cp-draft-ingredients" class="preview-heading">Ingredients</h3>
+        @if (ingredientCount() === 0) {
+          <p class="plain cp-muted">The draft didn’t propose any ingredients.</p>
+        }
+        @for (group of p.ingredientGroups; track group.changeId; let gi = $index) {
+          @if (groupHeading(group, gi, p.ingredientGroups.length); as heading) {
+            <h4 class="preview-group">
+              {{ heading }}
+              @if (group.isOptional) {
+                <cp-badge tone="orange">Optional</cp-badge>
+              }
+            </h4>
+          }
+          <ul class="preview-list preview-ingredients">
+            @for (line of group.items; track line.changeId) {
+              <li>
+                {{ valueOf(line.changeId + ':displayText', line.displayText) }}
+                @if (preparationNoteShown(line); as note) {
+                  <span class="cp-muted">({{ note }})</span>
+                }
+                @if (line.isOptional) {
+                  <cp-badge tone="orange">Optional</cp-badge>
+                }
+                @if (unitIsUnrecognised(line.unitText)) {
+                  <cp-status-pill tone="warning">Unit “{{ line.unitText?.trim() }}” not recognised</cp-status-pill>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="preview-part" aria-labelledby="cp-draft-method">
+        <h3 id="cp-draft-method" class="preview-heading">Method</h3>
+        @if (stepCount() === 0) {
+          <p class="plain cp-muted">The draft didn’t propose any steps.</p>
+        }
+        @for (group of p.instructionGroups; track group.changeId; let gi = $index) {
+          @if (groupHeading(group, gi, p.instructionGroups.length); as heading) {
+            <h4 class="preview-group">
+              {{ heading }}
+              @if (group.isOptional) {
+                <cp-badge tone="orange">Optional</cp-badge>
+              }
+            </h4>
+          }
+          <ol class="preview-steps">
+            @for (step of group.items; track step.changeId) {
+              <li>
+                {{ step.text }}
+                @if (step.note) {
+                  <span class="preview-step-extra cp-muted">{{ step.note }}</span>
+                }
+                @if (step.durationMinutes) {
+                  <span class="preview-step-extra cp-muted">About {{ step.durationMinutes }} minutes.</span>
+                }
+              </li>
+            }
+          </ol>
+        }
+      </section>
+    </div>
+
+    @if (p.equipment.length > 0) {
+      <section class="preview-part" aria-labelledby="cp-draft-equipment">
+        <h3 id="cp-draft-equipment" class="preview-heading">Equipment</h3>
+        <p class="plain">{{ equipmentLine() }}</p>
+      </section>
+    }
+
+    <!-- Anything this view could not place, as the full review shows it: visible the day it ships. -->
+    @if (p.unrecognisedFields.length > 0) {
+      <section class="preview-part" aria-labelledby="cp-draft-extra">
+        <h3 id="cp-draft-extra" class="preview-heading">Also suggested</h3>
+        <ul class="preview-list">
+          @for (extra of p.unrecognisedFields; track extra.changeId) {
+            <li>{{ extra.fieldName ?? extra.targetKind }}: {{ extra.afterValue }}</li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- What made it, out of the way: the model is recorded on the request, and a creator rarely needs it here. -->
+    @if (operation()?.proposal; as proposal) {
+      <details class="cp-disclosure preview-provenance">
+        <summary>How this was made</summary>
+        <dl cpFacts layout="across">
+          <div cpFact label="Model">{{ proposal.modelName }}</div>
+          <div cpFact label="Prompt">{{ proposal.promptTemplateId }} {{ proposal.promptTemplateVersion }}</div>
+        </dl>
+      </details>
+    }
+  </div>
 </ng-template>
 
 <!--

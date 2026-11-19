@@ -55,7 +55,7 @@
   --cp-duration-enter: 200ms;
   --cp-enter-distance: 0.375rem;
   --cp-enter-stagger: 40ms;
-  /* One sweep of the loading bar. Slow, because it says "still coming", not "hurry". */
+  /* One sweep of the loading bar, and of a skeleton's shine. Slow, because it says "still coming", not "hurry". */
   --cp-duration-sweep: 1.4s;
   /* One turn of a busy button's spinner. Brisker than a skeleton: the creator has just pressed it and is watching. */
   --cp-duration-spinner: 0.8s;

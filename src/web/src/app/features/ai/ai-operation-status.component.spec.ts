@@ -106,6 +106,25 @@ describe('AiOperationStatusComponent', () => {
     expect(element.querySelector('[role="status"]')?.textContent).toContain('last update');
   });
 
+  it('turns a spinner in the pill while the request is queued or being worked on', async () => {
+    for (const status of ['Requested', 'Running'] as const) {
+      const element = await render({ status });
+      expect(element.querySelector('cp-status-pill cp-spinner')).withContext(status).not.toBeNull();
+    }
+    for (const status of ['Proposed', 'Accepted', 'Failed', 'Expired'] as const) {
+      const element = await render({ status, failureCategory: status === 'Failed' ? 'Timeout' : null });
+      expect(element.querySelector('cp-spinner')).withContext(status).toBeNull();
+    }
+  });
+
+  // Out of date, the panel does not know the request is still running, so it does not claim it with a spinner.
+  it('stops the spinner when what it is showing may be out of date', async () => {
+    const element = await render({ status: 'Running', connection: 'degraded' });
+
+    expect(element.querySelector('cp-spinner')).toBeNull();
+    expect(element.querySelector('cp-status-pill')?.textContent).toContain('Working');
+  });
+
   describe('isRetryableAiOutcome', () => {
     it('offers another attempt for the failures that resolve themselves', () => {
       for (const category of ['Provider', 'RateLimited', 'Timeout', 'Cancelled', 'LeaseAbandoned'] as const) {

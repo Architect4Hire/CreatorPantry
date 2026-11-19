@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 
 import { RecipeIngredientGroup } from '../../models/recipe.models';
@@ -21,6 +22,18 @@ async function createFixture(): Promise<ComponentFixture<RecipeIngredientEditorC
   fixture.componentRef.setInput('workspaceSlug', 'cozy-fall');
   fixture.detectChanges();
   return fixture;
+}
+
+/**
+ * Opens every closed line by its Edit button, as a creator would: a list opens with its lines closed to their words,
+ * and a test about a line's fields has to open it first.
+ */
+function openEveryLine(fixture: ComponentFixture<RecipeIngredientEditorComponent>): void {
+  const element = fixture.nativeElement as HTMLElement;
+  element
+    .querySelectorAll<HTMLButtonElement>('button[aria-label^="Edit ingredient"][aria-expanded="false"]')
+    .forEach((button) => button.click());
+  fixture.detectChanges();
 }
 
 const SEEDED_GROUP: RecipeIngredientGroup = {
@@ -84,6 +97,7 @@ describe('RecipeIngredientEditorComponent', () => {
     const fixture = await createFixture();
     fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
     fixture.detectChanges();
+    openEveryLine(fixture);
 
     const pills = fixture.nativeElement.querySelectorAll('cp-status-pill');
     expect(pills.length).toBeGreaterThanOrEqual(2);
@@ -91,6 +105,96 @@ describe('RecipeIngredientEditorComponent', () => {
     pills.forEach((pill: HTMLElement) => expect(pill.textContent?.trim().length).toBeGreaterThan(0));
     expect(pills[0].textContent).toContain('Matched');
     expect(pills[1].textContent).toContain('No match');
+  });
+
+  /** A list reads as its ingredients; the creator opens the one line they want to change. */
+  describe('lines closed to their words', () => {
+    async function loaded(): Promise<ComponentFixture<RecipeIngredientEditorComponent>> {
+      const fixture = await createFixture();
+      fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    const element = (fixture: ComponentFixture<RecipeIngredientEditorComponent>) =>
+      fixture.nativeElement as HTMLElement;
+    const editButton = (fixture: ComponentFixture<RecipeIngredientEditorComponent>, n: number) =>
+      element(fixture).querySelector<HTMLButtonElement>(`button[aria-label="Edit ingredient ${n}"]`)!;
+
+    it('opens with every line closed to its words, its buttons beside them and no fields', async () => {
+      const fixture = await loaded();
+
+      const lines = element(fixture).querySelectorAll('.row');
+      expect(lines.length).toBe(2);
+      expect(lines[0].querySelector('.line-text')?.textContent?.trim()).toBe('2 cups flour');
+      expect(lines[1].querySelector('.line-text')?.textContent?.trim()).toBe('1 tsp salt');
+      expect(element(fixture).querySelector('[id^="row-quantity-"]')).toBeNull();
+      expect(element(fixture).querySelector('.row-status')).toBeNull();
+
+      for (const label of ['Move ingredient 1', 'Edit ingredient 1', 'Remove ingredient 1']) {
+        expect(element(fixture).querySelector(`button[aria-label="${label}"]`))
+          .withContext(label)
+          .not.toBeNull();
+      }
+      expect(editButton(fixture, 1).getAttribute('aria-expanded')).toBe('false');
+      expect(editButton(fixture, 1).textContent?.trim()).toBe('✎');
+    });
+
+    it('opens one line’s fields with its Edit button, and closes them again keeping what was typed', async () => {
+      const fixture = await loaded();
+
+      editButton(fixture, 1).click();
+      fixture.detectChanges();
+      expect(editButton(fixture, 1).getAttribute('aria-expanded')).toBe('true');
+      expect(editButton(fixture, 1).textContent?.trim()).toBe('✓');
+      expect(element(fixture).querySelector('#row-quantity-ing1')).not.toBeNull();
+      // Only that line: the other stays closed.
+      expect(element(fixture).querySelector('#row-quantity-ing2')).toBeNull();
+      expect(editButton(fixture, 2).getAttribute('aria-expanded')).toBe('false');
+
+      const prep = element(fixture).querySelector<HTMLTextAreaElement>('#row-prep-ing1')!;
+      prep.value = 'sifted';
+      prep.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      editButton(fixture, 1).click();
+      fixture.detectChanges();
+      expect(element(fixture).querySelector('#row-quantity-ing1')).toBeNull();
+      expect(editButton(fixture, 1).getAttribute('aria-expanded')).toBe('false');
+      expect(fixture.componentInstance.groups()[0].ingredients[0].preparationNote).toBe('sifted');
+    });
+
+    it('opens a new line, since it has no words yet and the creator is about to fill it in', async () => {
+      const fixture = await loaded();
+      fixture.componentInstance.addRow(fixture.componentInstance.groups()[0].key);
+      fixture.detectChanges();
+
+      expect(editButton(fixture, 3).getAttribute('aria-expanded')).toBe('true');
+      const newKey = fixture.componentInstance.groups()[0].ingredients[2].key;
+      expect(element(fixture).querySelector(`#row-quantity-${newKey}`)).not.toBeNull();
+      expect(element(fixture).querySelectorAll('.row')[2].querySelector('.line-text')?.textContent).toContain(
+        'not filled in yet',
+      );
+    });
+
+    it('opens a line the server refused, so its sentence and its fields are never folded away', async () => {
+      const fixture = await loaded();
+      fixture.componentRef.setInput('rowErrors', new Map([['ing2', ['Give this line an ingredient.']]]));
+      fixture.detectChanges();
+
+      expect(editButton(fixture, 2).getAttribute('aria-expanded')).toBe('true');
+      expect(element(fixture).querySelector('.row-problem')?.textContent).toContain('Give this line an ingredient.');
+      expect(element(fixture).querySelector('#row-quantity-ing2')).not.toBeNull();
+      expect(editButton(fixture, 1).getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('keeps saying on a closed line what still needs settling, and nothing about a line that is fine', async () => {
+      const fixture = await loaded();
+      const lines = element(fixture).querySelectorAll('.row');
+
+      expect(lines[0].querySelector('.row-attention')).toBeNull();
+      expect(lines[1].querySelector('.row-attention')?.textContent).toContain('No match — review needed');
+    });
   });
 
   describe('units CreatorPantry does not recognise', () => {
@@ -126,6 +230,7 @@ describe('RecipeIngredientEditorComponent', () => {
       const fixture = await createFixture();
       fixture.componentRef.setInput('initialGroups', [UNRECOGNISED_GROUP]);
       fixture.detectChanges();
+      openEveryLine(fixture);
       return fixture;
     }
 
@@ -133,6 +238,20 @@ describe('RecipeIngredientEditorComponent', () => {
       const element: HTMLElement | null = fixture.nativeElement.querySelector(`#row-unit-${key}-warning`);
       return element?.textContent?.trim() ?? '';
     }
+
+    // The warning under the Unit field is folded away with the line, so the closed line says it for itself.
+    it('says so on a closed line too, without opening it', async () => {
+      const fixture = await createFixture();
+      fixture.componentRef.setInput('initialGroups', [UNRECOGNISED_GROUP]);
+      fixture.detectChanges();
+
+      const lines = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.row'));
+      const butter = lines.find((line) => line.textContent?.includes('1 knob butter'))!;
+      const eggs = lines.find((line) => line.textContent?.includes('3 eggs'))!;
+      expect(butter.querySelector('#row-unit-ing3')).toBeNull();
+      expect(butter.querySelector('.row-attention')?.textContent).toContain('Unit not recognised');
+      expect(eggs.querySelector('.row-attention')).toBeNull();
+    });
 
     it('marks the line under its Unit field, quoting the word and saying what it costs', async () => {
       const fixture = await seeded();
@@ -212,36 +331,139 @@ describe('RecipeIngredientEditorComponent', () => {
     expect(fixture.componentInstance.groups()[0].ingredients.length).toBe(1);
   });
 
-  it('reorders rows with moveRow and announces the move for screen readers', async () => {
-    const fixture = await createFixture();
-    fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
-    fixture.detectChanges();
+  /** Moving a line has two paths that do the same: a drag by its handle, and its handle's keys (SC 2.5.7). */
+  describe('moving a line by its handle', () => {
+    const SECOND_GROUP: RecipeIngredientGroup = {
+      id: 'group2',
+      title: 'For the filling',
+      sortOrder: 1,
+      ingredients: [{ ...SEEDED_GROUP.ingredients[0], id: 'ing5', sortOrder: 0, displayText: '3 apples' }],
+    };
 
-    const [group] = fixture.componentInstance.groups();
-    const firstKey = group.ingredients[0].key;
-    fixture.componentInstance.moveRow(group.key, firstKey, 1);
-    fixture.detectChanges();
+    async function loaded(
+      groups: readonly RecipeIngredientGroup[] = [SEEDED_GROUP],
+    ): Promise<ComponentFixture<RecipeIngredientEditorComponent>> {
+      const fixture = await createFixture();
+      fixture.componentRef.setInput('initialGroups', groups);
+      fixture.detectChanges();
+      document.body.appendChild(fixture.nativeElement);
+      return fixture;
+    }
 
-    expect(fixture.componentInstance.groups()[0].ingredients[1].key).toBe(firstKey);
-    expect(fixture.componentInstance.moveAnnouncement()).toContain('position 2 of 2');
-  });
+    const handleOf = (fixture: ComponentFixture<RecipeIngredientEditorComponent>, rowKey: string) =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(`#ingredient-handle-${rowKey}`)!;
 
-  it('renders up/down buttons disabled at the boundaries of the row list', async () => {
-    const fixture = await createFixture();
-    fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
-    fixture.detectChanges();
+    async function press(fixture: ComponentFixture<RecipeIngredientEditorComponent>, rowKey: string, key: string) {
+      const handle = handleOf(fixture, rowKey);
+      handle.focus();
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      handle.dispatchEvent(event);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return event;
+    }
 
-    const upButtons: HTMLButtonElement[] = Array.from(
-      fixture.nativeElement.querySelectorAll('button[aria-label^="Move ingredient"][aria-label$="up"]'),
-    );
-    const downButtons: HTMLButtonElement[] = Array.from(
-      fixture.nativeElement.querySelectorAll('button[aria-label^="Move ingredient"][aria-label$="down"]'),
-    );
+    const keysOf = (fixture: ComponentFixture<RecipeIngredientEditorComponent>, groupIndex = 0) =>
+      fixture.componentInstance.groups()[groupIndex].ingredients.map((row) => row.key);
 
-    expect(upButtons[0].disabled).toBeTrue();
-    expect(downButtons[downButtons.length - 1].disabled).toBeTrue();
-    expect(upButtons[upButtons.length - 1].disabled).toBeFalse();
-    expect(downButtons[0].disabled).toBeFalse();
+    afterEach(() => document.querySelectorAll('cp-recipe-ingredient-editor').forEach((host) => host.remove()));
+
+    it('gives every line one handle, named for it and told how it moves, and no up and down buttons', async () => {
+      const fixture = await loaded();
+      const element = fixture.nativeElement as HTMLElement;
+
+      const handle = handleOf(fixture, 'ing1');
+      expect(handle.getAttribute('aria-label')).toBe('Move ingredient 1');
+      expect(handle.classList).toContain('cdk-drag-handle');
+      expect(document.getElementById(handle.getAttribute('aria-describedby')!)?.textContent).toContain('arrow keys');
+      expect(element.querySelectorAll('.move-handle').length).toBe(2);
+      expect(element.querySelector('.row button[aria-label$=" up"], .row button[aria-label$=" down"]')).toBeNull();
+    });
+
+    it('moves a line a place with Up and Down, keeps focus on its handle, and says where it went', async () => {
+      const fixture = await loaded();
+
+      const event = await press(fixture, 'ing1', 'ArrowDown');
+      expect(event.defaultPrevented).withContext('the page does not scroll as well').toBeTrue();
+      expect(keysOf(fixture)).toEqual(['ing2', 'ing1']);
+      expect(fixture.componentInstance.moveAnnouncement()).toBe(
+        'Moved ingredient to position 2 of 2 in For the crust.',
+      );
+      expect(document.activeElement).toBe(handleOf(fixture, 'ing1'));
+
+      await press(fixture, 'ing1', 'ArrowUp');
+      expect(keysOf(fixture)).toEqual(['ing1', 'ing2']);
+    });
+
+    it('takes a line to the top or the bottom with Home and End, and says when it is already there', async () => {
+      const fixture = await loaded();
+
+      await press(fixture, 'ing1', 'End');
+      expect(keysOf(fixture)).toEqual(['ing2', 'ing1']);
+      await press(fixture, 'ing1', 'Home');
+      expect(keysOf(fixture)).toEqual(['ing1', 'ing2']);
+
+      await press(fixture, 'ing1', 'ArrowUp');
+      expect(keysOf(fixture)).toEqual(['ing1', 'ing2']);
+      expect(fixture.componentInstance.moveAnnouncement()).toBe('Already at the top.');
+    });
+
+    it('leaves every other key to the browser', async () => {
+      const fixture = await loaded();
+
+      const event = await press(fixture, 'ing1', 'Tab');
+      expect(event.defaultPrevented).toBeFalse();
+      expect(keysOf(fixture)).toEqual(['ing1', 'ing2']);
+    });
+
+    it('moves a line into the next group from the end of its own, as a drag can', async () => {
+      const fixture = await loaded([SEEDED_GROUP, SECOND_GROUP]);
+
+      await press(fixture, 'ing2', 'ArrowDown');
+      expect(keysOf(fixture, 0)).toEqual(['ing1']);
+      expect(keysOf(fixture, 1)).toEqual(['ing2', 'ing5']);
+      expect(fixture.componentInstance.moveAnnouncement()).toBe(
+        'Moved ingredient to position 1 of 2 in For the filling.',
+      );
+
+      await press(fixture, 'ing2', 'ArrowUp');
+      expect(keysOf(fixture, 0)).toEqual(['ing1', 'ing2']);
+    });
+
+    it('puts a dropped line where it was dropped, in its own group or another, and keeps what it holds', async () => {
+      const fixture = await loaded([SEEDED_GROUP, SECOND_GROUP]);
+      const changed = jasmine.createSpy('groupsChanged');
+      fixture.componentInstance.groupsChanged.subscribe(changed);
+      const list = (groupKey: string) => ({ data: groupKey });
+
+      fixture.componentInstance.onRowDropped({
+        previousContainer: list('group1'),
+        container: list('group2'),
+        previousIndex: 0,
+        currentIndex: 1,
+        item: { data: 'ing1' },
+      } as unknown as CdkDragDrop<string, string, string>);
+      fixture.detectChanges();
+
+      expect(keysOf(fixture, 0)).toEqual(['ing2']);
+      expect(keysOf(fixture, 1)).toEqual(['ing5', 'ing1']);
+      expect(fixture.componentInstance.groups()[1].ingredients[1].displayText).toBe('2 cups flour');
+      expect(changed).toHaveBeenCalled();
+
+      // Dropped back where it was picked up: nothing to do, and nothing said.
+      changed.calls.reset();
+      const said = fixture.componentInstance.moveAnnouncement();
+      const ownList = list('group2');
+      fixture.componentInstance.onRowDropped({
+        previousContainer: ownList,
+        container: ownList,
+        previousIndex: 1,
+        currentIndex: 1,
+        item: { data: 'ing1' },
+      } as unknown as CdkDragDrop<string, string, string>);
+      expect(changed).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.moveAnnouncement()).toBe(said);
+    });
   });
 
   it('presents a candidate picker for an ambiguous/unresolved match instead of auto-selecting one', async () => {
@@ -275,6 +497,7 @@ describe('RecipeIngredientEditorComponent', () => {
       targetGroupKey: null,
     });
     fixture.detectChanges();
+    openEveryLine(fixture);
 
     const groupKey = fixture.componentInstance.groups()[0].key;
     const select: HTMLSelectElement = fixture.nativeElement.querySelector('select[id^="ingredient-pick-"]');
@@ -350,6 +573,7 @@ describe('RecipeIngredientEditorComponent', () => {
     const fixture = await createFixture();
     fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
     fixture.detectChanges();
+    openEveryLine(fixture);
 
     const row = fixture.componentInstance.groups()[0].ingredients[0];
     expect(row.isOptional).toBeFalse();
@@ -372,6 +596,7 @@ describe('RecipeIngredientEditorComponent', () => {
     const fixture = await createFixture();
     fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
     fixture.detectChanges();
+    openEveryLine(fixture);
 
     const select: HTMLSelectElement = fixture.nativeElement.querySelector('select[id^="row-scaling-"]');
     const optionLabels = Array.from(select.options).map((option) => option.textContent);
@@ -689,6 +914,7 @@ describe('RecipeIngredientEditorComponent', () => {
       // Same for a single titled group: still no nav, still the full width.
       fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
       fixture.detectChanges();
+      openEveryLine(fixture);
       expect(nav(fixture)).toBeNull();
       expect(trackCount(element.querySelector('.grouped-layout')!))
         .withContext('columns for one group')
@@ -848,7 +1074,7 @@ describe('RecipeIngredientEditorComponent', () => {
       }
     });
 
-    it('puts move and remove at the top right of the line, level with its status', async () => {
+    it('puts edit, move and remove at the top right of the line, level with its words', async () => {
       const fixture = await createFixture();
       const element = host(fixture);
       buttonLabelled(fixture, 'Add ingredient')!.click();
@@ -858,18 +1084,47 @@ describe('RecipeIngredientEditorComponent', () => {
       fixture.detectChanges();
 
       const row = element.querySelector('.row')!.getBoundingClientRect();
+      const words = element.querySelector('.line-text')!.getBoundingClientRect();
       const status = element.querySelector('.row-status')!.getBoundingClientRect();
       const actions = element.querySelector('.row-actions')!.getBoundingClientRect();
       const fields = element.querySelector('.row-fields')!.getBoundingClientRect();
 
-      // On the status's line, at the far right of the row, and above the fields rather than beneath them.
-      expect(actions.top).toBeLessThan(status.bottom);
-      expect(actions.bottom).toBeGreaterThan(status.top);
+      // On the words' line, at the far right of the row, and above the line's status and its fields.
+      expect(actions.top).toBeLessThan(words.bottom);
+      expect(actions.bottom).toBeGreaterThan(words.top);
       expect(row.right - actions.right)
         .withContext("against the right edge, inside the row's padding")
         .toBeLessThan(40);
+      expect(actions.bottom).toBeLessThanOrEqual(status.top + 1);
       expect(actions.bottom).toBeLessThanOrEqual(fields.top + 1);
+      expect(element.querySelector('button[aria-label="Edit ingredient 1"]')).toBeTruthy();
       expect(element.querySelector('button[aria-label="Remove ingredient 1"]')).toBeTruthy();
+    });
+
+    /** As on a step: icons, never the loudest thing on the line, and each named for what it acts on. */
+    it('moves and removes a line and a group with quiet icon buttons that say what they act on', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      buttonLabelled(fixture, 'Add ingredient group')!.click();
+      fixture.detectChanges();
+      buttonLabelled(fixture, 'Add ingredient')!.click();
+      fixture.detectChanges();
+
+      const icons: Record<string, string> = {
+        'Edit ingredient 1': '✓',
+        'Move ingredient 1': '⠿',
+        'Remove ingredient 1': '✕',
+        'Move group 1 up': '↑',
+        'Move group 1 down': '↓',
+        'Remove group 1': '✕',
+      };
+      for (const [label, icon] of Object.entries(icons)) {
+        const button = element.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+        expect(button).withContext(label).not.toBeNull();
+        expect(button!.classList).withContext(label).toContain('cp-button--ghost');
+        expect(button!.textContent?.trim()).withContext(label).toBe(icon);
+        expect(button!.querySelector('[aria-hidden="true"]')?.textContent).withContext(label).toBe(icon);
+      }
     });
 
     it('stacks a line in one column when the row is narrow: fields, then the note, then scaling', async () => {
@@ -1074,6 +1329,7 @@ describe('RecipeIngredientEditorComponent', () => {
       rowKey: string,
       value: string,
     ): void {
+      openEveryLine(fixture);
       // Not `input[...]`: the preparation note is a textarea, and the others are inputs.
       const input: HTMLInputElement = fixture.nativeElement.querySelector(`[id="row-${field}-${rowKey}"]`);
       expect(input).withContext(`the row's ${field} input`).toBeTruthy();
@@ -1108,7 +1364,7 @@ describe('RecipeIngredientEditorComponent', () => {
 
       typeInto(fixture, 'ingredient', rowKey, 'flaky sea salt');
 
-      const line: HTMLElement = fixture.nativeElement.querySelector('.original-text');
+      const line: HTMLElement = fixture.nativeElement.querySelector('.line-text');
       expect(line.textContent).toContain('Will be saved as:');
       expect(line.textContent).toContain('flaky sea salt');
     });
@@ -1135,7 +1391,9 @@ describe('RecipeIngredientEditorComponent', () => {
       const rowKey = clickAddIngredient(fixture);
 
       expect(rowFor(fixture, rowKey).displayText).toBe('');
-      expect(fixture.nativeElement.querySelector('.original-text')).toBeNull();
+      // No words to show, so it says it is empty rather than showing a line the recipe would read.
+      expect(fixture.nativeElement.querySelector('.line-text').textContent).toContain('not filled in yet');
+      expect(fixture.nativeElement.querySelector('.line-text').textContent).not.toContain('Will be saved as:');
 
       // Filled in and then cleared again is the same abandoned row.
       typeInto(fixture, 'ingredient', rowKey, 'flour');
@@ -1178,7 +1436,7 @@ describe('RecipeIngredientEditorComponent', () => {
       const row = rowFor(fixture, 'row1');
       expect(row.displayText).toBe('2 cups (240 g) all-purpose flour, sifted');
       expect(row.quantityText).toBe('4');
-      expect(fixture.nativeElement.querySelector('.original-text').textContent).not.toContain('Will be saved as:');
+      expect(fixture.nativeElement.querySelector('.line-text').textContent).not.toContain('Will be saved as:');
     });
 
     it('never rewrites a line loaded from the server when a field is edited', async () => {
@@ -1297,6 +1555,7 @@ describe('RecipeIngredientEditorComponent reference pickers', () => {
     fixture.componentRef.setInput('workspaceSlug', 'cozy-fall');
     fixture.componentRef.setInput('initialGroups', groups);
     fixture.detectChanges();
+    openEveryLine(fixture);
     return fixture;
   }
 

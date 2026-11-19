@@ -93,6 +93,7 @@ export class WorkflowStepPort {
   private readonly said = signal<{ readonly text: string; readonly at: number } | null>(null);
   private keeper: WorkflowDraftKeeper | null = null;
   private focuser: (() => void) | null = null;
+  private continuer: (() => Promise<void>) | null = null;
 
   /** The registered screen, or null while the step has none (a step shown by the shell's own fallback). */
   readonly registration = this.current.asReadonly();
@@ -118,9 +119,19 @@ export class WorkflowStepPort {
   }
 
   /** For the shell alone: how {@link keepDraft} reaches the run. */
-  connect(keeper: WorkflowDraftKeeper, focusStep?: () => void): void {
+  connect(keeper: WorkflowDraftKeeper, focusStep?: () => void, continueStep?: () => Promise<void>): void {
     this.keeper = keeper;
     this.focuser = focusStep ?? null;
+    this.continuer = continueStep ?? null;
+  }
+
+  /**
+   * Moves the run on from this step exactly as the step's Continue does — the work kept, what the step still needs
+   * checked, then the step completed — for a screen whose own primary action is also the step's last one, so the
+   * creator is not asked to press Continue after it. Resolves once the move is settled, whichever way it went.
+   */
+  continueStep(): Promise<void> {
+    return this.continuer?.() ?? Promise.resolve();
   }
 
   /**

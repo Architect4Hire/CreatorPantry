@@ -316,6 +316,27 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(fixture.componentInstance.state()).toBe('watching');
   }));
 
+  /** A sentence alone gave no sign that anything was happening: the draft’s shape holds its place, as one thing. */
+  it('shows the shape of the draft while it is being written, with no spinner', fakeAsync(() => {
+    service.statuses = [found({ status: 'Running' })];
+    render();
+
+    const loading = element().querySelector('.draft-loading');
+    expect(loading).not.toBeNull();
+    expect(loading!.querySelectorAll('cp-skeleton').length).toBeGreaterThan(0);
+    expect(loading!.querySelector('cp-spinner')).toBeNull();
+    // The status line above it is what is read; the shape is for the eye.
+    expect(loading!.getAttribute('aria-hidden')).toBe('true');
+    expect(element().querySelector('cp-ai-operation-status')).not.toBeNull();
+  }));
+
+  it('drops the shape once the draft has arrived', fakeAsync(() => {
+    service.statuses = [ready()];
+    render();
+
+    expect(element().querySelector('.draft-loading')).toBeNull();
+  }));
+
   /** The request resource exists from the moment it was accepted; a Proposed with no proposal is still waiting. */
   it('keeps watching a Proposed status that carries no proposal yet', fakeAsync(() => {
     service.statuses = [found({ status: 'Proposed', proposal: null })];
@@ -1668,6 +1689,127 @@ describe('RecipeFirstDraftReviewComponent', () => {
       expect(accepted).toHaveBeenCalledOnceWith(RECIPE_ID);
       expect(navigations()).toEqual([]);
     }));
+
+    /** A host whose next steps edit the recipe: the draft is a preview with one decision (RecipeStudioHost.compactDraft). */
+    describe('as a preview', () => {
+      beforeEach(() => {
+        host!.compactDraft = true;
+      });
+
+      /** The full draft, with a note its line already says, a question left open and a caution. */
+      function previewDraft(): WatchRecipeDraftOutcome {
+        return ready(
+          [
+            ...fullDraftChanges(),
+            change({
+              targetKind: 'Ingredient',
+              targetId: 'l1',
+              fieldName: 'preparationNote',
+              afterValue: 'doubanjiang',
+            }),
+          ],
+          [
+            { kind: 'UnresolvedQuestion', message: 'Which chili oil?', changeId: null },
+            { kind: 'SafetyCaution', message: 'Check the internal temperature.', changeId: null },
+          ],
+        );
+      }
+
+      it('says what the draft is and offers the decision first, with no status line, no nav and no edits but the name', fakeAsync(() => {
+        service.statuses = [previewDraft()];
+        render({});
+
+        expect(element().querySelector('cp-ai-operation-status')).toBeNull();
+        expect(element().querySelector('cp-anchor-nav')).toBeNull();
+        expect(element().querySelector('cp-generated-label')).not.toBeNull();
+        expect(element().querySelector('.preview-title')?.textContent?.trim()).toBe('Weeknight Mapo Tofu');
+        expect(text()).toContain('1 ingredient · 1 step · 1 piece of equipment');
+        expect(text()).toContain('A quick version.');
+
+        // The decision comes before the recipe it is about, and Discard is quiet beside it.
+        const accept = element().querySelector<HTMLButtonElement>('button.draft-accept')!;
+        expect(accept.textContent?.trim()).toBe('Use this draft');
+        expect(accept.classList).toContain('cp-button--primary');
+        expect(element().querySelector('button.draft-discard')?.classList).toContain('cp-button--text');
+        const ingredients = element().querySelector('#cp-draft-ingredients')!;
+        expect(accept.compareDocumentPosition(ingredients) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        // The name is the one thing to edit here; the steps that follow edit the rest.
+        expect(
+          Array.from(element().querySelectorAll('[data-edit-for]')).map((b) => b.getAttribute('data-edit-for')),
+        ).toEqual(['recipe:title']);
+      }));
+
+      it('reads as a recipe: open questions as a list, what it says about size and time, numbered steps', fakeAsync(() => {
+        service.statuses = [previewDraft()];
+        render({});
+
+        expect(text()).toContain('The draft left these to you');
+        expect(text()).toContain('Which chili oil?');
+        expect(text()).not.toContain('Needs your answer');
+        // A caution is still said, by name.
+        expect(element().querySelector('[data-kind="SafetyCaution"]')?.textContent).toContain(
+          'Check this yourself: Check the internal temperature.',
+        );
+        // Only what it says about size and time: a yield and a prep time, and no "Not suggested" for the rest.
+        const facts = Array.from(element().querySelectorAll('.preview-facts [cpFact]')).map((fact) => fact.textContent);
+        expect(facts.join(' ')).toContain('Serves 4');
+        expect(facts.join(' ')).toContain('10 min');
+        expect(text()).not.toContain('Not suggested');
+        expect(element().querySelector('ol.preview-steps')?.textContent).toContain('Fry the paste.');
+        // A note the line already says is not said again under it.
+        expect(element().querySelector('.preview-ingredients')?.textContent?.trim()).toBe('2 tbsp doubanjiang');
+        expect(text()).toContain('Wok');
+        // What made it is there, folded away.
+        const made = element().querySelector<HTMLDetailsElement>('details.preview-provenance')!;
+        expect(made.open).toBeFalse();
+        expect(made.textContent).toContain('phi-4');
+      }));
+
+      it('says in one sentence when the draft has no yield or times', fakeAsync(() => {
+        service.statuses = [
+          ready(
+            fullDraftChanges().filter((row) => row.fieldName !== 'prepTimeMinutes' && row.fieldName !== 'yieldText'),
+          ),
+        ];
+        render({});
+
+        expect(element().querySelector('.preview-facts')).toBeNull();
+        expect(text()).toContain('No yield or times yet. You’ll add them in a later step.');
+      }));
+
+      it('makes the recipe at one press, without asking again, and hands it to the host', fakeAsync(() => {
+        service.statuses = [previewDraft()];
+        render({});
+
+        element().querySelector<HTMLButtonElement>('button.draft-accept')!.click();
+        settle();
+        settle();
+
+        expect(confirmService.calls.length).toBe(0);
+        expect(service.acceptCalls.length).toBe(1);
+        expect(accepted).toHaveBeenCalledOnceWith(RECIPE_ID);
+      }));
+
+      it('still asks before discarding', fakeAsync(() => {
+        service.statuses = [previewDraft()];
+        render({});
+
+        click('Discard');
+
+        expect(confirmService.calls.length).toBe(1);
+        expect(confirmService.calls[0].title).toBe('Discard this draft?');
+      }));
+
+      it('still says why the recipe cannot be made, beside the button', fakeAsync(() => {
+        service.statuses = [ready(fullDraftChanges().filter((row) => row.fieldName !== 'title'))];
+        render({});
+
+        const accept = element().querySelector<HTMLButtonElement>('button.draft-accept')!;
+        expect(accept.getAttribute('aria-disabled')).toBe('true');
+        expect(element().querySelector('#draft-accept-blocker')?.textContent).toContain('needs a title');
+      }));
+    });
 
     it('goes back to the ideas through the host when the draft cannot be found', fakeAsync(() => {
       service.statuses = [{ status: 'not_found' }];
