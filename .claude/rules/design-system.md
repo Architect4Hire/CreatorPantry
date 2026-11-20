@@ -50,6 +50,7 @@ Consumers `@use` the SCSS foundation exactly once, in this order:
 - `CpTabsComponent` / `CpTabPanelComponent`: ARIA tabs pattern, roving tabindex, disabled tabs, lazy-mounted panels
 - `CpToolbarComponent`: search/filters/actions/overflow slots, loading/disabled states, roving-tabindex keyboard nav
 - `CpEmptyStateComponent`: title/description, `illustration` (one of the drawn set; wins over the older `icon` glyph), projected actions slot, `first-use | no-results` variants. Drawn, a first use is the roomy layout in `--cp-tone-text`; no-results stays compact and uses `search`
+- `CpIconComponent` (`cp-icon`): a control's picture — `trash` for removing — a line icon in `currentColor`, `1.25em`, `aria-hidden` so its button carries the name (`aria-label` on an icon-only `cpButton`). Grown one icon at a time. Use it rather than an inline `<svg>` in a feature
 - `CpIllustrationComponent` (`cp-illustration`): the drawn set — `recipe`, `picture`, `post`, `article`, `calendar`, `board`, `prompt`, `brand`, `search`, `sparkle` — inline SVG in `currentColor`, `aria-hidden`, `--cp-illustration-size` (7rem). Drawn for this library; no claims on food. Use it rather than an `.illustration` or a drawing in a feature
 - `CpUploaderComponent`: browse/drag-drop shell, per-item queued/uploading/success/error rendering, retry/cancel/remove — no transport of its own
 - `CpDiffLegendComponent`: legend for `added | removed | changed | moved | unchanged | warning | selected`; presentation only, no diff computation

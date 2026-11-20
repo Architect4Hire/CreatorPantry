@@ -18,6 +18,7 @@ export * from './lib/components/tabs.component';
 export * from './lib/components/toolbar.component';
 export * from './lib/components/empty-state.component';
 export * from './lib/components/illustration.component';
+export * from './lib/components/icon.component';
 export * from './lib/components/uploader.component';
 export * from './lib/components/diff-legend.component';
 export * from './lib/components/toast-region.component';

@@ -32,7 +32,7 @@ import {
 } from '../../models/recipe-scaling.models';
 import { RecipeIngredientGroup } from '../../models/recipe.models';
 import { RecipeCalculationService } from '../../services/recipe-calculation.service';
-import { QuantityReading, QuantityToRead, readQuantities } from './recipe-quantity-reading';
+import { QuantityReading, QuantityToRead, readQuantities, splitReading } from './recipe-quantity-reading';
 
 /** Which of the two mutually exclusive inputs the creator is scaling by. Mirrors the server's own exclusive-or. */
 export type ScalingMode = 'factor' | 'yield';
@@ -69,6 +69,15 @@ interface ScalingRow {
   readonly beforeReading: string | null;
   /** How the scaled amount reads, "1½ cups" — what a creator will measure. Null as above. */
   readonly afterReading: QuantityReading | null;
+  /** The saved amount as a figure alone — "½" — once its unit has moved to {@link unit}; the number where unread. */
+  readonly beforeFigure: string | null;
+  /** The scaled amount as a figure alone — "1½" — likewise. */
+  readonly afterFigure: string | null;
+  /**
+   * The unit, said once for the row: the scaled amount's ("US cups", what a creator will measure with), or the
+   * saved amount's where there is no scaled reading. Null for a line with no unit to tell apart.
+   */
+  readonly unit: string | null;
   readonly wasScaled: boolean;
   readonly notes: readonly string[];
 }
@@ -420,6 +429,9 @@ export class RecipeScalingPreviewComponent {
   /** Whether any line has a note, so the Notes column is drawn only when it has something in it. */
   readonly hasNotes = computed(() => this.rows().some((row) => row.notes.length > 0));
 
+  /** Whether any line has a unit, so the Unit column is drawn only when there is one to say. */
+  readonly hasUnits = computed(() => this.rows().some((row) => row.unit !== null));
+
   /** Whether any line has an exact amount worth saying, so the Exact column is drawn only when it has one. */
   readonly hasExact = computed(() => this.rows().some((row) => row.exact !== null));
 
@@ -483,6 +495,10 @@ export class RecipeScalingPreviewComponent {
     const afterReading = readings.get(`after:${line.id}`) ?? null;
     // Beside a kitchen reading — "1½ cups" — the exact amount is already said.
     const readsExactly = afterReading !== null && afterReading.presentation !== 'Decimal';
+    const beforeText = readings.get(`before:${line.id}`)?.text ?? null;
+    const beforeParts = beforeText === null ? null : splitReading(beforeText);
+    const afterParts = afterReading === null ? null : splitReading(afterReading.text);
+    const afterNumber = formatRange(line.scaledDisplayQuantity, line.scaledDisplayQuantityUpper);
     return {
       key: line.id,
       displayText: line.displayText,
@@ -498,8 +514,11 @@ export class RecipeScalingPreviewComponent {
             line.scaledDisplayQuantity,
             line.scaledDisplayQuantityUpper,
           ),
-      beforeReading: readings.get(`before:${line.id}`)?.text ?? null,
+      beforeReading: beforeText,
       afterReading,
+      beforeFigure: beforeParts === null ? (saved.get(line.id) ?? null) : beforeParts.amount,
+      afterFigure: afterParts === null ? afterNumber : afterParts.amount,
+      unit: afterParts?.unit || beforeParts?.unit || null,
       wasScaled: line.wasScaled,
       notes: [
         ...line.warnings.map((warning) => WARNING_TEXT[warning]),

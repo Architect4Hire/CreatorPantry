@@ -17,6 +17,21 @@ export interface QuantityReading {
   readonly presentation: FractionPresentation;
 }
 
+/**
+ * A reading cut into its amount and its unit — "1½ US cups" into "1½" and "US cups".
+ *
+ * Presentation only, for a table that says a unit once down a column instead of beside every figure. The server's
+ * text is what is cut, so nothing here works out an amount; where no unit can be told apart (a bare count, or a
+ * text that does not start with a figure) the whole text stays the amount and the unit is empty.
+ */
+export function splitReading(text: string): { readonly amount: string; readonly unit: string } {
+  const lead = /^[0-9 .,/¼-¾⅐-⅞↉–—-]+/.exec(text);
+  if (lead === null) return { amount: text, unit: '' };
+  const amount = lead[0].trim();
+  const unit = text.slice(lead[0].length).trim();
+  return amount === '' ? { amount: text, unit: '' } : { amount, unit };
+}
+
 export interface ReadingOptions {
   readonly precision: number;
   readonly useAbbreviation: boolean;

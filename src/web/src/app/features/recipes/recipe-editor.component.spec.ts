@@ -4374,8 +4374,10 @@ describe('RecipeEditorComponent', () => {
       expect(step.right - controls.right)
         .withContext('at the right edge')
         .toBeLessThan(2);
-      // Quiet: an arrow and a cross, each named for the step it acts on — never a red "Remove step" button.
-      expect(root.querySelector('button[aria-label="Remove step 1"]')?.textContent?.trim()).toBe('✕');
+      // Quiet: a bin, named for the step it acts on — never a red "Remove step" button.
+      expect(
+        root.querySelector('button[aria-label="Remove step 1"] cp-icon[aria-hidden="true"]')?.getAttribute('data-name'),
+      ).toBe('trash');
       // Moved by its handle, at the start of its line, rather than by an up and a down button at the end of it.
       expect(root.querySelector(`#step-handle-${key}`)?.getAttribute('aria-label')).toBe('Move step 1');
       expect(root.querySelector('button[aria-label="Move step 1 up"]')).toBeNull();

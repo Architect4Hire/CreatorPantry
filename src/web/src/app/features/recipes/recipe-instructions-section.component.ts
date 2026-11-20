@@ -17,6 +17,7 @@ import {
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
+  CpIconComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -50,6 +51,7 @@ const INSTRUCTION_GROUP_ANCHOR_PREFIX = 'instruction-group-';
     CpFieldComponent,
     CpFieldRowComponent,
     CpFormSectionComponent,
+    CpIconComponent,
     FormsModule,
   ],
   templateUrl: './recipe-instructions-section.component.html',

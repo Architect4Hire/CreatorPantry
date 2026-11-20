@@ -211,6 +211,14 @@
   text-align: end;
 }
 
+/* The unit, once, beside the figures it belongs to: left-aligned from where the figures end, and quiet. */
+.line-unit {
+  width: 1%;
+  white-space: nowrap;
+  padding-inline-start: 0;
+  color: var(--cp-text-muted);
+}
+
 /* What the recipe says now: quiet, so the eye lands on what to measure. */
 .line-before {
   color: var(--cp-text-muted);

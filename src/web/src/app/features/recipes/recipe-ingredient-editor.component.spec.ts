@@ -1113,17 +1113,25 @@ describe('RecipeIngredientEditorComponent', () => {
       const icons: Record<string, string> = {
         'Edit ingredient 1': '✓',
         'Move ingredient 1': '⠿',
-        'Remove ingredient 1': '✕',
+        'Remove ingredient 1': 'trash',
         'Move group 1 up': '↑',
         'Move group 1 down': '↓',
-        'Remove group 1': '✕',
+        'Remove group 1': 'trash',
       };
       for (const [label, icon] of Object.entries(icons)) {
         const button = element.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
         expect(button).withContext(label).not.toBeNull();
         expect(button!.classList).withContext(label).toContain('cp-button--ghost');
-        expect(button!.textContent?.trim()).withContext(label).toBe(icon);
-        expect(button!.querySelector('[aria-hidden="true"]')?.textContent).withContext(label).toBe(icon);
+        // Removing is a drawn bin; the rest are glyphs. Either way the picture is hidden and the label names it.
+        if (icon === 'trash') {
+          expect(button!.querySelector('cp-icon[aria-hidden="true"]')?.getAttribute('data-name'))
+            .withContext(label)
+            .toBe('trash');
+          expect(button!.textContent?.trim()).withContext(label).toBe('');
+        } else {
+          expect(button!.textContent?.trim()).withContext(label).toBe(icon);
+          expect(button!.querySelector('[aria-hidden="true"]')?.textContent).withContext(label).toBe(icon);
+        }
       }
     });
 

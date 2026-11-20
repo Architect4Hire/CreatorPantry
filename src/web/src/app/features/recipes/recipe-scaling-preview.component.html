@@ -241,6 +241,11 @@
                 <th scope="col">Ingredient</th>
                 <th scope="col" class="num">Before</th>
                 <th scope="col" class="num">After</th>
+                <!-- Said once for the row, not beside each figure: the same unit under Before and After was the
+                     same word twice a line. Only when a line has one. -->
+                @if (hasUnits()) {
+                  <th scope="col">Unit</th>
+                }
                 <!-- The exact amount where the figure to measure was rounded, in a column of its own — only when one is. -->
                 @if (hasExact()) {
                   <th scope="col" class="num">Exact</th>
@@ -261,7 +266,7 @@
                          which is what had pushed each "after" onto a row of its own. -->
                   <td class="line-amount line-before">
                     @if (row.before !== null) {
-                      {{ row.beforeReading ?? row.before }}
+                      {{ row.beforeFigure }}
                     } @else {
                       <span class="cp-sr-only">No saved amount</span>
                       <span aria-hidden="true">—</span>
@@ -272,7 +277,7 @@
                     <span class="after-stack">
                       <span class="after-value">
                         @if (row.after !== null) {
-                          {{ row.afterReading?.text ?? row.after }}
+                          {{ row.afterFigure }}
                         } @else {
                           <span class="cp-sr-only">No amount</span>
                           <span aria-hidden="true">—</span>
@@ -286,6 +291,16 @@
                       }
                     </span>
                   </td>
+
+                  @if (hasUnits()) {
+                    <td class="line-unit">
+                      @if (row.unit !== null) {
+                        {{ row.unit }}
+                      } @else {
+                        <span class="cp-sr-only">No unit</span>
+                      }
+                    </td>
+                  }
 
                   <!-- The rounded figure reads first because it is what a creator will measure; the exact one, where it
                        differs, is the canonical result and has its own column. -->

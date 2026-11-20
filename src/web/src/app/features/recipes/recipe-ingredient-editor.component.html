@@ -113,7 +113,7 @@
                   [attr.aria-label]="'Remove group ' + (groupIndex + 1)"
                   (click)="removeGroup(group.key)"
                 >
-                  <span aria-hidden="true">✕</span>
+                  <cp-icon name="trash" />
                 </button>
               </div>
             </div>
@@ -179,7 +179,7 @@
                       [attr.aria-label]="'Remove ingredient ' + (rowIndex + 1)"
                       (click)="removeRow(group.key, row.key)"
                     >
-                      <span aria-hidden="true">✕</span>
+                      <cp-icon name="trash" />
                     </button>
                   </div>
                 </div>

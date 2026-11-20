@@ -88,7 +88,7 @@
                   [attr.aria-label]="'Remove group ' + (groupIndex + 1)"
                   (click)="form.removeInstructionGroup(group.key)"
                 >
-                  <span aria-hidden="true">✕</span>
+                  <cp-icon name="trash" />
                 </button>
               </div>
             </div>
@@ -218,7 +218,7 @@
                     [attr.aria-label]="'Remove step ' + (stepIndex + 1)"
                     (click)="removeStep(group.key, step.key, stepIndex)"
                   >
-                    <span aria-hidden="true">✕</span>
+                    <cp-icon name="trash" />
                   </button>
                 </div>
               </li>

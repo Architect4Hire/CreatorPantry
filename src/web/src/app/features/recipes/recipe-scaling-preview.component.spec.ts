@@ -561,10 +561,13 @@ describe('RecipeScalingPreviewComponent', () => {
     harness.fixture.detectChanges();
 
     const cells = rowCells(harness.fixture, 0);
-    expect(cells[1]).toBe('½ cup');
-    expect(cells[2]).toContain('1½ cups');
+    // The unit is said once for the row, in a column of its own, not again beside each figure.
+    expect(cells[1]).toBe('½');
+    expect(cells[2]).toContain('1½');
+    expect(cells[2]).not.toContain('cup');
+    expect(cells[3]).toBe('cups');
     // A kitchen fraction already is the exact amount, so no Exact column is drawn for it.
-    expect(cells.length).toBe(3);
+    expect(cells.length).toBe(4);
   });
 
   it('says the exact amount only where the decimal shown has been rounded', async () => {
