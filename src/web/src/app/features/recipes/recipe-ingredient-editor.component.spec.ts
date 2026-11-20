@@ -1678,6 +1678,80 @@ describe('RecipeIngredientEditorComponent reference pickers', () => {
     expect(fixture.nativeElement.querySelector('#row-unit-ing1-hint')).toBeNull();
   }));
 
+  /**
+   * A draft line linked to the catalogue's pound, by a word that is not its name. Closed, the list reads it by the
+   * unit's CreatorPantry name — the name the open line's box shows — so a recognised unit looks recognised.
+   */
+  const POUNDS = {
+    ...CUPS,
+    id: 'unit5',
+    code: 'pound',
+    displayName: 'pound',
+    pluralName: 'pounds',
+    abbreviation: 'lb',
+    dimension: 'Mass',
+  };
+  const DRAFT_LINE: RecipeIngredientGroup = {
+    ...SEEDED_GROUP,
+    ingredients: [
+      {
+        ...SEEDED_GROUP.ingredients[0],
+        displayText: '2 lb potatoes, peeled',
+        ingredientNameText: 'potatoes',
+        unitText: 'lb',
+        measurementUnitId: 'unit5',
+      },
+    ],
+  };
+
+  function closeLine(fixture: ComponentFixture<RecipeIngredientEditorComponent>, rowKey: string): void {
+    fixture.componentInstance.toggleRow(rowKey);
+    fixture.detectChanges();
+  }
+
+  function lineText(fixture: ComponentFixture<RecipeIngredientEditorComponent>): string {
+    return fixture.nativeElement.querySelector('.line-text')?.textContent?.trim() ?? '';
+  }
+
+  it('reads a closed line by its CreatorPantry unit, and keeps the line as written', fakeAsync(() => {
+    const fixture = createEditor([DRAFT_LINE]);
+    settleUnits(fixture, [CUPS, POUNDS]);
+    closeLine(fixture, 'ing1');
+
+    expect(lineText(fixture)).toBe('2 pounds potatoes, peeled');
+    expect(fixture.nativeElement.querySelector('.row-attention')).toBeNull();
+    // Only the reading: what a save keeps is still the line and the word it was written with.
+    expect(rowFor(fixture, 'ing1').displayText).toBe('2 lb potatoes, peeled');
+    expect(rowFor(fixture, 'ing1').unitLabel).toBe('lb');
+  }));
+
+  it('shows the line as written again once it is opened', fakeAsync(() => {
+    const fixture = createEditor([DRAFT_LINE]);
+    settleUnits(fixture, [CUPS, POUNDS]);
+
+    // createEditor leaves every line open: the words are the saved line, and the box and its hint say the rest.
+    expect(lineText(fixture)).toBe('2 lb potatoes, peeled');
+    expect((fixture.nativeElement.querySelector('#row-unit-ing1') as HTMLInputElement).value).toBe('pound');
+    expect(fixture.nativeElement.querySelector('#row-unit-ing1-hint')?.textContent).toContain('The line says “lb”.');
+  }));
+
+  it('reads a closed line as written until the unit list can name its unit', fakeAsync(() => {
+    const fixture = createEditor([DRAFT_LINE]);
+    closeLine(fixture, 'ing1');
+    expect(lineText(fixture)).toBe('2 lb potatoes, peeled');
+
+    failUnits(fixture);
+    expect(lineText(fixture)).toBe('2 lb potatoes, peeled');
+  }));
+
+  it('reads a closed line whose word already names its unit as written', fakeAsync(() => {
+    const fixture = createEditor();
+    settleUnits(fixture);
+    closeLine(fixture, 'ing1');
+
+    expect(lineText(fixture)).toBe('2 cups flour');
+  }));
+
   it('keeps the creator own line untouched when an ingredient is picked', fakeAsync(() => {
     const fixture = createEditor();
     settleUnits(fixture);

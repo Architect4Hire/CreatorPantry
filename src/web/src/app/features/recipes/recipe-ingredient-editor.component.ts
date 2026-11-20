@@ -52,7 +52,7 @@ import {
 } from './ingredient-paste-review.component';
 import { IngredientUnitPickerComponent } from './ingredient-unit-picker.component';
 import { GroupedPlace, handleMoveFor, handleTarget, moveToPlace } from './recipe-editor.model';
-import { UnitCatalogueState, recipeUnitName } from './recipe-unit-options';
+import { UnitCatalogueState, recipeUnitName, withRecipeUnitName } from './recipe-unit-options';
 
 /** Where a row's ingredient/unit stand relative to the shared catalogue — a UI-only summary, never sent as-is. */
 export type IngredientRowMatchState = 'matched' | 'ambiguous' | 'unmatched' | 'unreviewed';
@@ -627,6 +627,23 @@ export class RecipeIngredientEditorComponent {
     if (!unit) return '';
 
     return recipeUnitName(unit).toLowerCase() === written.toLowerCase() ? '' : `The line says “${written}”.`;
+  }
+
+  /**
+   * A closed line as the list reads it: the creator's words with a recognised unit said by its CreatorPantry name —
+   * "2 lb potatoes" reads "2 pounds potatoes" — the same name the open line's Unit box shows.
+   *
+   * Only the reading. The line stays exactly as written and a save keeps it (recipes.md); opening the line shows the
+   * written words again, with "The line says “lb”." under the Unit field. A line with no linked unit, a unit the list
+   * cannot name yet, or a word that already names its unit reads as written — and a unit CreatorPantry does not
+   * recognise says so beside the line instead ("Unit not recognised").
+   */
+  lineReading(row: EditableIngredientRow): string {
+    const catalogue = this.unitCatalogue();
+    if (row.unitId === null || catalogue.status !== 'ready') return row.displayText;
+
+    const unit = catalogue.units.find((candidate) => candidate.id === row.unitId);
+    return unit ? withRecipeUnitName(row.displayText, row.unitLabel, unit, row) : row.displayText;
   }
 
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);

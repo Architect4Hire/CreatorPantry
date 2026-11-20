@@ -154,7 +154,9 @@
                     @if (open && row.displayText && row.displayTextIsComposed) {
                       <span class="line-label">Will be saved as:</span>
                     }
-                    {{ row.displayText || 'New ingredient, not filled in yet' }}
+                    <!-- Closed, a recognised unit reads by its CreatorPantry name, as the open line's box shows it; open,
+                     the words are the line exactly as it is saved. -->
+                    {{ (open ? row.displayText : lineReading(row)) || 'New ingredient, not filled in yet' }}
                   </p>
                   <!-- Closed, a line keeps saying what it still needs, since the fields that would say it are folded. -->
                   @if (!open && attentionFor(row); as attention) {

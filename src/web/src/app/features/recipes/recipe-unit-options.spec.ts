@@ -1,5 +1,11 @@
 import { MeasurementDimension, MeasurementSystem, MeasurementUnit } from '../../models/reference.models';
-import { recipeUnitDetail, recipeUnitName, recipeUnitOptions } from './recipe-unit-options';
+import {
+  recipeUnitDetail,
+  recipeUnitName,
+  recipeUnitOptions,
+  recipeUnitWordMatches,
+  withRecipeUnitName,
+} from './recipe-unit-options';
 
 function unit(
   id: string,
@@ -90,5 +96,62 @@ describe('recipeUnitOptions', () => {
     ]);
 
     expect(options.map((option) => option.label)).toEqual(['cup', 'gram', 'tablespoon']);
+  });
+});
+
+/** Whether a line's own word already says the unit it is linked to, so a closed line need not say it again. */
+describe('recipeUnitWordMatches', () => {
+  const cup = unit('cup-us', 'US cup', 'Volume', 'UsCustomary', 'c');
+
+  it('accepts the name and the plural, without the region and whatever the case', () => {
+    expect(recipeUnitWordMatches(cup, 'cup')).toBeTrue();
+    expect(recipeUnitWordMatches(cup, ' Cups ')).toBeTrue();
+    expect(recipeUnitWordMatches(cup, 'US cups')).toBeTrue();
+  });
+
+  it('does not accept an abbreviation or shorthand, which is when the unit is worth saying', () => {
+    expect(recipeUnitWordMatches(cup, 'c')).toBeFalse();
+    expect(recipeUnitWordMatches(cup, 'c.')).toBeFalse();
+    expect(recipeUnitWordMatches(unit('lb', 'pound', 'Mass', 'UsCustomary', 'lb'), 'lb')).toBeFalse();
+  });
+});
+
+/** A closed ingredient line's reading: the creator's line with its unit word said by the CreatorPantry unit. */
+describe('withRecipeUnitName', () => {
+  const cup = unit('cup-us', 'US cup', 'Volume', 'UsCustomary', 'c');
+  const pound = unit('lb', 'pound', 'Mass', 'UsCustomary', 'lb');
+  const one = (quantityText: string, quantityUpper: number | null = null) => ({ quantityText, quantityUpper });
+
+  it('says the unit by its name in place of the word, and leaves the rest of the line alone', () => {
+    expect(withRecipeUnitName('2 lb potatoes, peeled', 'lb', pound, one('2'))).toBe('2 pounds potatoes, peeled');
+    expect(withRecipeUnitName('1 c. flour (sifted)', 'c.', cup, one('1'))).toBe('1 cup flour (sifted)');
+    expect(withRecipeUnitName('2 LB potatoes', 'lb', pound, one('2'))).toBe('2 pounds potatoes');
+  });
+
+  it('follows the amount for singular or plural', () => {
+    expect(withRecipeUnitName('1/2 c milk', 'c', cup, one('1/2'))).toBe('1/2 cup milk');
+    expect(withRecipeUnitName('½ c milk', 'c', cup, one('½'))).toBe('½ cup milk');
+    expect(withRecipeUnitName('1 1/2 c milk', 'c', cup, one('1 1/2'))).toBe('1 1/2 cups milk');
+    expect(withRecipeUnitName('1½ c milk', 'c', cup, one('1½'))).toBe('1½ cups milk');
+    expect(withRecipeUnitName('1–2 lb beef', 'lb', pound, one('1', 2))).toBe('1–2 pounds beef');
+    expect(withRecipeUnitName('a few c of stock', 'c', cup, one('a few'))).toBe('a few cups of stock');
+    expect(withRecipeUnitName('c of stock', 'c', cup, one(''))).toBe('cup of stock');
+  });
+
+  it('only replaces the word as a word of its own', () => {
+    // "c" inside "cocoa" is not the unit; the unit is the standalone "c".
+    expect(withRecipeUnitName('2 c cocoa', 'c', cup, one('2'))).toBe('2 cups cocoa');
+    expect(withRecipeUnitName('cocoa, to taste', 'c', cup, one(''))).toBe('cocoa, to taste');
+  });
+
+  it('reads the line as written when its word already names the unit, or is not in it', () => {
+    expect(withRecipeUnitName('2 cups flour', 'cups', cup, one('2'))).toBe('2 cups flour');
+    expect(withRecipeUnitName('2 pounds potatoes', 'lb', pound, one('2'))).toBe('2 pounds potatoes');
+    expect(withRecipeUnitName('3 eggs', '', pound, one('3'))).toBe('3 eggs');
+  });
+
+  it('takes a word with pattern characters literally', () => {
+    expect(withRecipeUnitName('2 c.+ flour', 'c.+', cup, one('2'))).toBe('2 cups flour');
+    expect(withRecipeUnitName('2 cx flour', 'c.', cup, one('2'))).toBe('2 cx flour');
   });
 });
