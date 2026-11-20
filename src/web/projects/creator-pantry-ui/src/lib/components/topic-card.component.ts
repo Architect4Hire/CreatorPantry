@@ -72,9 +72,10 @@ let nextId = 0;
         color: var(--cp-text);
         overflow-wrap: anywhere;
       }
-      /* A destination, never a tab stop. The ring shows on :focus, not only :focus-visible: a flow moves focus
-         here by script after a click on Continue, and a browser does not count that as keyboard focus. */
-      .heading:focus {
+      /* A destination, never a tab stop. The ring shows only on :focus-visible: a flow moves focus here on every
+         step, and after a click on Continue a ring round the step's title reads as something selected. A screen
+         reader still lands here, and a creator moving by keyboard still sees where they are. */
+      .heading:focus-visible {
         outline: 2px solid var(--cp-focus);
         outline-offset: 4px;
       }

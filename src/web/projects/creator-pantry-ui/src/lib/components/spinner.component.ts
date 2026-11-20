@@ -3,9 +3,9 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 /**
  * Something is on its way: one arc of a thin ring, turning.
  *
- * **One spinner, everywhere it is drawn.** A busy `cpButton` draws it before its label, and a `cp-skeleton` draws
- * it in the middle of the space it holds, so a wait looks the same wherever a creator meets it. A feature does not
- * draw a spinner of its own; the page contract's `spinner` rule fails one that does.
+ * **For something happening now.** A busy `cpButton` draws it before its label, while the action the creator just
+ * pressed is in flight, and a busy `cp-status-pill` in place of its glyph, while a process is running. A region that is loading draws `cp-skeleton`, the shape of what is coming, and no spinner. A
+ * feature does not draw a spinner of its own; the page contract's `spinner` rule fails one that does.
  *
  * **Sized and coloured by where it sits.** `1em` square in `currentColor`, so it takes the size and colour of the
  * text around it — a button's label, a muted placeholder — and needs no tokens of its own beyond its pace,

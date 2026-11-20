@@ -44,7 +44,13 @@
  * reading measure — belong to cp-form-section, and the rules for a row of short fields to cp-field-row, so
  * nothing here restates them.
  */
+/* Full-width fields, as the recipe editor has them: a field fills the card rather than stopping at the 60ch measure,
+   so the brief has one right edge and no column of empty card beside it. Set on the brief alone, so no other form
+   is touched; a row of short fields would still be held to 60ch, as the editor holds its quantities. */
 .brief-card {
+  --cp-measure-field: 100%;
+  --cp-field-row-measure: 60ch;
+
   padding: var(--cp-space-6);
 }
 

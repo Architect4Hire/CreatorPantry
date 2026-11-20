@@ -6,6 +6,7 @@ import {
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
+  CpIconComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -27,6 +28,7 @@ import { RecipeFormState } from './recipe-form-state';
     CpFieldComponent,
     CpFieldRowComponent,
     CpFormSectionComponent,
+    CpIconComponent,
     FormsModule,
   ],
   templateUrl: './recipe-yield-section.component.html',

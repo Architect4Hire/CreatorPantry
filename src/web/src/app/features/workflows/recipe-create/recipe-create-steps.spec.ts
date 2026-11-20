@@ -407,6 +407,10 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).querySelector('cp-recipe-first-draft-review')).not.toBeNull();
       expect(studioHost(fixture).draftRequestId).toBe('draft-1');
       expect(port.registration()!.capabilityKey!()).toBe('recipes.draft-with-help');
+      // Still being written, there is no button to point at: Continue says to wait for the draft, and reveals nothing.
+      const need = port.registration()!.needs!();
+      expect(need?.message).toBe('Your first draft is still being written. When it appears, select “Use this draft”.');
+      expect(need?.reveal).toBeUndefined();
     });
 
     it('opens ideas a reload left it waiting on in the studio', async () => {
@@ -430,6 +434,28 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       await settle(fixture);
 
       expect(root(fixture).querySelector('cp-recipe-concept-studio')).not.toBeNull();
+    });
+
+    it('shows the draft as a preview, and moves the run on when it is used, once the recipe is kept', async () => {
+      const continueStep = jasmine.createSpy('continueStep').and.callFake(async () => {
+        // By then the run holds the recipe, and the step says so: Continue's own check has nothing to stop it.
+        expect(keepDraft).toHaveBeenCalledWith({ kind: 'Recipe', id: 'recipe-7' });
+        expect(port.registration()!.results!()).toEqual([{ kind: 'Recipe', id: 'recipe-7' }]);
+        expect(port.registration()!.needs!()).toBeNull();
+      });
+      port.connect(keepDraft, focusStep, continueStep);
+      const fixture = await start(startRun());
+      await pick(fixture, 'help');
+      const host = studioHost(fixture);
+      // The ingredients, method and timing steps come next, so the draft is not a second place to edit them.
+      expect(host.compactDraft).toBeTrue();
+      host.draftRequested('draft-1');
+      await settle(fixture);
+
+      host.accepted('recipe-7');
+      await settle(fixture);
+
+      expect(continueStep).toHaveBeenCalledTimes(1);
     });
 
     it('keeps each request the studio makes on the run, then the recipe the draft becomes', async () => {

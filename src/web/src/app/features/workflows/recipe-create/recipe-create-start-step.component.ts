@@ -188,11 +188,18 @@ export class RecipeCreateStartStepComponent implements OnInit {
         return {
           message: 'Get concepts, choose one, then select “Draft this recipe”.',
         };
-      case 'draft':
-        return {
-          message: 'Select “Create recipe from this draft” to make it your recipe.',
-          reveal: () => document.querySelector<HTMLElement>('.draft-accept')?.focus(),
-        };
+      case 'draft': {
+        // While the draft is still being read or written there is no button to point at yet: say to wait for it.
+        const review = this.review()?.state();
+        return review === 'loading' || review === 'watching'
+          ? {
+              message: 'Your first draft is still being written. When it appears, select “Use this draft”.',
+            }
+          : {
+              message: 'Select “Use this draft” to make it your recipe.',
+              reveal: () => document.querySelector<HTMLElement>('.draft-accept')?.focus(),
+            };
+      }
       default:
         return null;
     }
@@ -262,10 +269,17 @@ export class RecipeCreateStartStepComponent implements OnInit {
       this.show({ kind: 'ideas', conceptRequestId: this.lastConceptRequestId });
       this.moved('Back to your ideas.');
     };
-    this.studioHost.accepted = (recipeId) => this.recipeMade(recipeId, true);
+    this.studioHost.accepted = (recipeId) => void this.draftUsed(recipeId);
     // The brief and what came back share this step's card, so the concepts open beside it, in a drawer.
     this.studioHost.conceptsInDrawer = true;
+    // The steps after this one edit the ingredients, the method and the timing, so the draft is a preview to use or
+    // discard, not a second place to edit them.
+    this.studioHost.compactDraft = true;
+    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
   }
+
+  /** Set once this screen is gone — after the run has moved on to another step. */
+  private destroyed = false;
 
   ngOnInit(): void {
     this.editorHost.workspaceSlug = this.workspaceSlug();
@@ -336,6 +350,19 @@ export class RecipeCreateStartStepComponent implements OnInit {
   /** New ideas after the request the step was waiting on could not be read; the next request is kept in its place. */
   protected startFresh(): void {
     this.show({ kind: 'ideas', conceptRequestId: null });
+  }
+
+  /**
+   * "Use this draft" made the recipe. It is the step's last action as well as the screen's, so the run moves on with
+   * it, as Continue would, rather than asking the creator to press Continue after it. Where the move does not happen
+   * — the shell says why — the step stays on the recipe it made.
+   */
+  private async draftUsed(recipeId: string): Promise<void> {
+    this.keep({ kind: 'Recipe', id: recipeId });
+    this.show({ kind: 'recipe', recipeId, fromDraft: true });
+    await this.keeping;
+    await this.port.continueStep();
+    if (!this.destroyed) this.moved('Your recipe is in your library.');
   }
 
   private recipeMade(recipeId: string, fromDraft: boolean): void {

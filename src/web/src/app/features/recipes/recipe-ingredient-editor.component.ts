@@ -10,7 +10,9 @@ import {
   input,
   output,
   signal,
+  untracked,
 } from '@angular/core';
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, map, switchMap } from 'rxjs';
@@ -25,6 +27,7 @@ import {
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFieldRowComponent,
+  CpIconComponent,
   CpNoticeComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
@@ -48,6 +51,7 @@ import {
   PasteTargetGroup,
 } from './ingredient-paste-review.component';
 import { IngredientUnitPickerComponent } from './ingredient-unit-picker.component';
+import { GroupedPlace, handleMoveFor, handleTarget, moveToPlace } from './recipe-editor.model';
 import { UnitCatalogueState, recipeUnitName } from './recipe-unit-options';
 
 /** Where a row's ingredient/unit stand relative to the shared catalogue — a UI-only summary, never sent as-is. */
@@ -428,6 +432,10 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
   selector: 'cp-recipe-ingredient-editor',
   standalone: true,
   imports: [
+    CdkDrag,
+    CdkDragHandle,
+    CdkDropList,
+    CdkDropListGroup,
     CpFieldRowComponent,
     FormsModule,
     CpAnchorNavComponent,
@@ -437,6 +445,7 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
     CpDialogComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
+    CpIconComponent,
     CpNoticeComponent,
     CpStatusPillComponent,
     IngredientPasteReviewComponent,
@@ -639,6 +648,13 @@ export class RecipeIngredientEditorComponent {
       )
       .subscribe(({ rowKey, outcome }) => this.ingredientSearch.set(ingredientSearchState(rowKey, outcome)));
 
+    // A line the server refused opens, so its sentence and the fields it is about are in view, never folded away
+    // behind a line that reads as fine. Opened rather than held open, so the creator can still close it again.
+    effect(() => {
+      const refused = [...this.rowErrors().keys()];
+      untracked(() => refused.forEach((rowKey) => this.openRow(rowKey)));
+    });
+
     effect(() => {
       const groups = toEditableGroups(this.initialGroups());
       this.groups.set(groups);
@@ -663,6 +679,41 @@ export class RecipeIngredientEditorComponent {
     const host = this.elementRef.nativeElement;
     host.querySelector(`#${item.targetId}`)?.scrollIntoView({ block: 'start' });
     host.querySelector<HTMLElement>(`#ingredient-group-title-${groupKey}`)?.focus();
+  }
+
+  /**
+   * The lines whose fields are showing. A list opens with every line closed to its own words, so a recipe reads as
+   * its ingredients rather than as a wall of fields; the creator opens the one to change. Which lines are open is
+   * this screen's alone — nothing is saved or sent — and a line that is closed keeps every value it holds.
+   */
+  private readonly openRows = signal<ReadonlySet<string>>(new Set());
+
+  /** Whether this line's fields are showing. */
+  isRowOpen(rowKey: string): boolean {
+    return this.openRows().has(rowKey);
+  }
+
+  /** Opens a line's fields, or closes them again. Focus stays on the button, which does not move. */
+  toggleRow(rowKey: string): void {
+    this.openRows.update((open) => {
+      const next = new Set(open);
+      if (!next.delete(rowKey)) next.add(rowKey);
+      return next;
+    });
+  }
+
+  /**
+   * What a closed line has to say beyond its words: something the creator still needs to settle on it — a match to
+   * review, a unit CreatorPantry does not recognise — which would otherwise be hidden with its fields. '' when it
+   * needs nothing; "Not yet reviewed" is not news, so a closed line does not repeat it.
+   */
+  attentionFor(row: EditableIngredientRow): string {
+    if (row.matchState === 'ambiguous' || row.matchState === 'unmatched') return this.labelFor(row.matchState);
+    return unitNeedsAttention(row) ? 'Unit not recognised' : '';
+  }
+
+  private openRow(rowKey: string): void {
+    if (!this.openRows().has(rowKey)) this.openRows.update((open) => new Set(open).add(rowKey));
   }
 
   /** One line's problems as a sentence, since a line can be wrong in more than one way at once. */
@@ -824,6 +875,8 @@ export class RecipeIngredientEditorComponent {
     this.groups.update((groups) =>
       groups.map((group) => (group.key === targetKey ? { ...group, ingredients: [...group.ingredients, row] } : group)),
     );
+    // Open, since it has no words yet to show closed, and the click was a request to fill it in.
+    this.openRow(row.key);
     this.emitChange();
     this.revealAndFocus(`row-quantity-${row.key}`);
   }
@@ -839,17 +892,53 @@ export class RecipeIngredientEditorComponent {
     this.emitChange();
   }
 
-  moveRow(groupKey: string, rowKey: string, direction: -1 | 1): void {
-    const group = this.groups().find((candidate) => candidate.key === groupKey);
-    const index = group?.ingredients.findIndex((row) => row.key === rowKey) ?? -1;
+  /**
+   * A line's move handle, from the keyboard: Up and Down move it one place — into the next group at either end of
+   * one, when the recipe has groups — and Home and End to the top or the bottom of its own. Focus stays on the
+   * handle, which goes with the line. Any other key is the browser's.
+   */
+  onRowHandleKeydown(event: KeyboardEvent, rowKey: string): void {
+    const move = handleMoveFor(event);
+    if (move === null) return;
+    event.preventDefault();
+
+    const to = handleTarget(this.groups(), (group) => group.ingredients, rowKey, move, this.showGroups());
+    if (to === null) {
+      this.moveAnnouncement.set(move === 'up' || move === 'first' ? 'Already at the top.' : 'Already at the bottom.');
+      return;
+    }
+    this.moveRowTo(rowKey, to);
+    afterNextRender(
+      () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="ingredient-handle-${rowKey}"]`)?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /** A line dropped where it was dragged to: its own group, or another. Each list carries its group's key. */
+  onRowDropped(event: CdkDragDrop<string, string, string>): void {
+    if (event.previousContainer === event.container && event.previousIndex === event.currentIndex) return;
+    this.moveRowTo(event.item.data, { groupKey: event.container.data, index: event.currentIndex });
+  }
+
+  /** Moves a line to a place — in its own group or another — and says where it went. */
+  moveRowTo(rowKey: string, to: GroupedPlace): void {
     this.groups.update((groups) =>
-      groups.map((candidate) =>
-        candidate.key === groupKey
-          ? { ...candidate, ingredients: moveByKey(candidate.ingredients, rowKey, direction) }
-          : candidate,
+      moveToPlace(
+        groups,
+        (group) => group.ingredients,
+        (group, ingredients) => ({ ...group, ingredients }),
+        rowKey,
+        to,
       ),
     );
-    if (group) this.announceMove('ingredient', index, direction, group.ingredients.length);
+
+    const groups = this.groups();
+    const groupIndex = groups.findIndex((group) => group.key === to.groupKey);
+    const group = groups[groupIndex];
+    if (group) {
+      const where = this.showGroups() ? ` in ${group.title.trim() || `group ${groupIndex + 1}`}` : '';
+      this.moveAnnouncement.set(`Moved ingredient to position ${to.index + 1} of ${group.ingredients.length}${where}.`);
+    }
     this.emitChange();
   }
 

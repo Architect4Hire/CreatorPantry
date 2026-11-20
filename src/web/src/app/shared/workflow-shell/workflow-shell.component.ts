@@ -22,7 +22,10 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpDialogComponent,
+  CpCardGridComponent,
   CpFieldComponent,
+  CpIllustrationComponent,
+  CpIllustrationName,
   CpNoticeComponent,
   CpProgressComponent,
   CpSkeletonComponent,
@@ -149,8 +152,10 @@ const RETRY_WHEN_ONLINE: ReadonlySet<Command> = new Set<Command>(['continue', 'b
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
+    CpCardGridComponent,
     CpDialogComponent,
     CpFieldComponent,
+    CpIllustrationComponent,
     CpNoticeComponent,
     CpProgressComponent,
     CpSkeletonComponent,
@@ -376,6 +381,7 @@ export class WorkflowShellComponent {
     this.port.connect(
       (draft) => this.keepDraft(draft),
       () => this.focusAfterRender(STEP_HEADING_ID),
+      () => this.continue(),
     );
 
     effect(() => {
@@ -685,6 +691,47 @@ export class WorkflowShellComponent {
 
   protected finishedOn(iso: string): string {
     return dateAndTime(iso);
+  }
+
+  /** A finished run's steps in one line — the summary's disclosure says it, and holds the list. */
+  protected readonly finishedStepsText = computed(() => {
+    const run = this.run();
+    if (!run) return '';
+    const total = `${run.stepCount} ${run.stepCount === 1 ? 'step' : 'steps'}`;
+    if (run.skippedStepCount === 0) return run.stepCount === 1 ? '1 step done' : `All ${total} done`;
+    return `${run.completedStepCount} of ${total} done, ${run.skippedStepCount} skipped`;
+  });
+
+  /**
+   * The recipe a finished run made, for "Open your recipe": the last one a step recorded, else the one it started
+   * from. Null for a run that holds none.
+   */
+  protected readonly finishedRecipeLink = computed<readonly string[] | null>(() => {
+    const recipes = (this.run()?.links ?? []).filter((link) => link.kind === 'Recipe');
+    const made = [...recipes].reverse().find((link) => link.stepKey !== null) ?? recipes[0];
+    return made ? ['/', this.workspaceSlug(), 'recipes', made.id] : null;
+  });
+
+  /** A drawing for a suggestion, by the area its key names; decorative, so a key it does not know draws a sparkle. */
+  protected suggestionArt(suggestion: WorkflowSuggestion): CpIllustrationName {
+    const [area, name = ''] = suggestion.key.split('.', 2);
+    if (area === 'images' || /picture|image|photo/.test(name)) return 'picture';
+    switch (area) {
+      case 'recipe':
+      case 'recipes':
+        return 'recipe';
+      case 'content':
+        return 'article';
+      case 'social':
+        return 'post';
+      case 'brand':
+        return 'brand';
+      case 'planning':
+      case 'publishing':
+        return 'calendar';
+      default:
+        return 'sparkle';
+    }
   }
 
   // ---- Internals ----

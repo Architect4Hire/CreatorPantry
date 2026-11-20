@@ -68,6 +68,102 @@ export function moveByKey<T extends { readonly key: string }>(
   return next;
 }
 
+/** A place in a grouped list: the group, and the position in it the item ends up at. */
+export interface GroupedPlace {
+  readonly groupKey: string;
+  readonly index: number;
+}
+
+/**
+ * Where a key pressed on a line's move handle asks to take it, or null for any other key. Up and Down move it one
+ * place; Home and End to the top or the bottom of its group. A key with a modifier is left to the browser.
+ */
+export type HandleMove = 'up' | 'down' | 'first' | 'last';
+
+export function handleMoveFor(event: KeyboardEvent): HandleMove | null {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
+  switch (event.key) {
+    case 'ArrowUp':
+      return 'up';
+    case 'ArrowDown':
+      return 'down';
+    case 'Home':
+      return 'first';
+    case 'End':
+      return 'last';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Where a handle's key takes the item named by `itemKey`, or null when it is already there. Up from the top of a group
+ * goes to the end of the group above, and Down from the bottom to the start of the group below, when `acrossGroups`
+ * — a recipe the creator split into sections, where moving a line between them is a move like any other. Home and
+ * End stay in the item's own group.
+ */
+export function handleTarget<G extends { readonly key: string }>(
+  groups: readonly G[],
+  itemsOf: (group: G) => readonly { readonly key: string }[],
+  itemKey: string,
+  move: HandleMove,
+  acrossGroups: boolean,
+): GroupedPlace | null {
+  const groupIndex = groups.findIndex((group) => itemsOf(group).some((item) => item.key === itemKey));
+  if (groupIndex === -1) return null;
+  const group = groups[groupIndex];
+  const items = itemsOf(group);
+  const index = items.findIndex((item) => item.key === itemKey);
+  const last = items.length - 1;
+
+  switch (move) {
+    case 'first':
+      return index === 0 ? null : { groupKey: group.key, index: 0 };
+    case 'last':
+      return index === last ? null : { groupKey: group.key, index: last };
+    case 'up':
+      if (index > 0) return { groupKey: group.key, index: index - 1 };
+      if (!acrossGroups || groupIndex === 0) return null;
+      return { groupKey: groups[groupIndex - 1].key, index: itemsOf(groups[groupIndex - 1]).length };
+    case 'down':
+      if (index < last) return { groupKey: group.key, index: index + 1 };
+      if (!acrossGroups || groupIndex === groups.length - 1) return null;
+      return { groupKey: groups[groupIndex + 1].key, index: 0 };
+  }
+}
+
+/**
+ * Takes the item named by `itemKey` out of whichever group holds it and puts it at `to` — the position it holds once
+ * moved, which is what both a drop and a handle's key give. The groups and every other item keep their order; an item
+ * or a group that is not there leaves the list as it was.
+ */
+export function moveToPlace<G extends { readonly key: string }, I extends { readonly key: string }>(
+  groups: readonly G[],
+  itemsOf: (group: G) => readonly I[],
+  withItems: (group: G, items: I[]) => G,
+  itemKey: string,
+  to: GroupedPlace,
+): G[] {
+  const from = groups.find((group) => itemsOf(group).some((item) => item.key === itemKey));
+  const item = from && itemsOf(from).find((candidate) => candidate.key === itemKey);
+  if (!from || !item || !groups.some((group) => group.key === to.groupKey)) return [...groups];
+
+  const without = groups.map((group) =>
+    group === from
+      ? withItems(
+          group,
+          itemsOf(group).filter((candidate) => candidate.key !== itemKey),
+        )
+      : group,
+  );
+  return without.map((group) => {
+    if (group.key !== to.groupKey) return group;
+    const items = [...itemsOf(group)];
+    items.splice(Math.max(0, Math.min(to.index, items.length)), 0, item);
+    return withItems(group, items);
+  });
+}
+
 /**
  * `RecipePolicy.MaxTimeMinutes` — one year, the most the server accepts for any one time field.
  *

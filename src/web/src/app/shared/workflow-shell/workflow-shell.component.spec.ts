@@ -412,6 +412,21 @@ describe('WorkflowShellComponent', () => {
     return component;
   }
 
+  it('moves on when the step asks to, exactly as Continue does', async () => {
+    await onIngredients();
+    screen.results.set([{ kind: 'Recipe', id: 'recipe-1' }]);
+    service.completeStep.and.returnValue(done(onPhoto()));
+
+    await screenPort!.continueStep();
+    await settle();
+
+    expect(screen.flushes).toBe(1);
+    expect(service.completeStep).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', [
+      { kind: 'Recipe', id: 'recipe-1' },
+    ]);
+    expect(text()).toContain('Add a photo');
+  });
+
   it("keeps the step's work before Continue, then asks the server and shows the step it moved to", async () => {
     await onIngredients();
     screen.results.set([{ kind: 'Recipe', id: 'recipe-1' }]);
@@ -744,14 +759,54 @@ describe('WorkflowShellComponent', () => {
     await create(finished());
 
     expect(text()).toContain('What next?');
-    expect(text()).toContain(
-      'Test and approve a recipe. Cook it, note what happened, and approve it when it is right.',
-    );
+    // A card each, headed by what it is, with why under it — and the first, the recommended one, featured.
+    const cards = Array.from(el().querySelectorAll('.next cp-card'));
+    expect(cards.map((card) => card.querySelector('h4')?.textContent?.trim())).toEqual([
+      'Test and approve a recipe',
+      'Choose the lead picture',
+    ]);
+    expect(cards[0].textContent).toContain('Cook it, note what happened, and approve it when it is right.');
+    expect(cards.map((card) => card.classList.contains('cp-card--featured'))).toEqual([true, false]);
+    expect(cards.every((card) => card.querySelector('cp-illustration[aria-hidden="true"]') !== null)).toBeTrue();
     const start = el().querySelector<HTMLButtonElement>('button[aria-label="Start: Test and approve a recipe"]')!;
     expect(start.classList).toContain('cp-button--primary');
     expect(button('Open')).not.toBeNull();
     expect(button('Back to Workflows')?.classList).toContain('cp-button--secondary');
     expect(el().querySelectorAll('.cp-button--primary').length).toBe(1);
+  });
+
+  it('says a finished run is done in one line, with its steps behind a disclosure', async () => {
+    await create(finished({ stepCount: 3, completedStepCount: 3, skippedStepCount: 0 }));
+
+    const steps = el().querySelector<HTMLDetailsElement>('details.finished-steps')!;
+    expect(steps.open).toBeFalse();
+    expect(steps.querySelector('summary')!.textContent!.trim()).toBe('All 3 steps done');
+    expect(steps.querySelector('cp-stepper')).not.toBeNull();
+
+    await create(finished({ stepCount: 3, completedStepCount: 2, skippedStepCount: 1 }));
+    expect(el().querySelector('details.finished-steps summary')!.textContent!.trim()).toBe(
+      '2 of 3 steps done, 1 skipped',
+    );
+  });
+
+  it('offers the recipe a finished run made, and goes back to Workflows when there is nothing else', async () => {
+    await create(
+      finished({
+        nextSuggestions: [],
+        links: [
+          { kind: 'Recipe', resourceId: 'recipe-0', stepKey: null },
+          { kind: 'Recipe', resourceId: 'recipe-9', stepKey: 'start' },
+        ],
+      }),
+    );
+    const open = button('Open your recipe') as unknown as HTMLAnchorElement;
+    expect(open.getAttribute('href')).toBe(`/${SLUG}/recipes/recipe-9`);
+    expect(open.classList).toContain('cp-button--primary');
+    expect(button('Back to Workflows')?.classList).toContain('cp-button--secondary');
+
+    await create(finished({ nextSuggestions: [], links: [] }));
+    expect(button('Open your recipe')).toBeNull();
+    expect(button('Back to Workflows')?.classList).toContain('cp-button--primary');
   });
 
   it('opens a suggested screen at its address, query and all, named by what it opens', async () => {
@@ -768,7 +823,7 @@ describe('WorkflowShellComponent', () => {
       nextSuggestions: run.nextSuggestions.map((suggestion) => ({ ...suggestion, youCanDoIt: false })),
     });
 
-    expect(text()).toContain('Test and approve a recipe.');
+    expect(el().querySelector('.next h4')?.textContent?.trim()).toBe('Test and approve a recipe');
     expect(el().querySelector('button[aria-label^="Start:"]')).toBeNull();
   });
 

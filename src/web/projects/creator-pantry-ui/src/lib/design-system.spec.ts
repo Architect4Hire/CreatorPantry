@@ -571,12 +571,11 @@ describe('CreatorPantry design tokens', () => {
         });
       }
 
-      // A loading region's only mark is cp-skeleton's spinner, in muted ink: a graphic, so held to 3:1 (WCAG 1.4.11)
-      // on the page and the sheet it is drawn on — one nobody can see is a blank page with extra steps.
-      it(`draws a loading spinner that stands off the page and the sheet in the ${theme} theme`, () => {
-        const tokens = readTokens(theme, ['--cp-text-muted', '--cp-bg', '--cp-surface']);
-        expect(contrastRatio(tokens['--cp-text-muted'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(3);
-        expect(contrastRatio(tokens['--cp-text-muted'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(3);
+      // Decorative, so not held to a text ratio, but a skeleton nobody can see is a blank page with extra steps.
+      it(`draws a skeleton that stands off the page and the sheet in the ${theme} theme`, () => {
+        const tokens = readTokens(theme, ['--cp-skeleton-base', '--cp-bg', '--cp-surface']);
+        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(1.15);
+        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(1.15);
       });
     }
   });

@@ -112,8 +112,8 @@ describe('CpTopicCardComponent', () => {
     fixture.debugElement.children[0].children[0].componentInstance.focusHeading();
 
     expect(document.activeElement).toBe(heading);
-    // On :focus, since focus moved by script after a click is not keyboard focus to a browser.
-    expect(getComputedStyle(heading).outlineStyle).toBe('solid');
+    // Ringed only as keyboard focus: after a click on Continue, a ring round the step's title reads as a selection.
+    expect(getComputedStyle(heading).outlineStyle).toBe(heading.matches(':focus-visible') ? 'solid' : 'none');
   });
 
   it('keeps the heading focusable at either level', () => {

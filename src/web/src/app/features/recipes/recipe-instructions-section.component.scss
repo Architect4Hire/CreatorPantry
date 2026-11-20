@@ -112,7 +112,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-2);
+  gap: var(--cp-space-1);
   flex-shrink: 0;
 }
 
@@ -131,8 +131,8 @@
 
 .step {
   display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
-  grid-template-areas: 'number body controls';
+  grid-template-columns: auto 2.5rem minmax(0, 1fr) auto;
+  grid-template-areas: 'handle number body controls';
   align-items: start;
   column-gap: var(--cp-space-3);
   padding-block: var(--cp-space-4);
@@ -142,6 +142,37 @@
 .step:first-child {
   padding-top: var(--cp-space-2);
   border-top: 0;
+}
+
+/* The handle a step is moved by: quiet, at the start of its line, and the cursor says it can be picked up. */
+.move-handle {
+  grid-area: handle;
+  color: var(--cp-text-muted);
+  cursor: grab;
+}
+
+/* Where the step will land, shown as the step itself, faded — the board's placeholder. */
+.step.cdk-drag-placeholder {
+  opacity: 0.4;
+}
+
+/* The step in hand, lifted out of its list: on the sheet it came from, with the board's floating shadow. */
+.step.cdk-drag-preview {
+  list-style: none;
+  padding-inline: var(--cp-space-3);
+  border: 1px solid var(--cp-border-control);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  box-shadow: var(--cp-shadow-lg);
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The step settling into place, and its neighbours making room. Nothing moves on its own otherwise. */
+  .step.cdk-drag-animating,
+  .cdk-drop-list-dragging .step:not(.cdk-drag-placeholder) {
+    transition: transform var(--cp-duration-normal) var(--cp-ease);
+  }
 }
 
 /* The tool's colour, quiet: the one place on a step the eye goes first, and the order at a glance. */
@@ -164,12 +195,12 @@
   min-width: 0;
 }
 
-/* As tall as what is written in it, from two lines: most steps are a sentence or two, and a fixed box of blank
-   lines under every one is most of the height a method used to take. A browser without content sizing keeps the
-   two rows and its own resize handle. */
+/* As tall as what is written in it, from one line — a one-line field's height, level with the step's number:
+   most steps are a sentence or two, and blank lines under every one are most of the height a method used to
+   take. A browser without content sizing keeps the two rows and its own resize handle. */
 .step-text {
   field-sizing: content;
-  min-height: calc(2lh + var(--cp-space-4));
+  min-height: 2.75rem;
 }
 
 /* "+ Note" and "+ Duration": a line of quiet offers under the words, not fields. */
@@ -188,10 +219,10 @@
 /* Narrow — a phone, or 200% zoom: the words take the width beside the number, and the controls go under them. */
 @container cp-steps (max-width: 34rem) {
   .step {
-    grid-template-columns: 2.5rem minmax(0, 1fr);
+    grid-template-columns: auto 2.5rem minmax(0, 1fr);
     grid-template-areas:
-      'number body'
-      '. controls';
+      'handle number body'
+      '. . controls';
     row-gap: var(--cp-space-2);
   }
 

@@ -40,6 +40,13 @@ export class RecipeStudioHost {
    * concepts as a step of their own and leaves this off.
    */
   conceptsInDrawer = false;
+  /**
+   * Whether the first draft shows as a preview with one decision rather than a review to edit. For a host whose own
+   * next steps edit what the draft becomes — the workflow, whose ingredients, method and timing steps follow — where
+   * editing it here as well was doing the same work twice. Using the draft makes the recipe and moves the host on.
+   * The studio's own flow, with no steps after it, keeps the full review.
+   */
+  compactDraft = false;
   /** The idea request the studio resumes on, in place of `?request=`. */
   conceptRequestId: string | null = null;
   /** The draft request the review shows, in place of `?request=`. */

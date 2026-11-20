@@ -76,60 +76,23 @@ describe('CpSkeletonComponent', () => {
     expect(card.querySelectorAll('.bone.line.title').length).toBe(1);
   });
 
-  it('holds the space of what is coming and draws none of it', () => {
+  it('draws the shape of what is coming, with a shine sweeping across it', () => {
     const host = mount('card', 2);
     document.body.appendChild(fixture.nativeElement);
     expect(host.getBoundingClientRect().height).toBeGreaterThan(100);
-    for (const shape of host.querySelectorAll<HTMLElement>('.card, .bone')) {
-      expect(getComputedStyle(shape).visibility).toBe('hidden');
+    for (const bone of host.querySelectorAll<HTMLElement>('.bone')) {
+      const style = getComputedStyle(bone);
+      expect(style.visibility).toBe('visible');
+      expect(style.backgroundImage).toContain('gradient');
+      expect(style.animationName).toMatch(/cp-skeleton-sweep$/);
     }
     fixture.nativeElement.remove();
   });
 
-  it('turns one spinner in the middle of that space, however many shapes it holds', () => {
-    const host = mount('line', 4);
-    document.body.appendChild(fixture.nativeElement);
-    const spinners = host.querySelectorAll<HTMLElement>('cp-spinner');
-    expect(spinners.length).toBe(1);
-
-    const outer = host.getBoundingClientRect();
-    const inner = spinners[0].getBoundingClientRect();
-    expect(inner.left + inner.width / 2).toBeCloseTo(outer.left + outer.width / 2, 0);
-    expect(inner.top + inner.height / 2).toBeCloseTo(outer.top + outer.height / 2, 0);
-    expect(getComputedStyle(spinners[0]).visibility).toBe('visible');
-    fixture.nativeElement.remove();
-  });
-
-  it('keeps the spinner near the top of a tall space, where it is seen rather than below the fold', () => {
-    const host = mount('block', 6);
-    document.body.appendChild(fixture.nativeElement);
-    const outer = host.getBoundingClientRect();
-    const inner = host.querySelector<HTMLElement>('cp-spinner')!.getBoundingClientRect();
-    expect(outer.height).toBeGreaterThan(600);
-    expect(inner.top - outer.top).toBeCloseTo(80, 0);
-    fixture.nativeElement.remove();
-  });
-
-  it('draws a text-sized spinner for one line, and a larger one for anything more', () => {
-    const size = (shape: CpSkeletonShape, count: number): number => {
-      const spinner = mount(shape, count).querySelector<HTMLElement>('cp-spinner')!;
-      document.body.appendChild(fixture.nativeElement);
-      const height = spinner.getBoundingClientRect().height;
-      fixture.nativeElement.remove();
-      return height;
-    };
-
-    expect(size('line', 1)).toBeCloseTo(16, 0);
-    expect(size('line', 4)).toBeCloseTo(28, 0);
-    expect(size('block', 1)).toBeCloseTo(28, 0);
-  });
-
-  it('puts a one-line spinner where the words will begin, not in the middle of the line', () => {
-    const host = mount('line', 1);
-    document.body.appendChild(fixture.nativeElement);
-    const outer = host.getBoundingClientRect();
-    const inner = host.querySelector<HTMLElement>('cp-spinner')!.getBoundingClientRect();
-    expect(inner.left).toBeCloseTo(outer.left, 0);
-    fixture.nativeElement.remove();
+  /** A region of several skeletons once turned one spinner in each: the shapes are the sign, so there is none. */
+  it('draws no spinner, however many shapes it holds', () => {
+    expect(mount('line', 4).querySelector('cp-spinner')).toBeNull();
+    expect(mount('block').querySelector('cp-spinner')).toBeNull();
+    expect(mount('card', 3).querySelector('cp-spinner')).toBeNull();
   });
 });

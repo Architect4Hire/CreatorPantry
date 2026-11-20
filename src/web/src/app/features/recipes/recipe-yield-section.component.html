@@ -1,5 +1,5 @@
 <cp-form-section sectionId="section-yield" heading="Yield">
-  <cp-field label="Yield, in your own words" forId="recipe-yield-text" [error]="form.fieldError('yieldText')">
+  <cp-field label="" forId="recipe-yield-text" [error]="form.fieldError('yieldText')">
     <input
       id="recipe-yield-text"
       type="text"
@@ -119,16 +119,10 @@
           />
         </cp-field>
       </cp-field-row>
-      <!-- On the right of the fields it removes, not a button of its own beneath them. Its name says what it
-           removes, because the word on the button is only "Remove". -->
-      <button
-        cpButton
-        variant="secondary"
-        type="button"
-        aria-label="Remove measured batch"
-        (click)="removeMeasuredBatch()"
-      >
-        Remove
+      <!-- On the right of the fields it removes, not a button of its own beneath them. A quiet bin, as on a step
+           or an ingredient line; its name says what it removes, because the picture says only "remove". -->
+      <button cpButton variant="ghost" type="button" aria-label="Remove measured batch" (click)="removeMeasuredBatch()">
+        <cp-icon name="trash" />
       </button>
     </div>
   } @else {
