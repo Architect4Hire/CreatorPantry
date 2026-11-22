@@ -351,6 +351,15 @@ export class AiProposalPanelComponent {
    */
   readonly knownStale = input(false);
 
+  /**
+   * A host's list shows each suggestion as a row of its own, with the state said in the row — "Out of date", "Safety
+   * note" — and the stale recovery as the row's own buttons. The panel then leaves out what the row and the step
+   * already say: the "Not saved to your recipe yet" chip, the "Ready for review" status and its sentence, and the
+   * stale notice with its buttons. Everything about what would change, and the yes or no to it, is unchanged. A
+   * status that is not ready — still being written, failed, expired — is still said.
+   */
+  readonly condensed = input(false);
+
   /** The panel heading's level: 3 on a page of its own sections, 4 inside a host's list that has its own heading. */
   readonly headingLevel = input<3 | 4>(3);
 
@@ -400,6 +409,9 @@ export class AiProposalPanelComponent {
 
   /** A decision is being recorded. Readable by the template, for the stale state's own Decline. */
   protected readonly deciding = signal(false);
+
+  /** Whether a decision is being recorded, for a host that offers the stale state's buttons itself. */
+  readonly busy = computed(() => this.deciding());
   private readonly asking = signal(false);
 
   /**
@@ -929,6 +941,14 @@ export class AiProposalPanelComponent {
     });
     if (!confirmed) return;
 
+    await this.decide('Reject', []);
+  }
+
+  /**
+   * Declines the whole proposal without asking, for a host that has already asked — once, for several at a time.
+   * The same decision, recorded the same way; only the question is the host's.
+   */
+  async declineAsked(): Promise<void> {
     await this.decide('Reject', []);
   }
 

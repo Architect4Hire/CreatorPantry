@@ -2,19 +2,23 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
   OnInit,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import {
   CpButtonComponent,
   CpChoiceGroupComponent,
   CpChoiceOption,
+  CpDrawerComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
   CpSkeletonComponent,
@@ -92,6 +96,7 @@ type Loaded =
   imports: [
     CpButtonComponent,
     CpChoiceGroupComponent,
+    CpDrawerComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
     CpSkeletonComponent,
@@ -132,10 +137,27 @@ type Loaded =
               </cp-notice>
             }
 
-            <!-- Folded: the next step lists them in full. Here they are found again after a reload, and can be
-                 answered now — the only way a suggestion asked for before can count as this step's change. -->
-            <details class="cp-disclosure waiting" [hidden]="(open.waiting() ?? 0) === 0">
-              <summary>{{ waitingSummary(open.waiting() ?? 0) }}</summary>
+            <!-- One line, not the list: the next step lists them in full. Here they are found again after a reload,
+                 and can be answered now — the only way a suggestion asked for before can count as this step's
+                 change — in a drawer, where reading each one and answering it is the one task. -->
+            @if ((open.waiting() ?? 0) > 0 && !waitingOpen()) {
+              <cp-notice class="waiting-line" role="status">
+                {{ waitingSummary(open.waiting() ?? 0) }}
+                <span class="waiting-line-actions">
+                  <button cpButton type="button" variant="secondary" size="sm" (click)="openWaiting($event)"
+                    >Show suggestions</button
+                  >
+                </span>
+              </cp-notice>
+            }
+            <cp-drawer
+              [open]="waitingOpen() && (open.waiting() ?? 0) > 0"
+              heading="Suggestions waiting for you"
+              description="Read what would change and say yes or no to each. Nothing changes until you do."
+              size="wide"
+              closeLabel="Close suggestions"
+              (closeRequested)="closeWaiting()"
+            >
               <cp-recipe-open-suggestions
                 #open
                 [workspaceSlug]="workspaceSlug()"
@@ -144,7 +166,7 @@ type Loaded =
                 (decided)="afterDecision($event)"
                 (askAgain)="askAgain($event)"
               />
-            </details>
+            </cp-drawer>
 
             <cp-form-section
               sectionId="recipe-improve-way"
@@ -167,6 +189,7 @@ type Loaded =
                   [recipeId]="recipe.id"
                   [currentVersionId]="versionId()"
                   initialScope="WholeRecipe"
+                  [suggestionsInDrawer]="true"
                   heading="Get suggestions"
                   [headingLevel]="3"
                   (decided)="afterDecision()"
@@ -198,6 +221,7 @@ type Loaded =
                   [currentVersionId]="versionId()"
                   [headingLevel]="3"
                   [offerFixes]="true"
+                  [findingsInDrawer]="true"
                   (fixDecided)="afterDecision()"
                 />
               }
@@ -217,12 +241,12 @@ type Loaded =
       min-width: 0;
     }
 
-    .waiting[hidden] {
-      display: none;
-    }
-
-    .waiting > cp-recipe-open-suggestions {
-      margin-top: var(--cp-space-4);
+    .waiting-line-actions {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: var(--cp-space-2);
+      margin-inline-start: var(--cp-space-2);
+      vertical-align: middle;
     }
   `,
 })
@@ -234,6 +258,7 @@ export class RecipeImproveChangeStepComponent implements OnInit {
   private readonly port = inject(WorkflowStepPort);
   private readonly editorHost = inject(RecipeEditorHost);
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   private readonly editor = viewChild(RecipeEditorComponent);
   private readonly revision = viewChild(RecipeRevisionRequestComponent);
@@ -245,6 +270,9 @@ export class RecipeImproveChangeStepComponent implements OnInit {
   protected readonly ways = WAYS;
   protected readonly loaded = signal<Loaded>({ status: 'loading' });
   protected readonly way = signal<Way | null>('revise');
+
+  /** Whether the drawer of waiting suggestions is open. It closes by itself once the last one is answered. */
+  protected readonly waitingOpen = signal(false);
 
   /** Bumped when a switch is refused, so the choice tiles are put back to the way still showing. */
   private readonly reasserted = signal(0);
@@ -297,6 +325,16 @@ export class RecipeImproveChangeStepComponent implements OnInit {
       ready: computed(() => this.changedThisRun() || (this.way() === 'edit' && (this.editor()?.isDirty() ?? false))),
     });
     inject(DestroyRef).onDestroy(unregister);
+
+    // The last waiting suggestion was answered in the drawer: there is nothing left for it to hold, so it closes
+    // and focus goes back to the step, since the line that opened it went with the last suggestion.
+    effect(() => {
+      if (!this.waitingOpen() || this.openList()?.waiting() !== 0) return;
+      untracked(() => {
+        this.waitingOpen.set(false);
+        afterNextRender(() => this.port.focusStep(), { injector: this.injector });
+      });
+    });
   }
 
   ngOnInit(): void {
@@ -359,9 +397,27 @@ export class RecipeImproveChangeStepComponent implements OnInit {
           ? 'Kept. Your recipe now has those changes.'
           : 'Declined. Your recipe wasn’t changed.',
       );
-      // The panel that held focus is gone from the list: never leave focus on nothing.
-      this.port.focusStep();
+      // The panel that held focus is gone from the list: never leave focus on nothing. In the drawer it is kept
+      // there, and the drawer gives it back when it closes.
+      if (!this.waitingOpen()) this.port.focusStep();
     }
+  }
+
+  /**
+   * Opens the waiting suggestions beside the step. The pressed control is focused first, because a click does not
+   * focus a button in every browser and the drawer gives focus back to whatever held it when it opened.
+   */
+  protected openWaiting(event: Event): void {
+    (event.currentTarget as HTMLElement).focus();
+    this.waitingOpen.set(true);
+  }
+
+  /** Escape, the scrim or the close control. Each suggestion keeps its own state, so it closes at once. */
+  protected closeWaiting(): void {
+    this.waitingOpen.set(false);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('.waiting-line button')?.focus(), {
+      injector: this.injector,
+    });
   }
 
   protected waitingSummary(count: number): string {
@@ -370,6 +426,7 @@ export class RecipeImproveChangeStepComponent implements OnInit {
 
   /** A suggestion made before the latest save: open the way that asks for it again, against the recipe as it is. */
   protected askAgain(taskType: AiTaskType): void {
+    this.waitingOpen.set(false);
     this.way.set(taskType === 'RecipeAdaptation' ? 'adapt' : 'revise');
     this.port.announce('Ask for it again below. It will use your recipe as it is now.');
     this.port.focusStep();

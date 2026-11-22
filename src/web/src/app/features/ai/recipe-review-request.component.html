@@ -25,21 +25,72 @@
   @if (state() === 'forbidden') {
     <p class="review-blocked" role="status">Your role in this workspace cannot ask for a review.</p>
   } @else if (state() === 'watching') {
-    <cp-ai-advisory-results
-      [operation]="operation()"
-      [connection]="connection()"
-      heading="Review findings"
-      itemNoun="review"
-      itemNounPlural="findings"
-      [fieldLabels]="fieldLabels"
-      [enumValueFields]="enumValueFields"
-      [hiddenFields]="hiddenFields"
-      [selectable]="picking()"
-      [selectedIds]="picked()"
-      (toggled)="onFindingToggled($event)"
-    />
+    @if (findingsInDrawer()) {
+      <!-- In the workflow the findings open in a drawer. While it is closed and no fix has been asked for, the page
+           keeps one line about where the review is, and the way back in. -->
+      @if (!findingsOpen() && !fixGoal()) {
+        @if (findingsLine(); as line) {
+          <cp-notice class="review-findings-line" [tone]="line.tone" role="status">
+            {{ line.text }}
+            <span class="review-findings-line-actions">
+              <button cpButton type="button" variant="secondary" size="sm" (click)="openFindings($event)">{{
+                line.action
+              }}</button>
+            </span>
+          </cp-notice>
+        }
+      }
 
-    @if (picking()) {
+      <!-- Reading the findings and picking which to fix is the drawer's one task: asking for the fixes closes it, and
+           the suggestions come back on the page. The page behind is inert while it is open, so what the picking says
+           is said in here. -->
+      <cp-drawer
+        [open]="findingsOpen()"
+        heading="Review findings"
+        description="Advice for you to judge. Nothing here changes your recipe."
+        size="wide"
+        closeLabel="Close findings"
+        (closeRequested)="closeFindings()"
+      >
+        @if (picking()) {
+          <div class="review-fix">
+            <div class="review-actions">
+              <button cpButton type="button" variant="text" size="sm" (click)="pickAll()">Pick all</button>
+              <button cpButton type="button" variant="text" size="sm" (click)="clearPicks()">Clear</button>
+              <span class="review-hint" role="status"
+                >{{ pickedFindings().length }} of {{ findings().length }} picked.</span
+              >
+            </div>
+            <p class="review-hint" id="cp-review-fix-hint">
+              You'll see each suggested change and choose which to keep. Nothing changes until you do.
+            </p>
+          </div>
+        }
+
+        <ng-container *ngTemplateOutlet="results" />
+
+        @if (picking()) {
+          <button
+            cpDrawerActions
+            cpButton
+            type="button"
+            variant="primary"
+            [attr.aria-disabled]="pickedFindings().length === 0 ? 'true' : null"
+            aria-describedby="cp-review-fix-hint"
+            (click)="askForFixes()"
+          >
+            {{ askFixLabel() }}
+          </button>
+        }
+        <button cpDrawerActions cpButton type="button" variant="secondary" (click)="startAnother()"
+          >Review again</button
+        >
+      </cp-drawer>
+    } @else {
+      <ng-container *ngTemplateOutlet="results" />
+    }
+
+    @if (picking() && !findingsInDrawer()) {
       <!-- The bridge from advice to change: picking a finding changes nothing, it only says what to ask about. The
            ask is an ordinary revision whose every change is reviewed below before anything is kept. -->
       <div class="review-fix">
@@ -85,12 +136,15 @@
         initialScope="WholeRecipe"
         [initialGoal]="fix.goal"
         [startImmediately]="true"
+        [suggestionsInDrawer]="findingsInDrawer()"
         heading="Suggested changes for your findings"
         [headingLevel]="headingLevel() === 2 ? 3 : 4"
         (decided)="onFixDecided($event)"
       />
       <div class="review-actions">
-        <button cpButton type="button" variant="text" size="sm" (click)="pickAgain()">Pick different findings</button>
+        <button cpButton type="button" variant="text" size="sm" (click)="pickAgain($event)"
+          >Pick different findings</button
+        >
       </div>
     }
 
@@ -127,3 +181,20 @@
     </div>
   }
 </section>
+
+<!-- The findings with their status, wherever they show: under the review's button, or in the drawer. -->
+<ng-template #results>
+  <cp-ai-advisory-results
+    [operation]="operation()"
+    [connection]="connection()"
+    [heading]="findingsInDrawer() ? 'What the review found' : 'Review findings'"
+    itemNoun="review"
+    itemNounPlural="findings"
+    [fieldLabels]="fieldLabels"
+    [enumValueFields]="enumValueFields"
+    [hiddenFields]="hiddenFields"
+    [selectable]="picking()"
+    [selectedIds]="picked()"
+    (toggled)="onFindingToggled($event)"
+  />
+</ng-template>

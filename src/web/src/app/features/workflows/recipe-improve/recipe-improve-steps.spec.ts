@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { Type, signal } from '@angular/core';
+import { Type, WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { NEVER, Observable, of } from 'rxjs';
@@ -23,6 +23,7 @@ import { RecipeImproveChangeStepComponent } from './recipe-improve-change-step.c
 import { RecipeChooseStepComponent } from '../recipe-steps/recipe-choose-step.component';
 import { RecipeImproveCompareStepComponent } from './recipe-improve-compare-step.component';
 import { RecipeImproveDecideStepComponent } from './recipe-improve-decide-step.component';
+import { RecipeOpenSuggestionsComponent } from './recipe-open-suggestions.component';
 
 const SLUG = 'sams-kitchen';
 const STARTED = '2026-10-15T09:00:00Z';
@@ -138,6 +139,9 @@ let recipes: {
 };
 let open: AiOpenProposalsOutcome;
 let listOpen: jasmine.Spy;
+let watchHandler: () => Observable<unknown>;
+let disposition: jasmine.Spy;
+let memberships: WritableSignal<unknown>;
 
 function configure(): void {
   port = new WorkflowStepPort();
@@ -161,6 +165,9 @@ function configure(): void {
   };
   open = { status: 'found', open: [] };
   listOpen = jasmine.createSpy('listOpen').and.callFake(() => Promise.resolve(open));
+  watchHandler = () => NEVER;
+  disposition = jasmine.createSpy('disposition');
+  memberships = signal<unknown>({ status: 'loading' });
 
   TestBed.configureTestingModule({
     providers: [
@@ -174,15 +181,15 @@ function configure(): void {
         useValue: {
           listOpen,
           // A proposal still being written, as far as each panel can tell: no answer, no timers.
-          watchStatus: () => NEVER,
+          watchStatus: () => watchHandler(),
           requestProposal: jasmine.createSpy('requestProposal'),
-          disposition: jasmine.createSpy('disposition'),
+          disposition,
         },
       },
       { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } },
       {
         provide: WorkspaceMembershipService,
-        useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() },
+        useValue: { state: memberships, ensureLoaded: () => Promise.resolve() },
       },
     ],
   });
@@ -377,6 +384,14 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(port.registration()!.results!()).toEqual([{ kind: 'Recipe', id: 'recipe-1' }]);
     });
 
+    it('draws the search box as wide as its field, not at the browser’s default', async () => {
+      const fixture = await choose();
+
+      const search = root(fixture).querySelector<HTMLInputElement>('input[type="search"]')!;
+      const field = search.closest('cp-search-field')!;
+      expect(search.getBoundingClientRect().width).toBeGreaterThanOrEqual(field.getBoundingClientRect().width - 1);
+    });
+
     it('lists the workspace’s recipes, and picking one names it as the step’s result', async () => {
       const fixture = await choose();
 
@@ -475,22 +490,49 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
         (node) => node.componentInstance instanceof RecipeReviewRequestComponent,
       ).componentInstance as RecipeReviewRequestComponent;
       expect(review.offerFixes()).toBeTrue();
+      // The findings of a check open in a drawer here, not under the step's choices.
+      expect(review.findingsInDrawer()).toBeTrue();
       expect(review.headingLevel()).toBe(3);
     });
 
-    it('shows a suggestion a reload left waiting, in the proposal panel, before the ways', async () => {
+    it('keeps a suggestion a reload left waiting out of the page, and opens it in a drawer on asking', async () => {
       open = { status: 'found', open: [openItem()] };
       const fixture = await change();
 
-      expect(text(fixture)).toContain('Waiting for your answer');
-      expect(text(fixture)).toContain('Suggested changes');
-      expect(text(fixture)).toContain('2 changes wait for your answer.');
-      expect(root(fixture).querySelector('cp-ai-proposal-panel')).not.toBeNull();
+      // The page says one line about it, and nothing of the list.
+      expect(text(fixture)).toContain('1 suggestion is waiting for your answer');
+      expect(root(fixture).querySelector('cp-ai-proposal-panel')).toBeNull();
+
+      const show = Array.from(root(fixture).querySelectorAll('button')).find(
+        (button) => (button.textContent ?? '').trim() === 'Show suggestions',
+      )!;
+      show.click();
+      await settle(fixture);
+
+      // An open drawer moves its content to <body>, and the page behind it is inert.
+      const drawer = document.body.querySelector('[role="dialog"]')!;
+      expect(drawer.textContent).toContain('Suggestions waiting for you');
+      expect(drawer.textContent).toContain('Suggested changes');
+      expect(drawer.textContent).toContain('2 changes');
+      expect(drawer.querySelector('cp-ai-proposal-panel')).not.toBeNull();
+      expect(root(fixture).querySelector('cp-ai-proposal-panel')).toBeNull();
+
+      document.body.querySelector<HTMLButtonElement>('[aria-label="Close suggestions"]')!.click();
+      await settle(fixture);
+
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+      expect(text(fixture)).toContain('1 suggestion is waiting for your answer');
     });
 
     it('opens a suggestion made before the latest save as stale, and asking again opens the way that asks for it', async () => {
       open = { status: 'found', open: [openItem({ isStale: true, taskType: 'RecipeAdaptation' })] };
       const fixture = await change();
+
+      // The panel is in the drawer, so it is on the page once the drawer is open.
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((button) => (button.textContent ?? '').trim() === 'Show suggestions')!
+        .click();
+      await settle(fixture);
 
       const panel = fixture.debugElement.query((node) => node.componentInstance instanceof AiProposalPanelComponent)
         .componentInstance as AiProposalPanelComponent;
@@ -509,14 +551,26 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(focusStep).toHaveBeenCalled();
     });
 
-    it('folds what is waiting into a line that says how many, and shows nothing when nothing waits', async () => {
+    it('says how many are waiting in one line, and shows nothing when nothing waits', async () => {
       open = { status: 'found', open: [openItem(), openItem({ requestId: 'req-2' })] };
       const fixture = await change();
 
-      const fold = root(fixture).querySelector<HTMLDetailsElement>('details.waiting')!;
-      expect(fold.hidden).toBeFalse();
-      expect(fold.open).toBeFalse();
-      expect(fold.querySelector('summary')!.textContent).toContain('2 suggestions are waiting for your answer');
+      const line = root(fixture).querySelector('.waiting-line')!;
+      expect(line.textContent).toContain('2 suggestions are waiting for your answer');
+      expect(line.querySelector('button')!.textContent).toContain('Show suggestions');
+
+      open = { status: 'found', open: [] };
+      const none = await change();
+      expect(root(none).querySelector('.waiting-line')).toBeNull();
+    });
+
+    it('has the tool open what it asks for in a drawer too', async () => {
+      const fixture = await change();
+
+      const revision = fixture.debugElement.query(
+        (node) => node.componentInstance instanceof RecipeRevisionRequestComponent,
+      ).componentInstance as RecipeRevisionRequestComponent;
+      expect(revision.suggestionsInDrawer()).toBeTrue();
     });
 
     it('steps Continue forward while there are edits to keep, since Continue keeps them', async () => {
@@ -611,6 +665,198 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(items[0]).toContain('An adapted version');
       expect(items[0]).toContain('safety note');
       expect(port.registration()!.ready!()).toBeFalse();
+    });
+
+    /** What a panel reads for a suggestion that is ready but was asked for against an earlier version. */
+    function readyProposal(requestId: string): unknown {
+      return {
+        status: 'found',
+        operation: {
+          aiProposalRequestId: requestId,
+          status: 'Proposed',
+          taskType: 'RecipeRevision',
+          scope: 'WholeRecipe',
+          sourceVersionId: 'v1',
+          requestedAt: '2026-10-15T09:05:00Z',
+          statusChangedAt: '2026-10-15T09:06:00Z',
+          failureCategory: null,
+          proposal: {
+            proposalId: 'p-' + requestId,
+            outputSchemaVersion: 'recipe.revision.v1',
+            promptTemplateId: 'recipe.revision',
+            promptTemplateVersion: '1.0.0',
+            promptTemplateBodyChecksum: 'sha256:abc',
+            providerName: 'test-provider',
+            modelName: 'test-model',
+            createdAt: '2026-10-15T09:06:00Z',
+            changes: [],
+            warnings: [],
+          },
+        },
+      };
+    }
+
+    function rows(fixture: ComponentFixture<unknown>): HTMLDetailsElement[] {
+      return Array.from(root(fixture).querySelectorAll<HTMLDetailsElement>('details.row'));
+    }
+
+    function buttonIn(parent: ParentNode, label: string): HTMLButtonElement | undefined {
+      return Array.from(parent.querySelectorAll('button')).find(
+        (button) => (button.textContent ?? '').trim() === label,
+      );
+    }
+
+    it('shows each waiting suggestion as a closed row that says how many changes and when, with a count above', async () => {
+      open = {
+        status: 'found',
+        open: [openItem({ requestId: 'a' }), openItem({ requestId: 'b', pendingChangeCount: 1 })],
+      };
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+
+      const list = rows(fixture);
+      expect(list.length).toBe(2);
+      expect(list.every((row) => !row.open)).toBeTrue();
+      expect(list[0].querySelector('summary')!.textContent).toContain('2 changes');
+      expect(list[1].querySelector('summary')!.textContent).toContain('1 change');
+      expect(list[0].querySelector('summary')!.textContent).toContain('asked');
+      expect(text(fixture)).toContain('Still waiting for your answer (2)');
+    });
+
+    it('opens the only suggestion, and one with a safety note, by itself', async () => {
+      open = { status: 'found', open: [openItem({ requestId: 'only' })] };
+      const single = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expect(rows(single)[0].open).toBeTrue();
+
+      open = {
+        status: 'found',
+        open: [openItem({ requestId: 'plain' }), openItem({ requestId: 'careful', hasSafetyCaution: true })],
+      };
+      const several = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      const [careful, plain] = rows(several);
+      expect(careful.open).toBeTrue();
+      expect(careful.textContent).toContain('Safety note');
+      expect(plain.open).toBeFalse();
+    });
+
+    it('keeps what the creator opened or closed when the list is read again', async () => {
+      open = {
+        status: 'found',
+        open: [openItem({ requestId: 'a' }), openItem({ requestId: 'b' })],
+      };
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+
+      rows(fixture)[1].open = true;
+      await settle(fixture);
+      await fixture.debugElement
+        .query((node) => node.componentInstance instanceof RecipeOpenSuggestionsComponent)
+        .componentInstance.reload();
+      await settle(fixture);
+
+      expect(rows(fixture)[1].open).toBeTrue();
+      expect(rows(fixture)[0].open).toBeFalse();
+    });
+
+    it('keeps an out-of-date suggestion closed, with its ways out on the row rather than inside it', async () => {
+      open = { status: 'found', open: [openItem({ requestId: 'old', isStale: true })] };
+      watchHandler = () => of(readyProposal('old'));
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+
+      const [row] = rows(fixture);
+      expect(row.open).toBeFalse();
+      expect(row.querySelector('summary')!.textContent).toContain('Out of date');
+
+      // On the row, outside the part that opens, and only once: the panel does not draw them again.
+      const actions = root(fixture).querySelector('.row-actions')!;
+      expect(buttonIn(actions, 'Start again from this recipe')).toBeTruthy();
+      expect(row.contains(actions)).toBeFalse();
+      expect(
+        Array.from(root(fixture).querySelectorAll('button')).filter(
+          (button) => (button.textContent ?? '').trim() === 'Start again from this recipe',
+        ).length,
+      ).toBe(1);
+
+      buttonIn(actions, 'Start again from this recipe')!.click();
+      await settle(fixture);
+      expect(text(fixture)).toContain('go Back to “Make your changes”');
+    });
+
+    it('says nothing twice: no "not saved" chip and no "ready" status on a suggestion the row already describes', async () => {
+      open = { status: 'found', open: [openItem({ requestId: 'only' })] };
+      watchHandler = () => of(readyProposal('only'));
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+
+      expect(text(fixture)).not.toContain('Not saved to your recipe yet');
+      expect(root(fixture).querySelector('cp-ai-operation-status')).toBeNull();
+    });
+
+    it('declines every out-of-date suggestion at once, after one question', async () => {
+      memberships.set({
+        status: 'ready',
+        memberships: [
+          {
+            workspaceId: 'w1',
+            workspaceSlug: SLUG,
+            workspaceName: 'Cozy Fall',
+            membershipId: 'm1',
+            role: 'Owner',
+            status: 'Active',
+          },
+        ],
+      });
+      open = {
+        status: 'found',
+        open: [
+          openItem({ requestId: 'old-1', isStale: true }),
+          openItem({ requestId: 'old-2', isStale: true }),
+          openItem({ requestId: 'current' }),
+        ],
+      };
+      watchHandler = () => of(readyProposal('old'));
+      disposition.and.resolveTo({
+        status: 'decided',
+        result: {
+          aiProposalRequestId: 'old',
+          status: 'Rejected',
+          acceptedChangeCount: 0,
+          rejectedChangeCount: 0,
+          recipeVersionNumber: null,
+          decidedAt: '2026-10-15T09:10:00Z',
+        },
+      });
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+
+      const all = buttonIn(root(fixture), 'Decline all out-of-date (2)');
+      expect(all).toBeTruthy();
+
+      all!.click();
+      await settle(fixture, 6);
+
+      const confirm = TestBed.inject(ConfirmService).confirm as jasmine.Spy;
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(confirm.calls.mostRecent().args[0].title).toContain('Decline 2 out-of-date suggestions');
+      expect(disposition).toHaveBeenCalledTimes(2);
+    });
+
+    it('offers no decline-all for a single out-of-date suggestion', async () => {
+      memberships.set({
+        status: 'ready',
+        memberships: [
+          {
+            workspaceId: 'w1',
+            workspaceSlug: SLUG,
+            workspaceName: 'Cozy Fall',
+            membershipId: 'm1',
+            role: 'Owner',
+            status: 'Active',
+          },
+        ],
+      });
+      open = { status: 'found', open: [openItem({ requestId: 'old', isStale: true }), openItem({ requestId: 'new' })] };
+      watchHandler = () => of(readyProposal('old'));
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+
+      expect(buttonIn(root(fixture), 'Decline these')).toBeTruthy();
+      expect(text(fixture)).not.toContain('Decline all out-of-date');
     });
 
     it('offers Try again when the list cannot be read', async () => {

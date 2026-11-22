@@ -1,7 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  Injector,
   OnInit,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -9,9 +12,17 @@ import {
   output,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CpButtonComponent, CpFieldComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpDrawerComponent,
+  CpFieldComponent,
+  CpNoticeComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiOperationScope } from '../../models/ai-proposal.models';
@@ -61,8 +72,11 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     AiAllowanceNoticeComponent,
     AiProposalPanelComponent,
     CpButtonComponent,
+    CpDrawerComponent,
     CpFieldComponent,
+    CpNoticeComponent,
     CpStatusPillComponent,
+    NgTemplateOutlet,
   ],
   templateUrl: './recipe-revision-request.component.html',
   styleUrl: './recipe-revision-request.component.scss',
@@ -111,12 +125,28 @@ export class RecipeRevisionRequestComponent implements OnInit {
    */
   readonly editorIsDirty = input(false);
 
+  /**
+   * Whether the suggestions open in a drawer beside the page rather than under the form. For a host that sits this
+   * under a step's own heading and choices — the workflow's "Make your changes" — where the suggested changes, each
+   * with its yes or no, made the step one very long card. Reading them and deciding is one task, so it fits a
+   * drawer (DESIGN-SYSTEM.md, "A drawer, a dialog or a page"). A decision closes it and the page says what was
+   * decided. Off on the recipe page.
+   */
+  readonly suggestionsInDrawer = input(false);
+
+  /** Whether the drawer is open. Only ever true when {@link suggestionsInDrawer} is on. */
+  protected readonly suggestionsOpen = signal(false);
+
+  private readonly panel = viewChild(AiProposalPanelComponent);
+
   /** A revision was decided. Carries the server's reply, including the version it wrote. */
   readonly decided = output<unknown>();
 
   private readonly revisions = inject(RecipeRevisionService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly sections = RECIPE_REVISION_SECTIONS;
   readonly goalMaxLength = REVISION_GOAL_MAX_LENGTH;
@@ -235,6 +265,8 @@ export class RecipeRevisionRequestComponent implements OnInit {
 
         // The run has been paid for, so the balance on screen is already out of date.
         void this.usage.refresh();
+        // The suggestions arrive in the drawer, with the status of the wait: no extra click to see them.
+        if (this.suggestionsInDrawer()) this.suggestionsOpen.set(true);
         return;
 
       // The account cannot pay for this. Handed to the allowance notice, which is the one place that words a
@@ -293,6 +325,7 @@ export class RecipeRevisionRequestComponent implements OnInit {
 
   /** Clears the result so another revision can be asked for. Nothing about the recipe is touched. */
   startAnother(): void {
+    this.suggestionsOpen.set(false);
     this.requestIdSignal.set(null);
     this.refusalSignal.set(null);
     this.fieldErrorsSignal.set({});
@@ -300,6 +333,63 @@ export class RecipeRevisionRequestComponent implements OnInit {
   }
 
   onDecided(result: unknown): void {
+    // Deciding is what the drawer is for. The page says what was decided, so the drawer closes and focus goes to
+    // that line — after the drawer has given it back to its opener, which the decision may have taken away.
+    if (this.suggestionsOpen()) this.closeSuggestions();
     this.decided.emit(result);
   }
+
+  /**
+   * Opens the suggestions beside the page. The pressed control is focused first, because a click does not focus a
+   * button in every browser and the drawer gives focus back to whatever held it when it opened.
+   */
+  openSuggestions(event?: Event): void {
+    (event?.currentTarget as HTMLElement | null | undefined)?.focus();
+    this.suggestionsOpen.set(true);
+  }
+
+  /** Escape, the scrim or the close control. The proposal panel keeps its own edits, so it closes at once. */
+  closeSuggestions(): void {
+    this.suggestionsOpen.set(false);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>('.revision-line button')?.focus(), {
+      injector: this.injector,
+    });
+  }
+
+  /**
+   * Where the suggestions are, said in one line while the drawer is closed, with the way back in. Null before
+   * anything has been asked. What was decided is said here because the panel that said it is in the drawer.
+   */
+  protected readonly suggestionsLine = computed<{
+    readonly text: string;
+    readonly tone: 'neutral' | 'success' | 'warning';
+  } | null>(() => {
+    if (this.requestIdSignal() === null) return null;
+    const operation = this.panel()?.operation();
+    switch (operation?.status) {
+      case undefined:
+      case 'Requested':
+      case 'Running':
+        return { text: 'Your suggestions are on their way.', tone: 'neutral' };
+      case 'Proposed': {
+        const count = operation.proposal?.changes.length ?? 0;
+        if (count === 0) return { text: 'No changes came back this time.', tone: 'neutral' };
+        return {
+          text:
+            count === 1
+              ? '1 suggested change is waiting for your answer.'
+              : `${count} suggested changes are waiting for your answer.`,
+          tone: 'success',
+        };
+      }
+      case 'Accepted':
+        return { text: 'You kept the suggested changes. Your recipe has them now.', tone: 'success' };
+      case 'PartiallyAccepted':
+        return { text: 'You kept some of the suggested changes. Your recipe has those now.', tone: 'success' };
+      case 'Rejected':
+        return { text: 'You declined the suggested changes. Your recipe wasn’t changed.', tone: 'neutral' };
+      default:
+        return { text: 'The suggestions didn’t finish.', tone: 'warning' };
+    }
+  });
 }

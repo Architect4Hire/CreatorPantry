@@ -6,6 +6,7 @@ import { AiProposalStatus } from '../../models/ai-proposal.models';
 import { RECIPE_REVISION_SECTIONS, RequestRecipeRevisionRequest } from '../../models/recipe-revision.models';
 import { RecipeRevisionService, RequestRevisionOutcome } from '../../services/recipe-revision.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { AiProposalPanelComponent } from './ai-proposal-panel.component';
 import { RecipeRevisionRequestComponent } from './recipe-revision-request.component';
 
 const REQUEST_ID = 'op-revision-1';
@@ -414,4 +415,98 @@ describe('RecipeRevisionRequestComponent', () => {
     expect(element().querySelector('h3#cp-revision-heading')?.textContent).toContain('Get suggestions');
     expect(element().querySelector('h2')).toBeNull();
   }));
+
+  // ---- the suggestions in a drawer (the workflow's "Get suggestions") ----------------------------------------
+
+  describe('with the suggestions in a drawer', () => {
+    /** An open drawer moves its content to <body>, so what is in it is found from the document. */
+    function inDrawer(selector: string): NodeListOf<HTMLElement> {
+      return document.body.querySelectorAll<HTMLElement>(selector);
+    }
+
+    function asked(): void {
+      render('Contributor', { suggestionsInDrawer: true });
+      chooseSection('Method');
+      buttonWith('Ask for suggestions').click();
+      settle();
+    }
+
+    it('opens the suggestions in a drawer as soon as the request is taken, and keeps them off the page', fakeAsync(() => {
+      asked();
+
+      expect(inDrawer('cp-ai-proposal-panel').length).toBe(1);
+      expect(element().querySelector('cp-ai-proposal-panel')).toBeNull();
+      expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Suggested changes');
+    }));
+
+    it('says where the suggestions are when the drawer is closed, and opens again from that line', fakeAsync(() => {
+      asked();
+
+      document.body.querySelector<HTMLButtonElement>('[aria-label="Close suggestions"]')!.click();
+      settle();
+
+      expect(inDrawer('cp-ai-proposal-panel').length).toBe(0);
+      expect(element().querySelector('.revision-line')?.textContent).toContain('Your suggestions are on their way.');
+
+      buttonWith('Show suggestions').click();
+      settle();
+      expect(inDrawer('cp-ai-proposal-panel').length).toBe(1);
+    }));
+
+    it('closes when the creator decides, and still tells the host', fakeAsync(() => {
+      asked();
+      const decided: unknown[] = [];
+      fixture.componentInstance.decided.subscribe((result) => decided.push(result));
+
+      const panel = fixture.debugElement.query((node) => node.componentInstance instanceof AiProposalPanelComponent)
+        .componentInstance as AiProposalPanelComponent;
+      panel.decided.emit({
+        aiProposalRequestId: REQUEST_ID,
+        status: 'Accepted',
+        acceptedChangeCount: 1,
+        rejectedChangeCount: 0,
+        recipeVersionNumber: 4,
+        decidedAt: '2026-11-20T10:00:00Z',
+      });
+      settle();
+
+      expect(inDrawer('cp-ai-proposal-panel').length).toBe(0);
+      expect(element().querySelector('.revision-line')).not.toBeNull();
+      expect(decided.length).toBe(1);
+    }));
+
+    it('asks for another revision from the page, which closes the drawer', fakeAsync(() => {
+      asked();
+      document.body.querySelector<HTMLButtonElement>('[aria-label="Close suggestions"]')!.click();
+      settle();
+
+      buttonWith('Ask for another revision').click();
+      settle();
+
+      expect(fixture.componentInstance.state()).toBe('choosing');
+      expect(element().querySelector('.revision-line')).toBeNull();
+    }));
+
+    it('never opens for a request that was refused', fakeAsync(() => {
+      service.outcome = { status: 'task_not_enabled' };
+      render('Contributor', { suggestionsInDrawer: true });
+      chooseSection('Method');
+
+      buttonWith('Ask for suggestions').click();
+      settle();
+
+      expect(inDrawer('[role="dialog"]').length).toBe(0);
+      expect(text()).toContain('not switched on');
+    }));
+
+    it('leaves the recipe page alone: with the drawer off the panel stays inline', fakeAsync(() => {
+      render();
+      chooseSection('Method');
+      buttonWith('Ask for suggestions').click();
+      settle();
+
+      expect(element().querySelector('cp-ai-proposal-panel')).not.toBeNull();
+      expect(element().querySelector('.revision-line')).toBeNull();
+    }));
+  });
 });
