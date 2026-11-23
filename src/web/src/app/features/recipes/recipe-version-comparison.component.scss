@@ -5,7 +5,10 @@
   display: block;
 }
 
+/* The width the table has, not the window's: it sits in a step's card, a page's column or a drawer, so what
+   decides whether four columns fit is the room it was given. */
 .comparison {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-4);
@@ -31,6 +34,14 @@
   color: var(--cp-text-muted);
 }
 
+.comparison-unchanged {
+  margin: 0;
+  padding-top: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
 .section {
   display: flex;
   flex-direction: column;
@@ -47,29 +58,55 @@
   color: var(--cp-text);
 }
 
-.section-empty {
-  margin: 0;
+/* One row to a change, each row a band of its own with a gap between, the way a list of changes reads. */
+.changes {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0 var(--cp-space-2);
   font-size: var(--cp-font-size-sm);
+}
+
+.col-kind {
+  width: 8rem;
+}
+
+.col-what {
+  width: 11rem;
+}
+
+.changes thead th {
+  padding: 0 var(--cp-space-3);
+  text-align: start;
+  font-size: var(--cp-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--cp-text-muted);
 }
 
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.row > * {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  vertical-align: top;
+  text-align: start;
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+  /* Creator text can be a whole instruction step, and an identifier has no spaces to break at. */
+  overflow-wrap: anywhere;
 }
 
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--cp-space-2);
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
+.row > :first-child {
+  border-start-start-radius: var(--cp-radius-md);
+  border-end-start-radius: var(--cp-radius-md);
+}
+
+.row > :last-child {
+  border-start-end-radius: var(--cp-radius-md);
+  border-end-end-radius: var(--cp-radius-md);
+}
+
+.cell-kind {
+  white-space: nowrap;
 }
 
 .row-glyph {
@@ -92,6 +129,7 @@
 }
 
 .row-kind {
+  margin-inline-start: var(--cp-space-1);
   font-size: var(--cp-font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -99,52 +137,37 @@
   color: var(--cp-text-muted);
 }
 
-.row-body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--cp-space-1) var(--cp-space-3);
-  flex: 1 1 14rem;
-  min-width: 0;
-}
-
-.row-label {
-  font-size: var(--cp-font-size-sm);
+.row .row-what {
   font-weight: 600;
-  color: var(--cp-text);
-}
-
-.row-values {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-1) var(--cp-space-3);
-  min-width: 0;
-}
-
-.row-value {
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-text);
-  /* Creator text can be a whole instruction step, and an identifier has no spaces to break at. */
-  overflow-wrap: anywhere;
-}
-
-.row-value-tag {
-  font-size: var(--cp-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--cp-text-muted);
-}
-
-.row-value--from {
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  color: var(--cp-text-muted);
 }
 
 .row-movement {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  margin-top: var(--cp-space-1);
   font-size: var(--cp-font-size-xs);
+  font-weight: 400;
+  color: var(--cp-text-muted);
+}
+
+/* The two sides, marked the way a diff gutter marks them: a thin edge on what was there and on what is there now,
+   red and green, with the text on the row's own plain background at full contrast. Never only by colour — the
+   column headings and the kind in words say the same. Every cell keeps the edge's width, transparent when it is
+   empty, so the text lines up from one row to the next. */
+.cell-before,
+.cell-after {
+  border-inline-start: 3px solid transparent;
+}
+
+.row .cell-before:not(.is-empty) {
+  border-inline-start-color: var(--cp-danger);
+}
+
+.row .cell-after:not(.is-empty) {
+  border-inline-start-color: var(--cp-primary);
+}
+
+.row .is-empty {
   color: var(--cp-text-muted);
 }
 
@@ -166,4 +189,55 @@
 .row[data-kind='moved'] .row-glyph {
   background: var(--cp-purple-soft);
   color: var(--cp-purple);
+}
+
+/* Where four columns do not fit, each change is a card of its own: the kind and what it is about, then the
+   before and the after one over the other, each named by its own small heading. The column headings go, said to a
+   screen reader still, since each value is now named where it stands. */
+@container (max-width: 38rem) {
+  .changes,
+  .changes tbody,
+  .changes .row,
+  .changes .row > * {
+    display: block;
+  }
+
+  .changes {
+    border-spacing: 0;
+  }
+
+  .changes colgroup {
+    display: none;
+  }
+
+  .changes thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .changes .row {
+    margin-bottom: var(--cp-space-2);
+    border-radius: var(--cp-radius-md);
+    overflow: hidden;
+  }
+
+  .row > :first-child,
+  .row > :last-child {
+    border-radius: 0;
+  }
+
+  .cell-before::before,
+  .cell-after::before {
+    content: attr(data-label);
+    display: block;
+    font-size: var(--cp-font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cp-text-muted);
+  }
 }

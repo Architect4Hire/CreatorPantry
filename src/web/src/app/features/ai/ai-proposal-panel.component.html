@@ -16,7 +16,7 @@
            from styling whether what they are reading is already in their recipe. Derived from "is a proposal
            showing and undecided" rather than from a list of states, so a proposal that expires while waiting —
            which keeps its suggestions — cannot lose the chip. -->
-      @if (proposal() !== null && state() !== 'decided') {
+      @if (proposal() !== null && state() !== 'decided' && !condensed()) {
         <cp-status-pill class="panel-unsaved" tone="warning" role="status">Not saved to your recipe yet</cp-status-pill>
       }
 
@@ -48,13 +48,16 @@
       <!-- The shape of what is coming (APP-003), said by the status line above the panel. -->
       <cp-skeleton shape="line" [count]="4" />
     } @else if (operation(); as op) {
-      <cp-ai-operation-status
-        [status]="op.status"
-        [failureCategory]="op.failureCategory"
-        [requestedAt]="op.requestedAt"
-        [statusChangedAt]="op.statusChangedAt"
-        [connection]="connection()"
-      />
+      <!-- A ready proposal in a host's list is said by that list's row; every other state is still said here. -->
+      @if (!(condensed() && op.status === 'Proposed')) {
+        <cp-ai-operation-status
+          [status]="op.status"
+          [failureCategory]="op.failureCategory"
+          [requestedAt]="op.requestedAt"
+          [statusChangedAt]="op.statusChangedAt"
+          [connection]="connection()"
+        />
+      }
 
       <!-- Every refusal is visible and says what was written, which in every case here is nothing. -->
       @if (refusal(); as problem) {
@@ -73,7 +76,7 @@
         }
       </div>
 
-      @if (state() === 'stale') {
+      @if (state() === 'stale' && !condensed()) {
         <div class="panel-recovery">
           <p class="panel-notice">
             Start again from your recipe as it stands now. These suggestions can't be applied to it, and nothing about

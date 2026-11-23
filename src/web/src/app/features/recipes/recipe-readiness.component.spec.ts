@@ -888,4 +888,127 @@ describe('RecipeReadinessComponent', () => {
       expect(item.getAttribute('tabindex')).toBe('-1');
     }
   });
+
+  // ---- In a guided step ---------------------------------------------------------
+
+  describe('in a guided step', () => {
+    function manyRecords(count: number): RecipeReadinessEvidence[] {
+      return Array.from({ length: count }, (_, index) => ({
+        kind: 'RecipeIngredientLine',
+        recordId: `l${index}`,
+        fieldName: 'ingredientId',
+        label: `Line ${index + 1}`,
+      }));
+    }
+
+    async function inStep(overrides: Partial<RecipeReadiness> = {}): Promise<HTMLElement> {
+      service.readinessOutcome = { status: 'found', readiness: readiness(overrides) };
+      const element = await render();
+      fixture.componentRef.setInput('inStep', true);
+      await settle();
+      return element;
+    }
+
+    function before(a: Element, b: Element): boolean {
+      return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }
+
+    it('is the step’s own content: no card inside its card, and no introduction it has already given', async () => {
+      const element = await inStep();
+
+      expect(element.querySelector('cp-card')).toBeNull();
+      expect(element.querySelector('.panel')).not.toBeNull();
+      expect(element.querySelector('.intro')).toBeNull();
+      // The safety limit is not commentary: it stays.
+      expect(element.querySelector('.caveat')!.textContent).toContain('not whether it is safe');
+    });
+
+    it('says where the recipe stands in the row of counts, rather than beside the button that checks again', async () => {
+      const element = await inStep();
+
+      expect(element.querySelector('.counts')!.textContent).toContain('Ready for review');
+      expect(element.querySelector('.header-actions cp-status-pill')).toBeNull();
+    });
+
+    it('puts the moves above the findings, where the page puts them below', async () => {
+      const element = await inStep();
+      expect(before(element.querySelector('.moves')!, element.querySelector('.group')!)).toBeTrue();
+
+      const page = await render();
+      fixture.componentRef.setInput('inStep', false);
+      await settle();
+      expect(before(page.querySelector('.group')!, page.querySelector('.moves')!)).toBeTrue();
+    });
+
+    it('keeps the advice closed while something is in the way, and opens it when nothing is', async () => {
+      const blocked = await inStep();
+      const instance = fixture.componentInstance;
+
+      expect(instance.isExpanded('Blocker')).toBeTrue();
+      expect(instance.isExpanded('Recommendation')).toBeFalse();
+      expect(blocked.querySelector<HTMLElement>(`[id="${instance.idPrefix}-list-Recommendation"]`)!.hidden).toBeTrue();
+
+      await click(blocked, 'Show');
+      expect(instance.isExpanded('Recommendation')).toBeTrue();
+
+      const clear = await inStep({
+        hasBlockers: false,
+        blockerCount: 0,
+        findings: [finding({ ruleId: 'recipe.media.hero', status: 'Recommendation', summary: 'No hero image.' })],
+      });
+      expect(fixture.componentInstance.isExpanded('Recommendation')).toBeTrue();
+      expect(clear.textContent).toContain('No hero image.');
+    });
+
+    it('shows a finding’s first few records, and the rest on asking', async () => {
+      const element = await inStep({
+        findings: [
+          finding({
+            ruleId: 'recipe.ingredients.unmatched',
+            status: 'Blocker',
+            summary: 'Ingredient lines are not matched.',
+            evidence: manyRecords(10),
+          }),
+        ],
+      });
+
+      expect(element.querySelectorAll('.evidence li').length).toBe(3);
+      expect(buttonWith(element, 'Show 7 more')).toBeTruthy();
+
+      await click(element, 'Show 7 more');
+      expect(element.querySelectorAll('.evidence li').length).toBe(10);
+      expect(buttonWith(element, 'Show 7 more')).toBeUndefined();
+
+      await click(element, 'Show fewer');
+      expect(element.querySelectorAll('.evidence li').length).toBe(3);
+    });
+
+    it('offers no "show more" for a finding with only a few records', async () => {
+      const element = await inStep({
+        findings: [finding({ ruleId: 'x', status: 'Blocker', summary: 'A few.', evidence: manyRecords(3) })],
+      });
+
+      expect(element.querySelectorAll('.evidence li').length).toBe(3);
+      expect(element.textContent).not.toMatch(/Show [0-9]+ more/);
+      expect(buttonWith(element, 'Show fewer')).toBeUndefined();
+    });
+
+    it('leaves the recipe page’s panel as it was: a card, the introduction, all of the records and the advice open', async () => {
+      service.readinessOutcome = {
+        status: 'found',
+        readiness: readiness({
+          findings: [
+            finding({ ruleId: 'x', status: 'Blocker', summary: 'Many.', evidence: manyRecords(10) }),
+            finding({ ruleId: 'recipe.media.hero', status: 'Recommendation', summary: 'No hero image.' }),
+          ],
+        }),
+      };
+      const element = await render();
+
+      expect(element.querySelector('cp-card')).not.toBeNull();
+      expect(element.querySelector('.intro')).not.toBeNull();
+      expect(element.querySelectorAll('.evidence li').length).toBe(10);
+      expect(fixture.componentInstance.isExpanded('Recommendation')).toBeTrue();
+    });
+  });
 });

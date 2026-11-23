@@ -136,6 +136,11 @@ function describeMovement(item: RecipeItemChange, kind: CpDiffKind): string {
  *
  * Every row states its kind in words beside the glyph, and the glyph comes from the same library lookup the
  * legend above it explains. Nothing is conveyed by colour alone (WCAG 2.2 AA, 1.4.1).
+ *
+ * **A table of what changed, and one line for what did not.** Each section that changed is a table of its rows —
+ * the kind, what it is about, the value before and the value after, side by side — and the sections that did not
+ * are named once after them. Leaving a section out of the tables is not a second opinion about the diff: the
+ * server still said every section, and this still names the ones it did not draw.
  */
 @Component({
   selector: 'cp-recipe-version-comparison',
@@ -163,6 +168,22 @@ export class RecipeVersionComparisonComponent {
       rows: this.rowsFor(section),
     })),
   );
+
+  /** The sections with something to show, in the order the server gave them. */
+  readonly changedSections = computed(() => this.sections().filter((section) => section.rows.length > 0));
+
+  /**
+   * The sections that did not change, said once — "No changes in Metadata, Timing and Yield." Null when nothing
+   * changed at all (the summary above has said so) and when every section did.
+   */
+  readonly unchangedSentence = computed<string | null>(() => {
+    if (!this.hasChanges()) return null;
+    const names = this.sections()
+      .filter((section) => section.rows.length === 0)
+      .map((section) => section.heading);
+    if (names.length === 0) return null;
+    return `No changes in ${new Intl.ListFormat(undefined, { style: 'long', type: 'conjunction' }).format(names)}.`;
+  });
 
   private rowsFor(section: RecipeComparisonSectionResult): readonly ComparisonRow[] {
     return [

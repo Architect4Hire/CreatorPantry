@@ -31,16 +31,35 @@
   @if (state() === 'forbidden') {
     <p class="revision-blocked" role="status">Your role in this workspace cannot ask for a revision.</p>
   } @else if (state() === 'watching') {
-    <!--
-      The proposal panel reviews, edits and decides. A revision produces an ordinary diff against the pinned
-      version, so a second review surface here would be a second opinion about what a creator is approving.
-    -->
-    <cp-ai-proposal-panel
-      [workspaceSlug]="workspaceSlug()"
-      [recipeId]="recipeId()"
-      [requestId]="requestId()"
-      (decided)="onDecided($event)"
-    />
+    @if (suggestionsInDrawer()) {
+      <!-- In the workflow the suggestions open in a drawer. While it is closed the page keeps one line about where
+           they are, and the way back in. -->
+      @if (!suggestionsOpen()) {
+        @if (suggestionsLine(); as line) {
+          <cp-notice class="revision-line" [tone]="line.tone" role="status">
+            {{ line.text }}
+            <span class="revision-line-actions">
+              <button cpButton type="button" variant="secondary" size="sm" (click)="openSuggestions($event)"
+                >Show suggestions</button
+              >
+            </span>
+          </cp-notice>
+        }
+      }
+
+      <cp-drawer
+        [open]="suggestionsOpen()"
+        heading="Suggested changes"
+        description="Read what would change and say yes or no to each. Nothing changes until you do."
+        size="wide"
+        closeLabel="Close suggestions"
+        (closeRequested)="closeSuggestions()"
+      >
+        <ng-container *ngTemplateOutlet="proposal" />
+      </cp-drawer>
+    } @else {
+      <ng-container *ngTemplateOutlet="proposal" />
+    }
 
     <div class="revision-actions">
       <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()">
@@ -117,3 +136,16 @@
     </div>
   }
 </section>
+
+<!--
+  The proposal panel reviews, edits and decides. A revision produces an ordinary diff against the pinned
+  version, so a second review surface here would be a second opinion about what a creator is approving.
+-->
+<ng-template #proposal>
+  <cp-ai-proposal-panel
+    [workspaceSlug]="workspaceSlug()"
+    [recipeId]="recipeId()"
+    [requestId]="requestId()"
+    (decided)="onDecided($event)"
+  />
+</ng-template>

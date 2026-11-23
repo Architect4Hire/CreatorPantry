@@ -89,18 +89,65 @@ describe('RecipeVersionComparisonComponent', () => {
    * own — the server publishes every section whether or not it changed, and reordering here would be the
    * beginning of a second opinion about the diff.
    */
-  it('renders every section in the order it received them, including unchanged ones', async () => {
+  it('draws a table for each section that changed, in the order it received them', async () => {
     const element = await render(
       comparison([
         section('Metadata', [{ field: 'Title', from: 'Chili', to: 'Chilli' }]),
         section('Timing'),
-        section('Ingredients'),
+        section(
+          'Ingredients',
+          [],
+          [
+            item({
+              id: 'a',
+              presence: 'Added',
+              fieldChanges: [{ field: 'IngredientDisplayText', from: null, to: '3 eggs' }],
+            }),
+          ],
+        ),
       ]),
     );
 
     const headings = Array.from(element.querySelectorAll('.section-heading')).map((node) => node.textContent?.trim());
-    expect(headings).toEqual(['Metadata', 'Timing', 'Ingredients']);
-    expect(element.querySelectorAll('.section-empty').length).toBe(2);
+    expect(headings).toEqual(['Metadata', 'Ingredients']);
+    expect(element.querySelectorAll('table.changes').length).toBe(2);
+    // Each table is named by its section's heading.
+    for (const table of Array.from(element.querySelectorAll('table.changes'))) {
+      const name = document.getElementById(table.getAttribute('aria-labelledby')!);
+      expect(name?.classList.contains('section-heading')).toBeTrue();
+    }
+  });
+
+  it('says the sections that did not change once, by name, instead of a heading and a line for each', async () => {
+    const element = await render(
+      comparison([
+        section('Metadata'),
+        section('Timing'),
+        section('Publication'),
+        section(
+          'Instructions',
+          [],
+          [item({ id: 's', presence: 'Removed', fieldChanges: [{ field: 'StepText', from: 'Preheat', to: null }] })],
+        ),
+      ]),
+    );
+
+    const sentence = element.querySelector('.comparison-unchanged')!.textContent!;
+    expect(sentence).toContain('No changes in');
+    for (const name of ['Metadata', 'Timing', 'Status']) expect(sentence).toContain(name);
+    expect(sentence).not.toContain('Instructions');
+    expect(element.querySelectorAll('.section-heading').length).toBe(1);
+  });
+
+  it('says nothing about unchanged sections when every one changed', async () => {
+    const element = await render(
+      comparison([
+        section('Metadata', [{ field: 'Title', from: 'Chili', to: 'Chilli' }]),
+        section('Timing', [{ field: 'PrepTimeMinutes', from: '20', to: '25' }]),
+      ]),
+    );
+
+    expect(element.querySelector('.comparison-unchanged')).toBeNull();
   });
 
   it('says so plainly when the two versions are identical, and stays quiet after that', async () => {
@@ -109,8 +156,9 @@ describe('RecipeVersionComparisonComponent', () => {
     expect(element.querySelector('.comparison-summary')!.textContent).toContain('identical');
     expect(rows(element).length).toBe(0);
 
-    // The summary has already said it. Nine "No changes" headings after it are only noise to read through.
+    // The summary has already said it. A list of every section after it is only noise to read through.
     expect(element.querySelectorAll('.section').length).toBe(0);
+    expect(element.querySelector('.comparison-unchanged')).toBeNull();
   });
 
   /**
@@ -168,8 +216,10 @@ describe('RecipeVersionComparisonComponent', () => {
     // The kind label already says "Moved"; repeating it in the note reads as "Moved · Moved from position 3".
     expect(row.querySelector('.row-movement')!.textContent).not.toContain('Moved');
 
-    // Nothing was rewritten, so no values are printed at all.
-    expect(row.querySelector('.row-values')).toBeNull();
+    // Nothing was rewritten, so neither side has a value: both cells are empty, and say so to a screen reader.
+    expect(row.querySelector('.cell-before')!.classList.contains('is-empty')).toBeTrue();
+    expect(row.querySelector('.cell-after')!.classList.contains('is-empty')).toBeTrue();
+    expect(row.querySelector('.cell-after .cp-sr-only')!.textContent).toContain('None');
   });
 
   it('reports an item that was both reworded and moved as both', async () => {
@@ -193,7 +243,8 @@ describe('RecipeVersionComparisonComponent', () => {
     const row = rows(element)[0];
     expect(row.querySelector('.row-kind')!.textContent?.trim()).toBe('Changed');
     expect(row.querySelector('.row-movement')!.textContent).toContain('Moved');
-    expect(row.querySelector('.row-value--to')!.textContent).toContain('3 eggs');
+    expect(row.querySelector('.cell-after')!.textContent).toContain('3 eggs');
+    expect(row.querySelector('.cell-before')!.textContent).toContain('2 eggs');
   });
 
   it('names a cross-group move as one, rather than printing two unrelated positions', async () => {
@@ -249,14 +300,45 @@ describe('RecipeVersionComparisonComponent', () => {
     expect(element.querySelector('.section-heading')!.textContent?.trim()).toBe('Status');
   });
 
-  it('prints both values for a replacement, tagged so neither is mistaken for the other', async () => {
+  it('puts the two values of a replacement side by side, each under its own column heading', async () => {
     const element = await render(comparison([section('Metadata', [{ field: 'Title', from: 'Chili', to: 'Chilli' }])]));
 
     const row = rows(element)[0];
-    expect(row.querySelector('.row-value--from')!.textContent).toContain('Chili');
-    expect(row.querySelector('.row-value--to')!.textContent).toContain('Chilli');
-    expect(row.querySelector('.row-value--from')!.textContent).toContain('was');
-    expect(row.querySelector('.row-value--to')!.textContent).toContain('now');
+    expect(row.querySelector('.cell-before')!.textContent).toContain('Chili');
+    expect(row.querySelector('.cell-after')!.textContent).toContain('Chilli');
+
+    const headings = Array.from(element.querySelectorAll('thead th')).map((cell) => cell.textContent?.trim());
+    expect(headings).toEqual(['Change', 'What', 'Before', 'After']);
+    expect(row.querySelector('th[scope="row"]')!.textContent).toContain('Title');
+  });
+
+  it('leaves the before empty for an addition and the after empty for a removal', async () => {
+    const element = await render(
+      comparison([
+        section(
+          'Ingredients',
+          [],
+          [
+            item({
+              id: 'a',
+              presence: 'Added',
+              fieldChanges: [{ field: 'IngredientDisplayText', from: null, to: '3 eggs' }],
+            }),
+            item({
+              id: 'r',
+              presence: 'Removed',
+              fieldChanges: [{ field: 'IngredientDisplayText', from: '2 eggs', to: null }],
+            }),
+          ],
+        ),
+      ]),
+    );
+
+    const [added, removed] = rows(element);
+    expect(added.querySelector('.cell-before')!.classList.contains('is-empty')).toBeTrue();
+    expect(added.querySelector('.cell-after')!.textContent).toContain('3 eggs');
+    expect(removed.querySelector('.cell-before')!.textContent).toContain('2 eggs');
+    expect(removed.querySelector('.cell-after')!.classList.contains('is-empty')).toBeTrue();
   });
 
   it('names an item that carries no field changes from its section', async () => {

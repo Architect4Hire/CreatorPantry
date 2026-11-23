@@ -513,6 +513,122 @@ describe('RecipeReviewRequestComponent', () => {
     expect(element().querySelectorAll('cp-checkbox').length).toBe(1);
     expect(revisions.calls.length).toBe(1);
   }));
+
+  // ---- the findings in a drawer (the workflow's "Check it over") -----------------------------------------------
+
+  describe('with the findings in a drawer', () => {
+    const TWO = (): AiProposalStatus =>
+      reviewed(finding('t1', 'No yield is stated.'), finding('t2', 'Step 2 has no cue for doneness.'));
+
+    /** An open drawer moves its content to <body>, so what is in it is found from the document. */
+    function inDrawer(selector: string): NodeListOf<HTMLElement> {
+      return document.body.querySelectorAll<HTMLElement>(selector);
+    }
+
+    function drawerButton(label: string): HTMLButtonElement {
+      const match = Array.from(document.body.querySelectorAll('button')).find((button) =>
+        (button.textContent ?? '').includes(label),
+      );
+      if (!match) throw new Error(`no button containing "${label}"`);
+      return match as HTMLButtonElement;
+    }
+
+    function asked(): void {
+      service.watchOutcome = { status: 'found', operation: TWO() };
+      render('Contributor', { offerFixes: true, findingsInDrawer: true });
+      buttonWith('Review this recipe').click();
+      settle();
+    }
+
+    it('opens the findings in a drawer as soon as the review is accepted, and keeps them off the page', fakeAsync(() => {
+      asked();
+
+      expect(inDrawer('cp-checkbox').length).toBe(2);
+      expect(element().querySelector('cp-checkbox')).toBeNull();
+      expect(document.body.textContent).toContain('0 of 2 picked.');
+      expect(drawerButton('Suggest changes for').getAttribute('aria-disabled')).toBe('true');
+    }));
+
+    it('asks for the fixes on the page: the drawer closes and the suggestions come back under the review', fakeAsync(() => {
+      asked();
+
+      inDrawer('cp-checkbox input[type="checkbox"]')[1].click();
+      settle();
+      drawerButton('Suggest changes for this finding').click();
+      settle();
+      settle();
+
+      expect(inDrawer('cp-checkbox').length).toBe(0);
+      expect(element().querySelector('cp-recipe-revision-request')).not.toBeNull();
+      expect(revisions.calls.length).toBe(1);
+      expect(revisions.calls[0].request.goal).toContain('Step 2 has no cue for doneness.');
+      expect(revisions.calls[0].request.goal).not.toContain('No yield is stated.');
+      // Focus goes to the suggestions' heading, not to a button the drawer took with it.
+      expect(document.activeElement?.id).toBe('cp-revision-heading');
+    }));
+
+    it('says where the review is when the drawer is closed, and opens again from that line', fakeAsync(() => {
+      asked();
+
+      document.body.querySelector<HTMLButtonElement>('[aria-label="Close findings"]')!.click();
+      settle();
+
+      expect(inDrawer('cp-checkbox').length).toBe(0);
+      const line = element().querySelector('.review-findings-line');
+      expect(line?.textContent).toContain('2 findings are ready to read.');
+
+      buttonWith('Show findings').click();
+      settle();
+      expect(inDrawer('cp-checkbox').length).toBe(2);
+    }));
+
+    it('opens the findings again to pick different ones', fakeAsync(() => {
+      asked();
+      drawerButton('Pick all').click();
+      settle();
+      drawerButton('Suggest changes for these 2 findings').click();
+      settle();
+      settle();
+
+      buttonWith('Pick different findings').click();
+      settle();
+
+      expect(element().querySelector('cp-recipe-revision-request')).toBeNull();
+      expect(inDrawer('cp-checkbox').length).toBe(2);
+    }));
+
+    it('clears the review from the drawer, and puts the creator back on the button that asks', fakeAsync(() => {
+      asked();
+
+      drawerButton('Review again').click();
+      settle();
+
+      expect(inDrawer('cp-checkbox').length).toBe(0);
+      expect(buttonWith('Review this recipe')).toBeTruthy();
+      expect(document.activeElement).toBe(buttonWith('Review this recipe'));
+    }));
+
+    it('never opens for a request that was refused', fakeAsync(() => {
+      service.outcome = { status: 'task_not_enabled' };
+      render('Contributor', { offerFixes: true, findingsInDrawer: true });
+
+      buttonWith('Review this recipe').click();
+      settle();
+
+      expect(inDrawer('cp-drawer').length).toBe(0);
+      expect(element().textContent).toContain('not switched on');
+    }));
+
+    it('leaves the recipe page alone: with the drawer off the findings stay inline', fakeAsync(() => {
+      service.watchOutcome = { status: 'found', operation: TWO() };
+      render('Contributor', { offerFixes: true });
+      buttonWith('Review this recipe').click();
+      settle();
+
+      expect(element().querySelectorAll('cp-checkbox').length).toBe(2);
+      expect(element().querySelector('.review-findings-line')).toBeNull();
+    }));
+  });
 });
 
 describe('goalFromFindings', () => {

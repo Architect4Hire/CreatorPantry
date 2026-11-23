@@ -45,15 +45,8 @@ type Loaded =
       }
       @case ('ready') {
         @if (ready(); as recipe) {
-          <p class="plain">
-            @if (recipe.currentVersion; as version) {
-              Cook version {{ version.versionNumber }} exactly as it’s written, then say how it went.
-            } @else {
-              Cook it exactly as it’s written, then say how it went.
-            }
-            Writing down what happened never changes your recipe.
-          </p>
           <cp-recipe-test-kitchen
+            [inStep]="true"
             [workspaceSlug]="workspaceSlug()"
             [recipeId]="recipe.id"
             [versionNumber]="recipe.currentVersion?.versionNumber ?? null"
@@ -69,10 +62,6 @@ type Loaded =
       display: grid;
       gap: var(--cp-space-5);
       min-width: 0;
-    }
-
-    .plain {
-      margin: 0;
     }
   `,
 })

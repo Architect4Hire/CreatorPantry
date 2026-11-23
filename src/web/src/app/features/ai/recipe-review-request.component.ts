@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   inject,
   input,
@@ -9,9 +12,10 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
-import { CpButtonComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpDrawerComponent, CpNoticeComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiProposalStatus, isTerminalAiStatus } from '../../models/ai-proposal.models';
@@ -99,7 +103,10 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
     AiAdvisoryResultsComponent,
     AiAllowanceNoticeComponent,
     CpButtonComponent,
+    CpDrawerComponent,
+    CpNoticeComponent,
     CpStatusPillComponent,
+    NgTemplateOutlet,
     RecipeRevisionRequestComponent,
   ],
   templateUrl: './recipe-review-request.component.html',
@@ -132,6 +139,18 @@ export class RecipeReviewRequestComponent {
    * finding never changes the recipe by being picked: only an accepted change does.
    */
   readonly offerFixes = input(false);
+
+  /**
+   * Whether the findings open in a drawer beside the page rather than under the review's button. For a host that
+   * sits the review under a step's own heading and choices — the workflow's "Make your changes" — where a long
+   * list of findings made the step one very long card. Reading them and picking which to fix is one task, so it
+   * fits a drawer (DESIGN-SYSTEM.md, "A drawer, a dialog or a page"). Asking for the fixes is the next task and
+   * stays on the page: it closes the drawer. Off on the recipe page, where the review is a tab of its own.
+   */
+  readonly findingsInDrawer = input(false);
+
+  /** Whether the drawer is open. Only ever true when {@link findingsInDrawer} is on. */
+  protected readonly findingsOpen = signal(false);
 
   /** A suggested fix was kept or declined. Carries the proposal panel's reply. */
   readonly fixDecided = output<unknown>();
@@ -174,6 +193,8 @@ export class RecipeReviewRequestComponent {
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly fieldLabels = REVIEW_FIELD_LABELS;
   readonly enumValueFields = REVIEW_ENUM_VALUE_FIELDS;
@@ -266,6 +287,8 @@ export class RecipeReviewRequestComponent {
 
         // The run has been paid for, so the balance on screen is already out of date.
         void this.usage.refresh();
+        // The findings arrive in the drawer, with the status of the wait: no extra click to see them.
+        if (this.findingsInDrawer()) this.findingsOpen.set(true);
         return;
 
       // The account cannot pay for this. Handed to the allowance notice, which is the one place that knows
@@ -322,6 +345,12 @@ export class RecipeReviewRequestComponent {
 
   /** Clears the result so another review can be asked for. Nothing about the recipe is touched. */
   startAnother(): void {
+    // From the drawer, the button that asks is behind it: close it and put the creator on that button.
+    if (this.findingsOpen()) {
+      this.findingsOpen.set(false);
+      this.focusAfterRender('.review-actions button');
+    }
+
     this.requestIdSignal.set(null);
     this.operationSignal.set(null);
     this.refusalSignal.set(null);
@@ -357,11 +386,73 @@ export class RecipeReviewRequestComponent {
     const picked = this.pickedFindings();
     if (picked.length === 0 || this.fixGoal() !== null) return;
     this.fixGoalSignal.set(goalFromFindings(picked));
+
+    // Picking is what the drawer is for. Asking for the changes is the next task and happens on the page, so the
+    // drawer closes and focus goes to the suggestions' heading — after the drawer has given it back to its opener.
+    if (this.findingsOpen()) {
+      this.findingsOpen.set(false);
+      this.focusAfterRender('#cp-revision-heading', true);
+    }
   }
 
   /** Back to the findings, to pick again. The suggestion already asked for stays waiting until it is answered. */
-  pickAgain(): void {
+  pickAgain(event?: Event): void {
+    (event?.currentTarget as HTMLElement | null | undefined)?.focus();
     this.fixGoalSignal.set(null);
+    if (this.findingsInDrawer()) this.findingsOpen.set(true);
+  }
+
+  /**
+   * Opens the findings beside the page. The pressed control is focused first, because a click does not focus a
+   * button in every browser and the drawer gives focus back to whatever held it when it opened.
+   */
+  openFindings(event?: Event): void {
+    (event?.currentTarget as HTMLElement | null | undefined)?.focus();
+    this.findingsOpen.set(true);
+  }
+
+  /** Escape, the scrim or the close control. Nothing in the drawer is unsaved, so it closes at once. */
+  closeFindings(): void {
+    this.findingsOpen.set(false);
+    this.focusAfterRender('.review-findings-line button');
+  }
+
+  /**
+   * Where the review is, said in one line while the drawer is closed, with the way back in. Null before anything
+   * has been asked. The terminal states other than a finished review say so plainly: the drawer holds the detail.
+   */
+  protected readonly findingsLine = computed<{
+    readonly text: string;
+    readonly tone: 'neutral' | 'success' | 'warning';
+    readonly action: string;
+  } | null>(() => {
+    if (this.requestIdSignal() === null) return null;
+    const op = this.operationSignal();
+    if (op === null || (!isTerminalAiStatus(op.status) && op.status !== 'Proposed')) {
+      return { text: 'Your review is on its way.', tone: 'neutral', action: 'Show findings' };
+    }
+    if (op.status !== 'Proposed') {
+      return { text: 'The review didn’t finish.', tone: 'warning', action: 'See what happened' };
+    }
+    const count = this.findings().length;
+    if (count === 0) return { text: 'The review had no findings this time.', tone: 'neutral', action: 'Show findings' };
+    return {
+      text: count === 1 ? '1 finding is ready to read.' : `${count} findings are ready to read.`,
+      tone: 'success',
+      action: 'Show findings',
+    };
+  });
+
+  /** Moves focus once the render that made its target has happened. A heading takes focus only by being asked to. */
+  private focusAfterRender(selector: string, focusable = false): void {
+    afterNextRender(
+      () => {
+        const target = this.host.nativeElement.querySelector<HTMLElement>(selector);
+        if (focusable) target?.setAttribute('tabindex', '-1');
+        target?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   onFixDecided(result: unknown): void {

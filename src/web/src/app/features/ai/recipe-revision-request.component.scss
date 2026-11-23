@@ -152,3 +152,12 @@
   align-items: center;
   gap: var(--cp-space-3);
 }
+
+/* The page's one line about the suggestions while their drawer is closed, with the way back in. */
+.revision-line-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin-inline-start: var(--cp-space-2);
+  vertical-align: middle;
+}

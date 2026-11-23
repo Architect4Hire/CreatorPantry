@@ -127,6 +127,14 @@ export class RecipeTestHistoryComponent {
   readonly workspaceSlug = input.required<string>();
   readonly recipeId = input.required<string>();
 
+  /**
+   * Draw the filters only once there is a list worth filtering: a second test, another page, or a filter already
+   * applied. For a guided step, where a toolbar of five controls over an empty list or a single test is the
+   * loudest thing on the screen. Once drawn they stay, so recording a test never makes them blink away while the
+   * list is read again. Off on the recipe page, where the filters are always there.
+   */
+  readonly filtersWhenUseful = input(false);
+
   /** A row the reader picked. The host decides what to show; this screen only lists. */
   readonly testSelected = output<TestRunSummary>();
 
@@ -163,6 +171,9 @@ export class RecipeTestHistoryComponent {
 
   constructor() {
     void this.membershipService.ensureLoaded();
+    effect(() => {
+      if (this.worthFiltering()) untracked(() => this.filtersEarned.set(true));
+    });
 
     this.requests
       .pipe(
@@ -227,6 +238,15 @@ export class RecipeTestHistoryComponent {
     const state = this.state();
     return state.status === 'invalid_request' ? (state.fieldErrors[field]?.join(' ') ?? '') : '';
   }
+
+  private readonly filtersEarned = signal(false);
+
+  private readonly worthFiltering = computed(
+    () => this.hasActiveFilters() || this.rows().length > 1 || this.hasNextPage() || this.hasPreviousPage(),
+  );
+
+  /** Whether the filters are drawn at all. */
+  readonly showFilters = computed(() => !this.filtersWhenUseful() || this.filtersEarned() || this.worthFiltering());
 
   readonly hasActiveFilters = computed(
     () =>

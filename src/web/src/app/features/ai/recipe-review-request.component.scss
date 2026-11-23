@@ -73,3 +73,12 @@
   align-items: center;
   gap: var(--cp-space-3);
 }
+
+/* The page's one line about the findings while their drawer is closed, with the way back in. */
+.review-findings-line-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin-inline-start: var(--cp-space-2);
+  vertical-align: middle;
+}

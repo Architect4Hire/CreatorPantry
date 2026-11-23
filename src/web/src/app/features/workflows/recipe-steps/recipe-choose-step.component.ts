@@ -122,6 +122,12 @@ function countSaid(shown: number, total: number | null): string {
     .plain {
       margin: 0;
     }
+
+    /* Not in a toolbar, so nothing beside it sets its width: it takes the field measure the section already
+       holds it to, rather than the browser's default of about twenty characters. */
+    cp-search-field input {
+      width: 100%;
+    }
   `,
 })
 export class RecipeChooseStepComponent implements OnInit {

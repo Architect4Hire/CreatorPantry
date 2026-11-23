@@ -345,9 +345,14 @@ describe('"Test and approve" step screens (13A.16)', () => {
     it('opens the Test kitchen on the version to cook, and says a test never changes the recipe', async () => {
       const fixture = await render(RecipeTestCookStepComponent, { run: testRun(), workspaceSlug: SLUG });
 
-      expect(text(fixture)).toContain('Cook version 3 exactly as it’s written');
-      expect(text(fixture)).toContain('never changes your recipe');
+      // One line, not three: the version a test is filed against, and that recording it changes nothing.
+      expect(text(fixture)).toContain('A new test is filed against version 3');
+      expect(text(fixture)).toContain('Nothing recorded here changes your recipe');
+      expect(text(fixture)).not.toContain('Cook version 3 exactly as it’s written');
       expect(root(fixture).querySelector('cp-recipe-test-kitchen')).not.toBeNull();
+      // No card of its own inside the step's card: the step's heading has said what this is.
+      expect(root(fixture).querySelector('cp-card.bar')).toBeNull();
+      expect(root(fixture).querySelector('.step-bar')).not.toBeNull();
       await expectAsync(port.flush()).toBeResolvedTo(true);
     });
   });
@@ -426,6 +431,13 @@ describe('"Test and approve" step screens (13A.16)', () => {
           .map((move) => move.to),
       ).toEqual(['InDevelopment']);
       expect(port.registration()!.ready!()).toBeFalse();
+    });
+
+    it('draws the readiness panel as the step’s own content, not as a card inside its card', async () => {
+      const fixture = await at('Testing', 'send-for-review');
+
+      expect(panel(fixture).inStep()).toBeTrue();
+      expect(root(fixture).querySelector('cp-recipe-readiness cp-card')).toBeNull();
     });
 
     it('is done when the server says the recipe is ready for review, and not before', async () => {
