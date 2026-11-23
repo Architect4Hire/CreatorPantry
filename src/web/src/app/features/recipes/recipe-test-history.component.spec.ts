@@ -566,4 +566,44 @@ describe('RecipeTestHistoryComponent', () => {
       expect(pill.textContent?.replace(/[\d\s]/g, '').length).toBeGreaterThan(0);
     }
   });
+
+  // ---- Filters only once they are useful (a guided step) ----------------------
+
+  describe('when the filters wait until they are useful', () => {
+    async function whenUseful(items: readonly TestRunSummary[]): Promise<HTMLElement> {
+      service.outcome = { status: 'found', page: page({ items }) };
+      const element = await render();
+      fixture.componentRef.setInput('filtersWhenUseful', true);
+      await settle();
+      return element;
+    }
+
+    it('draws no filters over an empty history, or over a single test', async () => {
+      expect((await whenUseful([])).querySelector('cp-toolbar')).toBeNull();
+      expect((await whenUseful([row({ id: 'a' })])).querySelector('cp-toolbar')).toBeNull();
+    });
+
+    it('draws them once there is more than one test to filter', async () => {
+      const element = await whenUseful([row({ id: 'a' }), row({ id: 'b' })]);
+
+      expect(element.querySelector('cp-toolbar')).not.toBeNull();
+    });
+
+    it('keeps them once drawn, even when a filter leaves nothing to show', async () => {
+      const element = await whenUseful([row({ id: 'a' }), row({ id: 'b' })]);
+
+      service.outcome = { status: 'found', page: page({ items: [] }) };
+      await click(element, 'Worked');
+
+      expect(element.querySelector('cp-toolbar')).not.toBeNull();
+      expect(element.textContent).toContain('No tests match these filters');
+    });
+
+    it('is always drawn on the recipe page, where nothing asks it to wait', async () => {
+      service.outcome = { status: 'found', page: page({ items: [] }) };
+      const element = await render();
+
+      expect(element.querySelector('cp-toolbar')).not.toBeNull();
+    });
+  });
 });

@@ -1,180 +1,11 @@
-<cp-card>
-  <header class="header">
-    <div class="heading">
-      @if (headingLevel() === 3) {
-        <h3 class="title">{{ heading() }}</h3>
-      } @else {
-        <h2 class="title">{{ heading() }}</h2>
-      }
-      <p class="intro">
-        Every rule checked against this recipe as it stands now. The checks are run on the server and the same recipe
-        always gets the same answer.
-      </p>
-    </div>
-
-    <div class="header-actions">
-      <cp-status-pill tone="neutral">{{ statusLabels[status()] }}</cp-status-pill>
-      <button cpButton variant="secondary" size="sm" type="button" [disabled]="loading()" (click)="reevaluate()">
-        @if (loading()) {
-          Checking…
-        } @else {
-          Check again
-        }
-      </button>
-    </div>
-  </header>
-
-  <!--
-    Not a safety claim, said where a reader will actually see it rather than in a footnote. The nearest rule
-    reports how complete the allergen *records* are and never what is in the dish (recipes.md).
-  -->
-  <p class="caveat">
-    This is about how complete the recipe is, not whether it is safe. It is not an allergen, nutrition, dietary or
-    food-safety clearance, and no combination of these checks makes it one.
-  </p>
-
-  @if (readinessMessage()) {
-    <p class="problem" role="alert">{{ readinessMessage() }}</p>
-    @if (readinessState().status === 'error') {
-      <div class="retry">
-        <button cpButton variant="secondary" type="button" (click)="reevaluate()">Try again</button>
-      </div>
-    }
-  }
-
-  <!-- Always present, so its words change as the first check is read rather than arriving with it (AU.7). -->
-  <p class="cp-sr-only" role="status">{{ loading() && readiness() === null ? 'Checking this recipe…' : '' }}</p>
-  @if (loading() && readiness() === null) {
-    <!-- The answer as it will arrive: its counts, then the rules as a few lines. -->
-    <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
-  }
-
-  @if (readiness(); as check) {
-    <div class="counts">
-      <cp-status-pill [tone]="countTone(check.blockerCount, 'error')">
-        {{ check.blockerCount }} in the way
-      </cp-status-pill>
-      <cp-status-pill [tone]="countTone(check.recommendationCount, 'warning')">
-        {{ check.recommendationCount }} worth doing
-      </cp-status-pill>
-
-      @if (isStale()) {
-        <!-- The evaluation describes words the recipe has moved past; the server refuses an approval on one. -->
-        <cp-status-pill tone="stale">Out of date</cp-status-pill>
-      }
-    </div>
-
-    <p class="cp-muted measure">
-      Checked
-      @if (check.evaluatedVersionNumber !== null) {
-        against version {{ check.evaluatedVersionNumber }}
-      } @else {
-        before this recipe had a version
-      }
-      · rule set {{ check.ruleSetVersion }}
-    </p>
-
-    @if (isStale()) {
-      <p class="problem" role="status">
-        This recipe has been edited since it was checked, so these answers describe earlier words. Check it again before
-        approving.
-      </p>
-    }
-
-    <!--
-      A rule configuration switched off is not reported as satisfied anywhere, and this line exists so its
-      absence from the list below is visible rather than silent.
-    -->
-    @if (check.disabledRuleIds.length > 0) {
-      <p class="cp-muted measure">
-        {{ check.disabledRuleIds.length }}
-        {{ check.disabledRuleIds.length === 1 ? 'check is' : 'checks are' }} switched off for this workspace and did not
-        run. A check that did not run has not passed.
-      </p>
-    }
-
-    @if (check.unknownConfiguredRuleIds.length > 0) {
-      <p class="problem" role="status">
-        Configuration names
-        {{ check.unknownConfiguredRuleIds.length === 1 ? 'a check' : 'checks' }} that do not exist:
-        {{ check.unknownConfiguredRuleIds.join(', ') }}. Someone should fix that spelling — nothing was checked for it.
-      </p>
-    }
-
-    @for (group of groupOrder; track group) {
-      @if (findingsIn(group).length > 0) {
-        <section class="group" [attr.aria-labelledby]="idPrefix + '-group-' + group">
-          <div class="group-head">
-            <!--
-              The pill shows a bare number because the heading it sits inside already names what is being
-              counted; the noun is added for a screen reader so the heading reads "In the way of approval, 1
-              check" rather than trailing an unexplained digit.
-            -->
-            <h3 class="group-title" [id]="idPrefix + '-group-' + group">
-              {{ headingFor(group) }}
-              <cp-status-pill [tone]="toneFor(group)">
-                {{ findingsIn(group).length
-                }}<span class="cp-sr-only"> {{ findingsIn(group).length === 1 ? 'check' : 'checks' }}</span>
-              </cp-status-pill>
-            </h3>
-
-            @if (isCollapsible(group)) {
-              <button
-                cpButton
-                variant="text"
-                size="sm"
-                type="button"
-                [attr.aria-expanded]="isExpanded(group)"
-                [attr.aria-controls]="idPrefix + '-list-' + group"
-                (click)="toggleGroup(group)"
-              >
-                {{ isExpanded(group) ? 'Hide' : 'Show' }}
-              </button>
-            }
-          </div>
-
-          <ul class="findings" [id]="idPrefix + '-list-' + group" [hidden]="!isExpanded(group)">
-            @for (finding of findingsIn(group); track finding.ruleId) {
-              <!--
-                tabindex="-1" so a refused approval can send focus to the exact check it named. Never in the
-                tab order: a checklist is read, and forty stops nobody asked for is not navigation.
-              -->
-              <li class="finding" [id]="findingElementId(finding.ruleId)" tabindex="-1">
-                <p class="finding-summary">{{ finding.summary }}</p>
-
-                @if (finding.detail) {
-                  <p class="finding-detail">{{ finding.detail }}</p>
-                }
-
-                @if (finding.severityOverridden) {
-                  <p class="finding-note">How much this one matters was set by this workspace's configuration.</p>
-                }
-
-                @if (finding.evidence.length > 0) {
-                  <ul class="evidence">
-                    @for (item of finding.evidence; track $index) {
-                      <li>
-                        <!--
-                          A button, not a link: only the host knows whether the record has a surface to show,
-                          and several kinds have none yet. Activating it asks the host to go there. Its text is
-                          the record in the editor's words, never a property name.
-                        -->
-                        <button cpButton variant="text" size="sm" type="button" (click)="activateEvidence(item)">
-                          {{ evidenceText(item) }}
-                        </button>
-                      </li>
-                    }
-                  </ul>
-                }
-              </li>
-            }
-          </ul>
-        </section>
-      }
-    }
-  }
-
-  <footer class="footer">
+<!--
+  The same panel in two places. On the recipe page it is a card of its own, the moves under the findings. In a guided
+  step it is the step's own content — no card inside the step's card, no introduction the step has already given — and
+  the moves come first, straight under the counts, with the findings below: what the creator came to do is not at
+  the bottom of a long list.
+-->
+<ng-template #actions>
+  <footer class="footer" [class.footer--step]="inStep()">
     @if (transitionMessage()) {
       <p class="problem" [id]="idPrefix + '-transition-status'" role="alert">{{ transitionMessage() }}</p>
     }
@@ -231,7 +62,225 @@
       </div>
     }
   </footer>
-</cp-card>
+</ng-template>
+
+<ng-template #panel>
+  <header class="header">
+    <div class="heading">
+      @if (headingLevel() === 3) {
+        <h3 class="title">{{ heading() }}</h3>
+      } @else {
+        <h2 class="title">{{ heading() }}</h2>
+      }
+      @if (!inStep()) {
+        <p class="intro">
+          Every rule checked against this recipe as it stands now. The checks are run on the server and the same recipe
+          always gets the same answer.
+        </p>
+      }
+    </div>
+
+    <div class="header-actions">
+      @if (!inStep()) {
+        <cp-status-pill tone="neutral">{{ statusLabels[status()] }}</cp-status-pill>
+      }
+      <button cpButton variant="secondary" size="sm" type="button" [disabled]="loading()" (click)="reevaluate()">
+        @if (loading()) {
+          Checking…
+        } @else {
+          Check again
+        }
+      </button>
+    </div>
+  </header>
+
+  <!--
+    Not a safety claim, said where a reader will actually see it rather than in a footnote. The nearest rule
+    reports how complete the allergen *records* are and never what is in the dish (recipes.md).
+  -->
+  <p class="caveat">
+    This is about how complete the recipe is, not whether it is safe. It is not an allergen, nutrition, dietary or
+    food-safety clearance, and no combination of these checks makes it one.
+  </p>
+
+  @if (readinessMessage()) {
+    <p class="problem" role="alert">{{ readinessMessage() }}</p>
+    @if (readinessState().status === 'error') {
+      <div class="retry">
+        <button cpButton variant="secondary" type="button" (click)="reevaluate()">Try again</button>
+      </div>
+    }
+  }
+
+  <!-- Always present, so its words change as the first check is read rather than arriving with it (AU.7). -->
+  <p class="cp-sr-only" role="status">{{ loading() && readiness() === null ? 'Checking this recipe…' : '' }}</p>
+  @if (loading() && readiness() === null) {
+    <!-- The answer as it will arrive: its counts, then the rules as a few lines. -->
+    <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
+  }
+
+  @if (readiness(); as check) {
+    <div class="counts">
+      @if (inStep()) {
+        <!-- Where the recipe stands, beside what is in the way: one row says all of it. -->
+        <cp-status-pill tone="neutral">{{ statusLabels[status()] }}</cp-status-pill>
+      }
+      <cp-status-pill [tone]="countTone(check.blockerCount, 'error')">
+        {{ check.blockerCount }} in the way
+      </cp-status-pill>
+      <cp-status-pill [tone]="countTone(check.recommendationCount, 'warning')">
+        {{ check.recommendationCount }} worth doing
+      </cp-status-pill>
+
+      @if (isStale()) {
+        <!-- The evaluation describes words the recipe has moved past; the server refuses an approval on one. -->
+        <cp-status-pill tone="stale">Out of date</cp-status-pill>
+      }
+    </div>
+
+    <p class="cp-muted measure">
+      Checked
+      @if (check.evaluatedVersionNumber !== null) {
+        against version {{ check.evaluatedVersionNumber }}
+      } @else {
+        before this recipe had a version
+      }
+      · rule set {{ check.ruleSetVersion }}
+    </p>
+
+    @if (isStale()) {
+      <p class="problem" role="status">
+        This recipe has been edited since it was checked, so these answers describe earlier words. Check it again before
+        approving.
+      </p>
+    }
+
+    <!--
+      A rule configuration switched off is not reported as satisfied anywhere, and this line exists so its
+      absence from the list below is visible rather than silent.
+    -->
+    @if (check.disabledRuleIds.length > 0) {
+      <p class="cp-muted measure">
+        {{ check.disabledRuleIds.length }}
+        {{ check.disabledRuleIds.length === 1 ? 'check is' : 'checks are' }} switched off for this workspace and did not
+        run. A check that did not run has not passed.
+      </p>
+    }
+
+    @if (check.unknownConfiguredRuleIds.length > 0) {
+      <p class="problem" role="status">
+        Configuration names
+        {{ check.unknownConfiguredRuleIds.length === 1 ? 'a check' : 'checks' }} that do not exist:
+        {{ check.unknownConfiguredRuleIds.join(', ') }}. Someone should fix that spelling — nothing was checked for it.
+      </p>
+    }
+  }
+
+  @if (inStep()) {
+    <ng-container *ngTemplateOutlet="actions" />
+  }
+
+  @if (readiness(); as check) {
+    @for (group of groupOrder; track group) {
+      @if (findingsIn(group).length > 0) {
+        <section class="group" [attr.aria-labelledby]="idPrefix + '-group-' + group">
+          <div class="group-head">
+            <!--
+              The pill shows a bare number because the heading it sits inside already names what is being
+              counted; the noun is added for a screen reader so the heading reads "In the way of approval, 1
+              check" rather than trailing an unexplained digit.
+            -->
+            <h3 class="group-title" [id]="idPrefix + '-group-' + group">
+              {{ headingFor(group) }}
+              <cp-status-pill [tone]="toneFor(group)">
+                {{ findingsIn(group).length
+                }}<span class="cp-sr-only"> {{ findingsIn(group).length === 1 ? 'check' : 'checks' }}</span>
+              </cp-status-pill>
+            </h3>
+
+            @if (isCollapsible(group)) {
+              <button
+                cpButton
+                variant="text"
+                size="sm"
+                type="button"
+                [attr.aria-expanded]="isExpanded(group)"
+                [attr.aria-controls]="idPrefix + '-list-' + group"
+                (click)="toggleGroup(group)"
+              >
+                {{ isExpanded(group) ? 'Hide' : 'Show' }}
+              </button>
+            }
+          </div>
+
+          <ul class="findings" [id]="idPrefix + '-list-' + group" [hidden]="!isExpanded(group)">
+            @for (finding of findingsIn(group); track finding.ruleId) {
+              <!--
+                tabindex="-1" so a refused approval can send focus to the exact check it named. Never in the
+                tab order: a checklist is read, and forty stops nobody asked for is not navigation.
+              -->
+              <li class="finding" [id]="findingElementId(finding.ruleId)" tabindex="-1">
+                <p class="finding-summary">{{ finding.summary }}</p>
+
+                @if (finding.detail) {
+                  <p class="finding-detail">{{ finding.detail }}</p>
+                }
+
+                @if (finding.severityOverridden) {
+                  <p class="finding-note">How much this one matters was set by this workspace's configuration.</p>
+                }
+
+                @if (finding.evidence.length > 0) {
+                  <ul class="evidence" [class.evidence--compact]="inStep()">
+                    @for (item of evidenceFor(finding); track $index) {
+                      <li>
+                        <!--
+                          A button, not a link: only the host knows whether the record has a surface to show,
+                          and several kinds have none yet. Activating it asks the host to go there. Its text is
+                          the record in the editor's words, never a property name.
+                        -->
+                        <button cpButton variant="text" size="sm" type="button" (click)="activateEvidence(item)">
+                          {{ evidenceText(item) }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                  @if (moreEvidence(finding) > 0) {
+                    <div class="evidence-more">
+                      <button cpButton variant="text" size="sm" type="button" (click)="toggleEvidence(finding.ruleId)">
+                        Show {{ moreEvidence(finding) }} more
+                      </button>
+                    </div>
+                  } @else if (canCollapseEvidence(finding)) {
+                    <div class="evidence-more">
+                      <button cpButton variant="text" size="sm" type="button" (click)="toggleEvidence(finding.ruleId)">
+                        Show fewer
+                      </button>
+                    </div>
+                  }
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+
+  @if (!inStep()) {
+    <ng-container *ngTemplateOutlet="actions" />
+  }
+</ng-template>
+
+@if (inStep()) {
+  <div class="panel">
+    <ng-container *ngTemplateOutlet="panel" />
+  </div>
+} @else {
+  <cp-card>
+    <ng-container *ngTemplateOutlet="panel" />
+  </cp-card>
+}
 
 <!--
   A modal hosting a field with its own validation, which is what CpDialogComponent is for — as opposed to a

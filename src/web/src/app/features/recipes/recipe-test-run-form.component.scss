@@ -171,3 +171,45 @@ form {
   flex-wrap: wrap;
   gap: var(--cp-space-2);
 }
+
+/* In a step: the block of detail, its sections a space-8 apart as the form's own are. */
+.more > summary {
+  color: var(--cp-text);
+}
+
+.more-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  padding-top: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* The handle a note or a problem is moved by: quiet, at the start of its head, and the cursor says it can be picked up. */
+.move-handle {
+  color: var(--cp-text-muted);
+  cursor: grab;
+}
+
+/* Where the row will land, shown as the row itself, faded. */
+.row.cdk-drag-placeholder {
+  opacity: 0.4;
+}
+
+/* The row in hand, lifted out of its list: with the board's floating shadow. */
+.row.cdk-drag-preview {
+  list-style: none;
+  border: 1px solid var(--cp-border-control);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  box-shadow: var(--cp-shadow-lg);
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The row settling into place, and its neighbours making room. Nothing moves on its own otherwise. */
+  .row.cdk-drag-animating,
+  .cdk-drop-list-dragging .row:not(.cdk-drag-placeholder) {
+    transition: transform var(--cp-duration-normal) var(--cp-ease);
+  }
+}

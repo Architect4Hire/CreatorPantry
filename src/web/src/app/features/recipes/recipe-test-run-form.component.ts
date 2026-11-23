@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -10,6 +12,8 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from '@angular/cdk/drag-drop';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   CpButtonComponent,
@@ -19,6 +23,7 @@ import {
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
+  CpIconComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
@@ -39,6 +44,7 @@ import {
 } from '../../models/recipe-test-run.models';
 import { ReferenceService } from '../../services/reference.service';
 import { RecipeTestRunService } from '../../services/recipe-test-run.service';
+import { handleMoveFor } from './recipe-editor.model';
 import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
 
 /** What the host is told when a save succeeded. Two shapes because the two routes answer differently. */
@@ -173,6 +179,19 @@ const SCALAR_FIELD_ORDER: readonly string[] = [
   'summaryNotes',
 ];
 
+/** The fields that live in the step's block of detail, so a refusal about one of them opens it. */
+const DETAIL_FIELDS: readonly string[] = [
+  'actualYieldText',
+  'actualYieldQuantity',
+  'actualYieldUnitId',
+  'environmentNotes',
+  'equipmentNotes',
+  'actualPrepTimeMinutes',
+  'actualCookTimeMinutes',
+  'actualRestTimeMinutes',
+  'actualTotalTimeMinutes',
+];
+
 /** `observations[2].text`, `issues[0].severity` — a refusal about one row, reported at its position. */
 const ROW_ERROR_PATTERN = /^(observations|issues)\[(\d+)\]\.([A-Za-z]+)$/;
 
@@ -267,12 +286,17 @@ function trimmedOrNull(text: string): string | null {
   standalone: true,
   imports: [
     FormsModule,
+    NgTemplateOutlet,
+    CdkDrag,
+    CdkDragHandle,
+    CdkDropList,
     CpButtonComponent,
     CpCardComponent,
     CpComboboxComponent,
     CpFieldComponent,
     CpFieldRowComponent,
     CpFormSectionComponent,
+    CpIconComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-test-run-form.component.html',
@@ -284,6 +308,7 @@ export class RecipeTestRunFormComponent {
   private readonly referenceService = inject(ReferenceService);
   private readonly confirmService = inject(ConfirmService);
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly workspaceSlug = input.required<string>();
   readonly recipeId = input.required<string>();
@@ -295,6 +320,17 @@ export class RecipeTestRunFormComponent {
    * `recipeVersionId` — the number is what a tester reads and cites, and the host is where both are known.
    */
   readonly versionNumber = input.required<number>();
+
+  /**
+   * Whether this is the content of a guided step rather than a card of the recipe page. In a step the card goes —
+   * the step's own card is the surface — the legend says one fact instead of two, the test's three fields share a
+   * row, "How it went" follows at once, and what it made, how long it took and the conditions wait in one block
+   * that opens by itself when it holds a value or a refusal. Off on the recipe page.
+   */
+  readonly inStep = input(false);
+
+  /** The level of the form's heading: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
+  readonly headingLevel = input<2 | 3>(2);
 
   /** The test to correct, or null to record a new one. */
   readonly testRun = input<RecipeTestRun | null>(null);
@@ -388,6 +424,35 @@ export class RecipeTestRunFormComponent {
       const run = this.testRun();
       untracked(() => this.seedFrom(run));
     });
+
+    // The block of detail opens when it holds something — a test being corrected, or a value typed — or a
+    // refusal. It never closes itself: a creator who closed it keeps it closed, and one who emptied its last field
+    // is not collapsed under their hands.
+    effect(() => {
+      if (this.hasDetail() || this.detailHasProblem()) untracked(() => this.detailOpen.set(true));
+    });
+  }
+
+  /** Whether the block of detail is open, in a step. */
+  protected readonly detailOpen = signal(false);
+
+  private readonly hasDetail = computed(
+    () =>
+      this.actualYieldText().trim() !== '' ||
+      this.actualYieldQuantity().trim() !== '' ||
+      this.actualYieldUnitId() !== null ||
+      this.actualPrepTimeMinutes().trim() !== '' ||
+      this.actualCookTimeMinutes().trim() !== '' ||
+      this.actualRestTimeMinutes().trim() !== '' ||
+      this.actualTotalTimeMinutes().trim() !== '' ||
+      this.environmentNotes().trim() !== '' ||
+      this.equipmentNotes().trim() !== '',
+  );
+
+  private readonly detailHasProblem = computed(() => DETAIL_FIELDS.some((key) => this.fieldError(key) !== ''));
+
+  protected onDetailToggle(event: Event): void {
+    this.detailOpen.set((event.target as HTMLDetailsElement).open);
   }
 
   // -------------------------------------------------------------------------
@@ -596,8 +661,9 @@ export class RecipeTestRunFormComponent {
     );
   }
 
-  moveObservation(rowKey: string, direction: -1 | 1): void {
-    this.observations.update((rows) => move(rows, rowKey, direction));
+  /** Puts a note at a position, counted from zero. */
+  moveObservationTo(rowKey: string, index: number): void {
+    this.observations.update((rows) => moveTo(rows, rowKey, index));
   }
 
   // -------------------------------------------------------------------------
@@ -636,8 +702,58 @@ export class RecipeTestRunFormComponent {
     this.issues.update((rows) => rows.filter((row) => row.key !== rowKey));
   }
 
-  moveIssue(rowKey: string, direction: -1 | 1): void {
-    this.issues.update((rows) => move(rows, rowKey, direction));
+  /** Puts a problem at a position, counted from zero. */
+  moveIssueTo(rowKey: string, index: number): void {
+    this.issues.update((rows) => moveTo(rows, rowKey, index));
+  }
+
+  /** What the last move did, in words, for a polite live region: a drag or a key moves in silence. */
+  protected readonly moveAnnouncement = signal('');
+
+  /**
+   * A row's move handle, from the keyboard: Up and Down move it one place, Home and End to the top or the bottom.
+   * Focus stays on the handle, which goes with the row. Any other key is the browser's. The same keys, and the same
+   * handle, as a step in the recipe editor.
+   */
+  protected onRowHandleKeydown(list: 'observations' | 'issues', event: KeyboardEvent, rowKey: string): void {
+    const move = handleMoveFor(event);
+    if (move === null) return;
+    event.preventDefault();
+
+    const rows = list === 'observations' ? this.observations() : this.issues();
+    const from = rows.findIndex((row) => row.key === rowKey);
+    if (from === -1) return;
+
+    const to = move === 'up' ? from - 1 : move === 'down' ? from + 1 : move === 'first' ? 0 : rows.length - 1;
+    if (to < 0 || to >= rows.length || to === from) {
+      this.moveAnnouncement.set(move === 'up' || move === 'first' ? 'Already at the top.' : 'Already at the bottom.');
+      return;
+    }
+
+    this.placeRow(list, rowKey, to);
+    afterNextRender(
+      () =>
+        this.elementRef.nativeElement
+          .querySelector<HTMLElement>(`[id="${this.idPrefix}-${list}-handle-${rowKey}"]`)
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /** A row dropped where it was dragged to. */
+  protected onRowDropped(list: 'observations' | 'issues', event: CdkDragDrop<unknown, unknown, string>): void {
+    if (event.previousIndex === event.currentIndex) return;
+    this.placeRow(list, event.item.data, event.currentIndex);
+  }
+
+  private placeRow(list: 'observations' | 'issues', rowKey: string, index: number): void {
+    if (list === 'observations') this.moveObservationTo(rowKey, index);
+    else this.moveIssueTo(rowKey, index);
+
+    const count = (list === 'observations' ? this.observations() : this.issues()).length;
+    this.moveAnnouncement.set(
+      `Moved ${list === 'observations' ? 'note' : 'issue'} to position ${index + 1} of ${count}.`,
+    );
   }
 
   /** Reads a `<select>`'s value as a severity, or as the unchosen empty state. */
@@ -1146,6 +1262,13 @@ export class RecipeTestRunFormComponent {
     const errors = this.fieldErrorsSignal();
     const host = this.elementRef.nativeElement;
 
+    // A refusal about a field in the block of detail opens it first: a closed block cannot take focus.
+    if (this.detailHasProblem()) {
+      this.detailOpen.set(true);
+      const more = host.querySelector<HTMLDetailsElement>('details.more');
+      if (more) more.open = true;
+    }
+
     const focus = (elementId: string): boolean => {
       const control = host.querySelector<HTMLElement>(`[id="${elementId}"]`);
       if (control === null) return false;
@@ -1232,13 +1355,14 @@ function toIssueInput(row: IssueRow, observationRows: readonly ObservationRow[])
   };
 }
 
-function move<T extends { readonly key: string }>(rows: readonly T[], key: string, direction: -1 | 1): readonly T[] {
+/** The rows with the one named by `key` taken out and put back at `to`; the rows as they were when it is nowhere. */
+function moveTo<T extends { readonly key: string }>(rows: readonly T[], key: string, to: number): readonly T[] {
   const from = rows.findIndex((row) => row.key === key);
-  const to = from + direction;
-  if (from === -1 || to < 0 || to >= rows.length) return rows;
+  if (from === -1 || to < 0 || to >= rows.length || to === from) return rows;
 
   const reordered = [...rows];
-  [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+  const [moved] = reordered.splice(from, 1);
+  reordered.splice(to, 0, moved);
   return reordered;
 }
 

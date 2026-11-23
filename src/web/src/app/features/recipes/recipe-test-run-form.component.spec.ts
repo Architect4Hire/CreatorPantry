@@ -456,7 +456,7 @@ describe('RecipeTestRunFormComponent', () => {
       title: 'Crumb',
       fromObservationKey: first.key,
     });
-    fixture.componentInstance.moveObservation(first.key, 1);
+    fixture.componentInstance.moveObservationTo(first.key, 1);
     fixture.detectChanges();
 
     await save(element);
@@ -708,6 +708,8 @@ describe('RecipeTestRunFormComponent', () => {
     // match would pass here while the issue's control was still on the page.
     expect(element.querySelector('[aria-label^="Remove issue"]')).toBeNull();
     expect(element.querySelector('[aria-label^="Remove note"]')).not.toBeNull();
+    // It can still be moved: where it sits in the list is the tester's to say, whatever was decided about it.
+    expect(element.querySelector('[aria-label="Move issue 1"]')).not.toBeNull();
   });
 
   it('refuses to remove a resolved issue even when asked directly', async () => {
@@ -1048,19 +1050,157 @@ describe('RecipeTestRunFormComponent', () => {
       button.getAttribute('aria-label'),
     );
 
-    expect(labels).toContain('Move note 1 later');
+    expect(labels).toContain('Move note 1');
+    expect(labels).toContain('Move issue 1');
     expect(labels).toContain('Remove note 2');
     expect(labels).toContain('Remove issue 1');
   });
 
-  it('cannot move the first row earlier or the last row later', async () => {
+  it('removes a row with the trash icon, which the button’s name says in words', async () => {
     const element = await render(savedRun());
 
-    const up = element.querySelector<HTMLButtonElement>('[aria-label="Move note 1 earlier"]');
-    const down = element.querySelector<HTMLButtonElement>('[aria-label="Move note 2 later"]');
+    const removers = Array.from(element.querySelectorAll<HTMLButtonElement>('button[aria-label^="Remove"]'));
+    expect(removers.length).toBe(3);
+    for (const button of removers) {
+      const icon = button.querySelector('cp-icon');
+      expect(icon?.getAttribute('data-name')).toBe('trash');
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
+      expect((button.textContent ?? '').trim()).toBe('');
+    }
+  });
 
-    expect(up?.disabled).toBeTrue();
-    expect(down?.disabled).toBeTrue();
+  // ---- Moving a note or a problem -------------------------------------------
+
+  describe('moving a row by its handle', () => {
+    function key(element: HTMLElement, list: 'observations' | 'issues', index = 0): string {
+      const rows =
+        list === 'observations' ? fixture.componentInstance.observations() : fixture.componentInstance.issues();
+      return rows[index].key;
+    }
+
+    function handle(element: HTMLElement, list: 'observations' | 'issues', index = 0): HTMLButtonElement {
+      return control<HTMLButtonElement>(element, `${list}-handle-${key(element, list, index)}`);
+    }
+
+    function press(target: HTMLElement, keyName: string, modifiers: KeyboardEventInit = {}): KeyboardEvent {
+      const event = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true, ...modifiers });
+      target.dispatchEvent(event);
+      return event;
+    }
+
+    function announced(element: HTMLElement): string {
+      return element.querySelector('.cp-sr-only[aria-live="polite"]')?.textContent?.trim() ?? '';
+    }
+
+    it('draws a handle on every note and problem, described once by a sentence that says how it moves', async () => {
+      const element = await render(savedRun());
+
+      for (const list of ['observations', 'issues'] as const) {
+        const first = handle(element, list);
+        const help = element.querySelector(`[id="${first.getAttribute('aria-describedby')}"]`)!;
+        expect(help.textContent).toContain('Up and Down arrow keys');
+      }
+    });
+
+    it('moves a note down with the arrow key, says so, and keeps focus on its handle', async () => {
+      const element = await render(savedRun());
+      const first = key(element, 'observations', 0);
+      const target = handle(element, 'observations', 0);
+      target.focus();
+
+      const event = press(target, 'ArrowDown');
+      await settle();
+
+      expect(event.defaultPrevented).toBeTrue();
+      expect(fixture.componentInstance.observations()[1].key).toBe(first);
+      expect(announced(element)).toBe('Moved note to position 2 of 2.');
+      expect(document.activeElement).toBe(control(element, `observations-handle-${first}`));
+    });
+
+    it('moves to the top or the bottom with Home and End', async () => {
+      const element = await render(savedRun());
+      const first = key(element, 'observations', 0);
+
+      press(handle(element, 'observations', 0), 'End');
+      await settle();
+      expect(fixture.componentInstance.observations()[1].key).toBe(first);
+
+      press(control(element, `observations-handle-${first}`), 'Home');
+      await settle();
+      expect(fixture.componentInstance.observations()[0].key).toBe(first);
+    });
+
+    it('says so at either end instead of moving, and leaves the order alone', async () => {
+      const element = await render(savedRun());
+      const order = fixture.componentInstance.observations().map((row) => row.key);
+
+      press(handle(element, 'observations', 0), 'ArrowUp');
+      await settle();
+      expect(announced(element)).toBe('Already at the top.');
+
+      press(handle(element, 'observations', 1), 'ArrowDown');
+      await settle();
+      expect(announced(element)).toBe('Already at the bottom.');
+
+      expect(fixture.componentInstance.observations().map((row) => row.key)).toEqual(order);
+    });
+
+    it('leaves a key with a modifier, and any other key, to the browser', async () => {
+      const element = await render(savedRun());
+      const order = fixture.componentInstance.observations().map((row) => row.key);
+
+      const shifted = press(handle(element, 'observations', 0), 'ArrowDown', { shiftKey: true });
+      const other = press(handle(element, 'observations', 0), 'a');
+      await settle();
+
+      expect(shifted.defaultPrevented).toBeFalse();
+      expect(other.defaultPrevented).toBeFalse();
+      expect(fixture.componentInstance.observations().map((row) => row.key)).toEqual(order);
+    });
+
+    it('moves a dragged note to where it was dropped, and says where', async () => {
+      const element = await render(savedRun());
+      const first = key(element, 'observations', 0);
+
+      fixture.componentInstance['onRowDropped']('observations', {
+        previousIndex: 0,
+        currentIndex: 1,
+        item: { data: first },
+      } as never);
+      await settle();
+
+      expect(fixture.componentInstance.observations()[1].key).toBe(first);
+      expect(announced(element)).toBe('Moved note to position 2 of 2.');
+    });
+
+    it('does nothing for a drop where the row already was', async () => {
+      const element = await render(savedRun());
+      const order = fixture.componentInstance.observations().map((row) => row.key);
+
+      fixture.componentInstance['onRowDropped']('observations', {
+        previousIndex: 1,
+        currentIndex: 1,
+        item: { data: order[1] },
+      } as never);
+      await settle();
+
+      expect(fixture.componentInstance.observations().map((row) => row.key)).toEqual(order);
+      expect(announced(element)).toBe('');
+    });
+
+    it('moves problems the same way, in their own list', async () => {
+      const element = await render(savedRun());
+      buttonWith(element, 'Add a problem')?.click();
+      await settle();
+      const first = key(element, 'issues', 0);
+
+      const target = handle(element, 'issues', 0);
+      press(target, 'ArrowDown');
+      await settle();
+
+      expect(fixture.componentInstance.issues()[1].key).toBe(first);
+      expect(announced(element)).toBe('Moved issue to position 2 of 2.');
+    });
   });
 
   it('describes an empty list rather than showing an unexplained blank', async () => {
@@ -1075,5 +1215,119 @@ describe('RecipeTestRunFormComponent', () => {
     const element = await render();
 
     expect(element.textContent).toContain('A test with none is not thereby a success');
+  });
+
+  // ---- In a guided step -----------------------------------------------------
+
+  describe('in a guided step', () => {
+    async function inStep(testRun: RecipeTestRun | null = null): Promise<HTMLElement> {
+      const element = await render(testRun);
+      fixture.componentRef.setInput('inStep', true);
+      fixture.componentRef.setInput('headingLevel', 3);
+      await settle();
+      return element;
+    }
+
+    function before(a: Element, b: Element): boolean {
+      return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }
+
+    it('is the step’s own content: no card inside its card, a heading one level down, one fact in the legend', async () => {
+      const element = await inStep();
+
+      expect(element.querySelector('cp-card')).toBeNull();
+      expect(element.querySelector('h3.title')!.textContent).toContain('Record a test');
+      expect(element.querySelector('h2.title')).toBeNull();
+      const legend = element.querySelector('.legend')!.textContent!;
+      expect(legend).toContain('version 3');
+      expect(legend).toContain('Only the date is required.');
+      expect(legend).not.toContain('nothing on this form changes the recipe');
+    });
+
+    it('draws the date, the outcome and the rating as one row', async () => {
+      const element = await inStep();
+
+      const row = element.querySelector('cp-field-row')!;
+      for (const id of ['testedAt', 'outcome', 'rating']) {
+        expect(row.contains(control(element, id))).toBeTrue();
+      }
+    });
+
+    it('puts how it went, then the notes, then the problems first, and the detail last', async () => {
+      const element = await inStep();
+
+      const summary = control(element, 'summaryNotes');
+      const addNote = buttonWith(element, 'Add a note')!;
+      const addProblem = buttonWith(element, 'Add a problem')!;
+      const more = element.querySelector('details.more')!;
+
+      expect(before(summary, addNote)).toBeTrue();
+      expect(before(addNote, addProblem)).toBeTrue();
+      expect(before(addProblem, more)).toBeTrue();
+    });
+
+    it('keeps what it made, how long it took and the conditions in one closed block until there is something in it', async () => {
+      const element = await inStep();
+
+      const more = element.querySelector<HTMLDetailsElement>('details.more')!;
+      expect(more.open).toBeFalse();
+      for (const id of ['actualYieldText', 'actualPrepTimeMinutes', 'environmentNotes', 'equipmentNotes']) {
+        expect(more.contains(control(element, id))).toBeTrue();
+      }
+      // What is in a closed block still counts: nothing about saving depends on it being open.
+      expect(more.querySelector('summary')!.textContent).toContain('More detail');
+    });
+
+    it('opens that block for a test being corrected that already holds detail', async () => {
+      const element = await inStep(savedRun({ environmentNotes: 'A hot oven' }));
+
+      expect(element.querySelector<HTMLDetailsElement>('details.more')!.open).toBeTrue();
+    });
+
+    it('opens it once a value is typed into it, and leaves it open', async () => {
+      const element = await inStep();
+
+      fixture.componentInstance.actualPrepTimeMinutes.set('15');
+      fixture.detectChanges();
+      expect(element.querySelector<HTMLDetailsElement>('details.more')!.open).toBeTrue();
+
+      fixture.componentInstance.actualPrepTimeMinutes.set('');
+      fixture.detectChanges();
+      expect(element.querySelector<HTMLDetailsElement>('details.more')!.open).toBeTrue();
+    });
+
+    it('opens it and focuses the field when a refusal is about something inside it', async () => {
+      const element = await inStep();
+      service.createOutcome = {
+        status: 'validation_failed',
+        fieldErrors: { actualPrepTimeMinutes: ['Prep time is a whole number of minutes.'] },
+      };
+
+      await save(element);
+
+      expect(element.querySelector<HTMLDetailsElement>('details.more')!.open).toBeTrue();
+      expect(element.textContent).toContain('Prep time is a whole number of minutes.');
+      expect(document.activeElement).toBe(control(element, 'actualPrepTimeMinutes'));
+    });
+
+    it('sends the same request whether or not the block was ever opened', async () => {
+      const element = await inStep();
+
+      fixture.componentInstance.summaryNotes.set('Good crumb.');
+      fixture.detectChanges();
+      await save(element);
+
+      expect(lastCreate().summaryNotes).toBe('Good crumb.');
+      expect(lastCreate().actualPrepTimeMinutes).toBeNull();
+    });
+
+    it('leaves the recipe page’s form as it was: a card, and every section in its place', async () => {
+      const element = await render();
+
+      expect(element.querySelector('cp-card')).not.toBeNull();
+      expect(element.querySelector('details.more')).toBeNull();
+      expect(element.querySelector('h2.title')).not.toBeNull();
+      expect(before(control(element, 'actualYieldText'), control(element, 'summaryNotes'))).toBeTrue();
+    });
   });
 });

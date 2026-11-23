@@ -129,6 +129,14 @@ export class RecipeTestKitchenComponent {
   /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
   readonly headingLevel = input<2 | 3>(2);
 
+  /**
+   * Whether this sits in a guided step, whose own heading and hint already say what the Test kitchen is for. Then
+   * the card with its title and its introduction gives way to one line — what a new test is filed against, and
+   * that recording it changes nothing — beside the one action, and the history draws its filters only once there
+   * is something to filter. Off on the recipe page, where the Test kitchen is a tab of its own.
+   */
+  readonly inStep = input(false);
+
   readonly outcomeLabels = TEST_OUTCOME_LABELS;
   readonly outcomeTones = TEST_OUTCOME_TONES;
 

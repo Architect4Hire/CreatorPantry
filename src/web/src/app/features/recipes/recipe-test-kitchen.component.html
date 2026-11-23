@@ -5,37 +5,66 @@
   Nothing here wraps the three panels in a card: the form and the problems panel each own one, and the history
   renders carded rows. An outer card would nest surfaces two and three deep.
 -->
-<cp-card class="bar">
-  <div class="heading">
-    @if (headingLevel() === 3) {
-      <h3 class="title">Test kitchen</h3>
+@if (inStep()) {
+  <!-- In a step: no card, no title and no introduction. The step's heading and hint have said what this is; what is
+       left is what a new test is filed against and the one action, in a line. -->
+  <div class="step-bar">
+    @if (view() === 'history') {
+      <p class="step-bar-text">
+        @if (versionNumber() !== null) {
+          A new test is filed against version {{ versionNumber() }}, the saved one.
+        }
+        Nothing recorded here changes your recipe.
+      </p>
+      <button
+        cpButton
+        variant="primary"
+        type="button"
+        [id]="idPrefix + '-record'"
+        [disabled]="!canRecord()"
+        (click)="startRecording()"
+      >
+        Record a test
+      </button>
     } @else {
-      <h2 class="title">Test kitchen</h2>
+      <button cpButton variant="secondary" size="sm" type="button" (click)="backToHistory()">
+        Back to the history
+      </button>
     }
-    <p class="intro">
-      What happened when this recipe was actually cooked. Every test is filed against the exact version it was cooked
-      from, and nothing recorded here changes the recipe.
-    </p>
   </div>
+} @else {
+  <cp-card class="bar">
+    <div class="heading">
+      @if (headingLevel() === 3) {
+        <h3 class="title">Test kitchen</h3>
+      } @else {
+        <h2 class="title">Test kitchen</h2>
+      }
+      <p class="intro">
+        What happened when this recipe was actually cooked. Every test is filed against the exact version it was cooked
+        from, and nothing recorded here changes the recipe.
+      </p>
+    </div>
 
-  @if (view() === 'history') {
-    <button
-      cpButton
-      variant="primary"
-      size="sm"
-      type="button"
-      [id]="idPrefix + '-record'"
-      [disabled]="!canRecord()"
-      (click)="startRecording()"
-    >
-      Record a test
-    </button>
-  } @else {
-    <button cpButton variant="secondary" size="sm" type="button" (click)="backToHistory()">
-      Back to the history
-    </button>
-  }
-</cp-card>
+    @if (view() === 'history') {
+      <button
+        cpButton
+        variant="primary"
+        size="sm"
+        type="button"
+        [id]="idPrefix + '-record'"
+        [disabled]="!canRecord()"
+        (click)="startRecording()"
+      >
+        Record a test
+      </button>
+    } @else {
+      <button cpButton variant="secondary" size="sm" type="button" (click)="backToHistory()">
+        Back to the history
+      </button>
+    }
+  </cp-card>
+}
 
 @switch (view()) {
   @case ('history') {
@@ -48,13 +77,14 @@
         <span class="note-icon" aria-hidden="true">⚑</span>
         <span>{{ recordBlockedReason() }}</span>
       </p>
-    } @else if (versionNumber() !== null) {
+    } @else if (versionNumber() !== null && !inStep()) {
       <p class="cp-muted">A new test will be filed against version {{ versionNumber() }}, the saved one.</p>
     }
 
     <cp-recipe-test-history
       [workspaceSlug]="workspaceSlug()"
       [recipeId]="recipeId()"
+      [filtersWhenUseful]="inStep()"
       (testSelected)="onTestSelected($event)"
     />
   }
@@ -197,6 +227,8 @@
           [workspaceSlug]="workspaceSlug()"
           [recipeId]="recipeId()"
           [versionNumber]="version"
+          [inStep]="inStep()"
+          [headingLevel]="headingLevel()"
           [testRun]="openRun()"
           (saved)="onSaved($event)"
           (cancelled)="onCancelled()"

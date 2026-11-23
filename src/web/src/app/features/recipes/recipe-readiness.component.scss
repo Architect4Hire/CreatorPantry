@@ -227,3 +227,30 @@ cp-card {
   font-size: var(--cp-font-size-xs);
   line-height: var(--cp-leading-normal);
 }
+
+/* In a step ------------------------------------------------------------- */
+
+/* The step's own surface, laid out as the card is: the card's edge and padding are the only things that go. */
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* The moves above the findings: no rule over them, since nothing precedes them but the counts. */
+.footer--step {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+/* A finding's records close together: each is a button of its own height, so the gap between rows is the button's
+   own, not a second one on top of it. */
+.evidence--compact {
+  column-gap: var(--cp-space-4);
+  row-gap: 0;
+}
+
+.evidence-more {
+  display: flex;
+}

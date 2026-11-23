@@ -113,6 +113,7 @@ function movesLeft(offers: readonly RecipeMoveOffer[], from: RecipeStatus): numb
           </cp-notice>
 
           <cp-recipe-readiness
+            [inStep]="true"
             [workspaceSlug]="workspaceSlug()"
             [recipeId]="recipe.id"
             [status]="recipe.status"

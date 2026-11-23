@@ -10,6 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   CpButtonComponent,
@@ -76,6 +77,9 @@ type TransitionState =
  * Satisfied and inapplicable rules are last and collapsed rather than dropped, because a creator needs to see
  * what they have cleared as much as what they have not — which is why the server sends every rule that ran.
  */
+/** How many of a finding's records a step shows before the rest are asked for. */
+const EVIDENCE_SHOWN = 3;
+
 const GROUP_ORDER: readonly RecipeReadinessStatus[] = ['Blocker', 'Recommendation', 'Satisfied', 'NotApplicable'];
 
 const GROUP_HEADINGS: Readonly<Record<RecipeReadinessStatus, string>> = {
@@ -134,6 +138,7 @@ function evidenceFieldLabel(fieldName: string): string {
   standalone: true,
   imports: [
     FormsModule,
+    NgTemplateOutlet,
     CpButtonComponent,
     CpCardComponent,
     CpDialogComponent,
@@ -178,6 +183,15 @@ export class RecipeReadinessComponent {
   /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
   readonly headingLevel = input<2 | 3>(2);
 
+  /**
+   * Whether this is the content of a guided step rather than a card of the recipe page. In a step the card goes —
+   * the step's own card is the surface — the introduction the step has already given goes, the status joins the
+   * counts, and the moves come straight under them instead of after the whole list. The findings are the same, but
+   * what is only advice stays closed while something is in the way, and each finding shows its first few records and
+   * the rest on asking. Off on the recipe page.
+   */
+  readonly inStep = input(false);
+
   /** The recipe as it now stands, after a move the server confirmed. */
   readonly transitioned = output<RecipeDetail>();
 
@@ -207,8 +221,14 @@ export class RecipeReadinessComponent {
 
   readonly reason = signal('');
 
-  /** Whether the satisfied and inapplicable groups are open. Collapsed by default; per-viewer, so local. */
-  private readonly expandedGroups = signal<ReadonlySet<RecipeReadinessStatus>>(new Set());
+  /**
+   * What the reader opened or closed, by group. A group they have not touched follows {@link defaultOpen}, so what
+   * they chose is kept when the list is checked again. Per-viewer, so local.
+   */
+  private readonly groupChoices = signal<ReadonlyMap<RecipeReadinessStatus, boolean>>(new Map());
+
+  /** The findings whose full list of records the reader asked for, in a step. */
+  private readonly evidenceOpen = signal<ReadonlySet<string>>(new Set());
 
   private pendingIdempotencyKey: string | null = null;
   private pendingRequestSignature: string | null = null;
@@ -271,20 +291,55 @@ export class RecipeReadinessComponent {
     return GROUP_TONES[group];
   }
 
-  /** Blockers and recommendations are always open; what is already settled starts closed. */
+  /**
+   * What is already settled can be closed, and in a step so can what is only advice: the findings that block are the
+   * ones a creator came to deal with, and a long list of recommendations under them is the loudest thing on the screen.
+   */
   isCollapsible(group: RecipeReadinessStatus): boolean {
-    return group === 'Satisfied' || group === 'NotApplicable';
+    return group === 'Satisfied' || group === 'NotApplicable' || (this.inStep() && group === 'Recommendation');
+  }
+
+  /**
+   * Blockers are always open and what is settled starts closed. In a step the advice starts closed too — unless
+   * nothing blocks, when it is the only thing there is to read.
+   */
+  private defaultOpen(group: RecipeReadinessStatus): boolean {
+    if (!this.isCollapsible(group)) return true;
+    return group === 'Recommendation' && this.findingsIn('Blocker').length === 0;
   }
 
   isExpanded(group: RecipeReadinessStatus): boolean {
-    return !this.isCollapsible(group) || this.expandedGroups().has(group);
+    return !this.isCollapsible(group) || (this.groupChoices().get(group) ?? this.defaultOpen(group));
   }
 
   toggleGroup(group: RecipeReadinessStatus): void {
-    this.expandedGroups.update((groups) => {
-      const next = new Set(groups);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
+    const open = this.isExpanded(group);
+    this.groupChoices.update((choices) => new Map(choices).set(group, !open));
+  }
+
+  /** The records of a finding as drawn: all of them on the page, the first few in a step until the reader asks. */
+  evidenceFor(finding: RecipeReadinessFinding): readonly RecipeReadinessEvidence[] {
+    return this.inStep() && !this.evidenceOpen().has(finding.ruleId)
+      ? finding.evidence.slice(0, EVIDENCE_SHOWN)
+      : finding.evidence;
+  }
+
+  /** How many records a finding keeps back, in a step, until the reader asks for them. */
+  moreEvidence(finding: RecipeReadinessFinding): number {
+    if (!this.inStep() || this.evidenceOpen().has(finding.ruleId)) return 0;
+    return Math.max(0, finding.evidence.length - EVIDENCE_SHOWN);
+  }
+
+  /** Whether the reader opened a finding's records and can close them again. */
+  canCollapseEvidence(finding: RecipeReadinessFinding): boolean {
+    return this.inStep() && this.evidenceOpen().has(finding.ruleId) && finding.evidence.length > EVIDENCE_SHOWN;
+  }
+
+  toggleEvidence(ruleId: string): void {
+    this.evidenceOpen.update((open) => {
+      const next = new Set(open);
+      if (next.has(ruleId)) next.delete(ruleId);
+      else next.add(ruleId);
       return next;
     });
   }

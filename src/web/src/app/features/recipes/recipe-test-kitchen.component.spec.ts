@@ -686,4 +686,68 @@ describe('RecipeTestKitchenComponent', () => {
 
     expect(openCard(element)?.textContent).not.toContain('Needed five more minutes.');
   });
+
+  // ---- In a guided step ----------------------------------------------------
+
+  describe('in a guided step', () => {
+    async function inStep(): Promise<HTMLElement> {
+      const element = await render();
+      fixture.componentRef.setInput('inStep', true);
+      // As the step mounts it: its own heading is the h2, so this one is the h3.
+      fixture.componentRef.setInput('headingLevel', 3);
+      await settle();
+      return element;
+    }
+
+    it('draws one line and the one action instead of a card that repeats the step', async () => {
+      const element = await inStep();
+
+      expect(element.querySelector('cp-card.bar')).toBeNull();
+      expect(element.querySelector('.title')).toBeNull();
+      const bar = element.querySelector('.step-bar')!;
+      expect(bar.textContent).toContain('A new test is filed against version 3, the saved one.');
+      expect(bar.textContent).toContain('Nothing recorded here changes your recipe.');
+      expect(buttonWith(bar as HTMLElement, 'Record a test')).toBeTruthy();
+    });
+
+    it('keeps the line to one fact when there is no saved version to name', async () => {
+      const element = await render(null);
+      fixture.componentRef.setInput('inStep', true);
+      await settle();
+
+      const bar = element.querySelector('.step-bar')!;
+      expect(bar.textContent).not.toContain('A new test is filed against');
+      expect(bar.textContent).toContain('Nothing recorded here changes your recipe.');
+    });
+
+    it('opens the form from the bar, and leaves only the way back there', async () => {
+      const element = await inStep();
+
+      await click(element, 'Record a test');
+
+      expect(element.querySelector('cp-recipe-test-run-form')).not.toBeNull();
+      // The form is told it is in a step: its heading a level down, and no card of its own inside the step's.
+      expect(element.querySelector('cp-recipe-test-run-form cp-card')).toBeNull();
+      expect(element.querySelector('cp-recipe-test-run-form h3.title')).not.toBeNull();
+      expect(buttonWith(element.querySelector('.step-bar') as HTMLElement, 'Back to the history')).toBeTruthy();
+      expect(element.querySelector('.step-bar-text')).toBeNull();
+    });
+
+    it('draws no filters over a history with nothing in it', async () => {
+      service.historyOutcome = { status: 'found', page: page({ items: [] }) };
+      const element = await inStep();
+
+      expect(element.querySelector('cp-toolbar')).toBeNull();
+      expect(element.textContent).toContain('No tests yet');
+    });
+
+    it('keeps the recipe page as it was: the card, the introduction and the filters', async () => {
+      service.historyOutcome = { status: 'found', page: page({ items: [] }) };
+      const element = await render();
+
+      expect(element.querySelector('cp-card.bar')).not.toBeNull();
+      expect(element.querySelector('.step-bar')).toBeNull();
+      expect(element.querySelector('cp-toolbar')).not.toBeNull();
+    });
+  });
 });
