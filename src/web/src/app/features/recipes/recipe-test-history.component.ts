@@ -18,10 +18,10 @@ import {
   CpChipComponent,
   CpChipGroupComponent,
   CpEmptyStateComponent,
+  CpFieldRowComponent,
   CpFieldComponent,
   CpListShellComponent,
   CpListShellState,
-  CpSelectFieldComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpToolbarComponent,
@@ -104,7 +104,6 @@ let nextInstance = 0;
   selector: 'cp-recipe-test-history',
   standalone: true,
   imports: [
-    CpSelectFieldComponent,
     CpChipGroupComponent,
     CpChipComponent,
     CpFieldComponent,
@@ -112,6 +111,7 @@ let nextInstance = 0;
     CpButtonComponent,
     CpCardComponent,
     CpEmptyStateComponent,
+    CpFieldRowComponent,
     CpListShellComponent,
     CpStatusPillComponent,
     CpToolbarComponent,
@@ -171,6 +171,10 @@ export class RecipeTestHistoryComponent {
 
   constructor() {
     void this.membershipService.ensureLoaded();
+    // The row behind the button opens when it holds a filter that is on or refused, and never closes by itself.
+    effect(() => {
+      if (this.moreFilterCount() > 0 || this.moreFilterRefused()) untracked(() => this.filtersOpen.set(true));
+    });
     effect(() => {
       if (this.worthFiltering()) untracked(() => this.filtersEarned.set(true));
     });
@@ -330,10 +334,50 @@ export class RecipeTestHistoryComponent {
     this.restart();
   }
 
-  /** Applies the typed filters. Explicit rather than live, because a half-typed version list matches nothing. */
+  /** Applies the typed and dated filters. */
   applyTypedFilters(): void {
     this.restart();
   }
+
+  /** Enter in the versions box: applies it, and does not submit anything else. */
+  applyVersionsOnEnter(event: Event): void {
+    event.preventDefault();
+    this.applyTypedFilters();
+  }
+
+  /**
+   * Leaving the versions box applies what was typed, when it differs from what the list was last asked with.
+   * Applied on leaving rather than on every key, because a half-typed "3," matches nothing and a list that emptied
+   * itself mid-type would read as "no tests".
+   */
+  commitVersions(): void {
+    if (this.versionsText() !== this.queriedVersions) this.applyTypedFilters();
+  }
+
+  /** Whether the row of versions, dates and problems is open. */
+  readonly filtersOpen = signal(false);
+
+  toggleMoreFilters(): void {
+    this.filtersOpen.update((open) => !open);
+  }
+
+  /** How many of the filters behind the button are on, for the button to say. */
+  readonly moreFilterCount = computed(
+    () =>
+      [
+        this.versionsText().trim() !== '',
+        this.testedFromDate() !== '',
+        this.testedToDate() !== '',
+        this.issueFilter() !== '',
+      ].filter(Boolean).length,
+  );
+
+  /** Whether the server refused one of the filters behind the button, which then has to be where it can be seen. */
+  private readonly moreFilterRefused = computed(() =>
+    ['version', 'issues', 'testedFrom', 'testedBefore'].some((field) => this.filterError(field) !== ''),
+  );
+
+  private queriedVersions = '';
 
   clearFilters(): void {
     this.versionsText.set('');
@@ -404,6 +448,7 @@ export class RecipeTestHistoryComponent {
   private buildQuery(): TestRunHistoryQuery {
     const cursor = this.cursor();
     const mine = this.mineOnly() ? this.myMembershipId() : null;
+    this.queriedVersions = this.versionsText();
 
     return {
       versions: this.versionsText(),

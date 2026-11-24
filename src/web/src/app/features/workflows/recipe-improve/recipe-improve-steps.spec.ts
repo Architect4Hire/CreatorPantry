@@ -267,7 +267,6 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
         run: improveRun({ recipe: false }),
         workspaceSlug: SLUG,
       });
-      await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
       expectLoading(root(fixture), 'Finding your recipes…');
 
@@ -278,7 +277,6 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
         }),
       );
       const read = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
-      await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(read);
       expectRead(root(read), 'Finding your recipes…');
     });
@@ -294,7 +292,6 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
         run: improveRun({ recipe: false }),
         workspaceSlug: SLUG,
       });
-      await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
 
       recipes.searchRecipes.and.returnValue(NEVER);
@@ -346,42 +343,147 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
   describe('Choose the recipe', () => {
     async function choose(run = improveRun({ recipe: false })) {
       const fixture = await render(RecipeChooseStepComponent, { run, workspaceSlug: SLUG });
-      // The list is asked for once typing settles.
-      await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
       return fixture;
     }
 
-    it('keeps the pick on show when a later search would leave it out, and lists more on asking', async () => {
-      recipes.searchRecipes.and.returnValue(
-        of<RecipeSearchOutcome>({
-          status: 'found',
-          page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: 'next' as string | null, totalCount: 2 },
-        }),
+    /** A library of `count` recipes: the odd ones "Banana bread n", the even ones "Rye loaf n". */
+    function library(count: number, nextCursor: string | null = null): Observable<RecipeSearchOutcome> {
+      return of<RecipeSearchOutcome>({
+        status: 'found',
+        page: {
+          items: Array.from({ length: count }, (_, i) =>
+            summary(`recipe-${i + 1}`, (i + 1) % 2 === 1 ? `Banana bread ${i + 1}` : `Rye loaf ${i + 1}`),
+          ),
+          nextCursor,
+          totalCount: count,
+        },
+      });
+    }
+
+    const listedIds = <T>(fixture: ComponentFixture<T>) =>
+      Array.from(root(fixture).querySelectorAll<HTMLInputElement>('input[id^="recipe-choose-recipe-"]')).map((input) =>
+        input.id.replace('recipe-choose-', ''),
       );
+
+    const button = <T>(fixture: ComponentFixture<T>, label: string) =>
+      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === label) ?? null;
+
+    async function filterBy<T>(fixture: ComponentFixture<T>, value: string): Promise<void> {
+      const search = root(fixture).querySelector<HTMLInputElement>('input[type="search"]')!;
+      search.value = value;
+      search.dispatchEvent(new Event('input'));
+      await settle(fixture);
+    }
+
+    const filterStatus = <T>(fixture: ComponentFixture<T>) =>
+      root(fixture).querySelector('cp-list-filter [role="status"]')!.textContent;
+
+    it('shows the first five recipes, and five more on asking', async () => {
+      recipes.searchRecipes.and.returnValue(library(12));
+      const fixture = await choose();
+
+      expect(listedIds(fixture)).toEqual(['recipe-1', 'recipe-2', 'recipe-3', 'recipe-4', 'recipe-5']);
+
+      button(fixture, 'Show more recipes')!.click();
+      await settle(fixture);
+      expect(listedIds(fixture).length).toBe(10);
+
+      button(fixture, 'Show more recipes')!.click();
+      await settle(fixture);
+      expect(listedIds(fixture).length).toBe(12);
+      expect(button(fixture, 'Show more recipes')).toBeNull();
+    });
+
+    it('offers the filter beside five recipes or fewer, which is the case that had none', async () => {
+      recipes.searchRecipes.and.returnValue(library(3));
+      const fixture = await choose();
+
+      expect(root(fixture).querySelector('input[type="search"]')).not.toBeNull();
+      await filterBy(fixture, 'rye');
+      expect(listedIds(fixture)).toEqual(['recipe-2']);
+    });
+
+    it('filters the recipes it has read as the creator types — past the first five, without asking the server again', async () => {
+      recipes.searchRecipes.and.returnValue(library(8));
+      const fixture = await choose();
+      recipes.searchRecipes.calls.reset();
+
+      await filterBy(fixture, 'rye');
+
+      expect(listedIds(fixture)).toEqual(['recipe-2', 'recipe-4', 'recipe-6', 'recipe-8']);
+      expect(filterStatus(fixture)).toContain('4 of 8 shown.');
+      expect(recipes.searchRecipes).not.toHaveBeenCalled();
+      // A filter shows every match, so there is no "five more" to ask for.
+      expect(button(fixture, 'Show more recipes')).toBeNull();
+    });
+
+    it('needs every word typed, and finds a recipe by the words on its row as well as its name', async () => {
+      recipes.searchRecipes.and.returnValue(library(8));
+      const fixture = await choose();
+
+      await filterBy(fixture, 'rye 8');
+      expect(listedIds(fixture)).toEqual(['recipe-8']);
+
+      // The row says "Version 3, changed …", so the version is searchable too.
+      await filterBy(fixture, 'version 3 banana');
+      expect(listedIds(fixture).length).toBe(4);
+    });
+
+    it('says when nothing matches, and puts the first five back on clearing', async () => {
+      recipes.searchRecipes.and.returnValue(library(8));
+      const fixture = await choose();
+
+      await filterBy(fixture, 'spaceship');
+      expect(listedIds(fixture)).toEqual([]);
+      expect(text(fixture)).toContain('No recipe matches that');
+      expect(filterStatus(fixture)).toContain('Nothing matches that.');
+
+      button(fixture, 'Clear search')!.click();
+      await settle(fixture);
+      expect(listedIds(fixture).length).toBe(5);
+      expect(text(fixture)).not.toContain('No recipe matches that');
+    });
+
+    it('keeps the pick on show when the first five or a filter would leave it out', async () => {
+      recipes.searchRecipes.and.returnValue(library(8));
       const fixture = await choose();
       await pick(fixture, 'recipe-choose-recipe-1');
 
+      await filterBy(fixture, 'rye');
+
+      expect(listedIds(fixture)).toEqual(['recipe-1', 'recipe-2', 'recipe-4', 'recipe-6', 'recipe-8']);
+      expect(root(fixture).querySelector<HTMLInputElement>('#recipe-choose-recipe-1')!.checked).toBeTrue();
+      expect(port.registration()!.results!()).toEqual([{ kind: 'Recipe', id: 'recipe-1' }]);
+    });
+
+    it('says a filter only sees what has been read while the library has more, and reads the next page for it', async () => {
+      recipes.searchRecipes.and.returnValue(library(4, 'next'));
+      const fixture = await choose();
+
+      await filterBy(fixture, 'rye');
+      expect(filterStatus(fixture)).toContain('Only the recipes loaded so far are searched.');
+
       recipes.searchRecipes.and.returnValue(
         of<RecipeSearchOutcome>({
           status: 'found',
-          page: { items: [summary('recipe-2', 'Rye loaf')], nextCursor: null, totalCount: 1 },
+          page: { items: [summary('recipe-20', 'Rye sourdough 20')], nextCursor: null, totalCount: 5 },
         }),
       );
-      Array.from(root(fixture).querySelectorAll('button'))
-        .find((b) => b.textContent?.includes('Show more recipes'))!
-        .click();
-      await settle(fixture);
-      expect(text(fixture)).toContain('Rye loaf');
-
-      const search = root(fixture).querySelector<HTMLInputElement>('input[type="search"]')!;
-      search.value = 'rye';
-      search.dispatchEvent(new Event('input'));
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      button(fixture, 'Load more recipes')!.click();
       await settle(fixture);
 
-      expect(root(fixture).querySelector<HTMLInputElement>('#recipe-choose-recipe-1')!.checked).toBeTrue();
-      expect(port.registration()!.results!()).toEqual([{ kind: 'Recipe', id: 'recipe-1' }]);
+      expect(recipes.searchRecipes.calls.mostRecent().args[1]).toEqual(jasmine.objectContaining({ cursor: 'next' }));
+      expect(listedIds(fixture)).toEqual(['recipe-2', 'recipe-4', 'recipe-20']);
+      expect(filterStatus(fixture)).not.toContain('Only the recipes loaded so far');
+    });
+
+    it('offers no filter when there are no recipes at all', async () => {
+      recipes.searchRecipes.and.returnValue(library(0));
+      const fixture = await choose();
+
+      expect(root(fixture).querySelector('input[type="search"]')).toBeNull();
+      expect(text(fixture)).toContain('There are no recipes to improve yet.');
     });
 
     it('draws the search box as wide as its field, not at the browser’s default', async () => {
@@ -437,7 +539,6 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       Array.from(root(fixture).querySelectorAll('button'))
         .find((b) => b.textContent?.includes('Try again'))!
         .click();
-      await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
 
       expect(text(fixture)).toContain('There are no recipes to improve yet.');

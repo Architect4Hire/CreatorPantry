@@ -1310,6 +1310,49 @@ describe('RecipeTestRunFormComponent', () => {
       expect(document.activeElement).toBe(control(element, 'actualPrepTimeMinutes'));
     });
 
+    it('lets the summary take the whole width of the step, and only there', async () => {
+      const element = await inStep();
+      const section = control(element, 'summaryNotes').closest('cp-form-section') as HTMLElement;
+      expect(getComputedStyle(section).getPropertyValue('--cp-form-section-measure').trim()).toBe('none');
+
+      const page = await render();
+      const pageSection = control(page, 'summaryNotes').closest('cp-form-section') as HTMLElement;
+      expect(getComputedStyle(pageSection).getPropertyValue('--cp-form-section-measure').trim()).toBe('');
+    });
+
+    it('lets the notes and the problems’ prose take the whole width of the step, and leaves their selects alone', async () => {
+      const element = await inStep();
+      buttonWith(element, 'Add a note')?.click();
+      buttonWith(element, 'Add a problem')?.click();
+      await settle();
+      const note = fixture.componentInstance.observations()[0].key;
+      const issue = fixture.componentInstance.issues()[0].key;
+
+      for (const id of [`observations-text-${note}`, `issues-title-${issue}`, `issues-description-${issue}`]) {
+        expect(control(element, id).closest('cp-field')!.classList.contains('field-wide')).toBeTrue();
+      }
+      for (const id of [`observations-kind-${note}`, `issues-severity-${issue}`]) {
+        expect(control(element, id).closest('cp-field')!.classList.contains('field-wide')).toBeFalse();
+      }
+
+      const conditions = control(element, 'environmentNotes').closest('cp-form-section') as HTMLElement;
+      expect(getComputedStyle(conditions).getPropertyValue('--cp-form-section-measure').trim()).toBe('none');
+      // What it made and how long it took are short fields: they keep the measure.
+      const made = control(element, 'actualYieldText').closest('cp-form-section') as HTMLElement;
+      expect(getComputedStyle(made).getPropertyValue('--cp-form-section-measure').trim()).toBe('');
+    });
+
+    it('keeps the recipe page’s rows at the measure', async () => {
+      const element = await render();
+      buttonWith(element, 'Add a note')?.click();
+      await settle();
+      const note = fixture.componentInstance.observations()[0].key;
+
+      expect(
+        control(element, `observations-text-${note}`).closest('cp-field')!.classList.contains('field-wide'),
+      ).toBeFalse();
+    });
+
     it('sends the same request whether or not the block was ever opened', async () => {
       const element = await inStep();
 

@@ -445,6 +445,134 @@ describe('RecipeTestHistoryComponent', () => {
     expect(buttonWith(element, 'Clear filters')).toBeDefined();
   });
 
+  // ---- The row of filters and the button behind it ---------------------------------
+
+  describe('the filters', () => {
+    function more(element: HTMLElement): HTMLElement {
+      return element.querySelector<HTMLElement>('.more-filters')!;
+    }
+
+    function filtersButton(element: HTMLElement): HTMLButtonElement {
+      return buttonWith(element, 'Filters')!;
+    }
+
+    function typeInto(input: HTMLInputElement, value: string): void {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    it('puts the verdicts and the one button that opens the rest in a single row', async () => {
+      const element = await render();
+
+      const toolbar = element.querySelector('cp-toolbar')!;
+      expect(buttonWith(toolbar as HTMLElement, 'Worked')).toBeTruthy();
+      expect(buttonWith(toolbar as HTMLElement, 'Cooked by me')).toBeTruthy();
+      expect(buttonWith(toolbar as HTMLElement, 'Filters')).toBeTruthy();
+      // The versions, the dates and the problems are not in that row.
+      expect(toolbar.querySelector('input')).toBeNull();
+    });
+
+    it('keeps versions, dates and problems closed until the button is pressed, and says so', async () => {
+      const element = await render();
+
+      expect(more(element).hidden).toBeTrue();
+      expect(filtersButton(element).getAttribute('aria-expanded')).toBe('false');
+      expect(filtersButton(element).getAttribute('aria-controls')).toBe(more(element).id);
+
+      await click(element, 'Filters');
+      expect(more(element).hidden).toBeFalse();
+      expect(filtersButton(element).getAttribute('aria-expanded')).toBe('true');
+
+      await click(element, 'Filters');
+      expect(more(element).hidden).toBeTrue();
+    });
+
+    it('has no Apply button', async () => {
+      const element = await render();
+
+      expect(buttonWith(element, 'Apply')).toBeUndefined();
+    });
+
+    it('says how many of the filters behind it are on, and opens by itself when one is', async () => {
+      const element = await render();
+      expect(filtersButton(element).textContent).not.toContain('·');
+
+      fixture.componentInstance.testedFromDate.set('2026-09-01');
+      fixture.componentInstance.setIssueFilter('HasUnresolved');
+      await settle();
+
+      expect((filtersButton(element).textContent ?? '').split(/\s+/).join(' ').trim()).toBe('Filters · 2');
+      expect(more(element).hidden).toBeFalse();
+    });
+
+    it('does not count the verdicts or "Cooked by me", which are in the row already', async () => {
+      const element = await render();
+
+      await click(element, 'Did not work');
+
+      expect(filtersButton(element).textContent).not.toContain('·');
+      expect(more(element).hidden).toBeTrue();
+    });
+
+    it('opens by itself when a filter behind it was refused, and puts the refusal on that field', async () => {
+      service.outcome = { status: 'invalid_request', fieldErrors: { testedFrom: ['That date is not valid.'] } };
+      const element = await render();
+
+      expect(more(element).hidden).toBeFalse();
+      const from = element.querySelector<HTMLInputElement>(`[id="${fixture.componentInstance.idPrefix}-from"]`)!;
+      expect(from.getAttribute('aria-invalid')).toBe('true');
+      expect(from.closest('cp-field')!.textContent).toContain('That date is not valid.');
+    });
+
+    it('applies the versions when the box is left, once, and not on every key', async () => {
+      const element = await render();
+      const before = service.queries.length;
+      const versions = element.querySelector<HTMLInputElement>(
+        `[id="${fixture.componentInstance.idPrefix}-versions"]`,
+      )!;
+
+      typeInto(versions, '3, 5');
+      await settle();
+      expect(service.queries.length).toBe(before);
+
+      versions.dispatchEvent(new Event('blur'));
+      await settle();
+      expect(service.queries.length).toBe(before + 1);
+      expect(lastQuery().versions).toBe('3, 5');
+
+      // Left again with nothing new typed: nothing to ask.
+      versions.dispatchEvent(new Event('blur'));
+      await settle();
+      expect(service.queries.length).toBe(before + 1);
+    });
+
+    it('applies the versions on Enter, without submitting anything else', async () => {
+      const element = await render();
+      const versions = element.querySelector<HTMLInputElement>(
+        `[id="${fixture.componentInstance.idPrefix}-versions"]`,
+      )!;
+      typeInto(versions, '2');
+
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      versions.dispatchEvent(enter);
+      await settle();
+
+      expect(enter.defaultPrevented).toBeTrue();
+      expect(lastQuery().versions).toBe('2');
+    });
+
+    it('applies a date as soon as it is chosen', async () => {
+      const element = await render();
+      const from = element.querySelector<HTMLInputElement>(`[id="${fixture.componentInstance.idPrefix}-from"]`)!;
+
+      from.value = '2026-09-01';
+      from.dispatchEvent(new Event('change', { bubbles: true }));
+      await settle();
+
+      expect(lastQuery().testedFrom).not.toBeNull();
+    });
+  });
+
   // ---- Errors -----------------------------------------------------------
 
   it('places a refused filter beside the control that carries it', async () => {
@@ -549,7 +677,8 @@ describe('RecipeTestHistoryComponent', () => {
       expect(input.labels?.[0]?.textContent?.trim().length).withContext(input.id).toBeGreaterThan(0);
     }
 
-    expect(element.querySelector('cp-select-field .label')?.textContent).toContain('outstanding problems');
+    const problems = element.querySelector<HTMLSelectElement>('select[name="issues"]');
+    expect(problems?.labels?.[0]?.textContent).toContain('Outstanding problems');
   });
 
   it('names the pager as navigation', async () => {

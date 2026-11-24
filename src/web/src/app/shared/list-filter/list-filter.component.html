@@ -1,0 +1,25 @@
+<div class="search">
+  <cp-search-field [label]="label()">
+    <input
+      type="search"
+      autocomplete="off"
+      [name]="name()"
+      [placeholder]="placeholder()"
+      [value]="query()"
+      (input)="onInput($event)"
+    />
+  </cp-search-field>
+  <!-- Always present, so what the filter found — including nothing — is said when it changes. -->
+  <p class="plain cp-muted" role="status">{{ status() }}</p>
+</div>
+
+@if (noMatch()) {
+  <cp-empty-state
+    variant="no-results"
+    illustration="search"
+    [title]="noMatchTitle()"
+    [description]="noMatchDescription()"
+  >
+    <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="clear()">Clear search</button>
+  </cp-empty-state>
+}

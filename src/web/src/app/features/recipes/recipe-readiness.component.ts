@@ -77,6 +77,13 @@ type TransitionState =
  * Satisfied and inapplicable rules are last and collapsed rather than dropped, because a creator needs to see
  * what they have cleared as much as what they have not — which is why the server sends every rule that ran.
  */
+/**
+ * Evidence kinds with no surface anywhere in the app to open: an AI proposal is decided in the suggestions flow, and
+ * the cautions a proposal carries are not a record of the recipe a form could show. They are named in the list and
+ * never offered as controls.
+ */
+const EVIDENCE_WITHOUT_SURFACE: ReadonlySet<string> = new Set(['AiProposal']);
+
 /** How many of a finding's records a step shows before the rest are asked for. */
 const EVIDENCE_SHOWN = 3;
 
@@ -357,6 +364,16 @@ export class RecipeReadinessComponent {
 
   findingElementId(ruleId: string): string {
     return `${this.idPrefix}-finding-${ruleId}`;
+  }
+
+  /** Whether a piece of evidence has anywhere to go. One that does not is text, not a button that does nothing. */
+  evidenceOpens(evidence: RecipeReadinessEvidence): boolean {
+    return !EVIDENCE_WITHOUT_SURFACE.has(evidence.kind);
+  }
+
+  /** Whether any of a finding's evidence is named but cannot be opened, so the finding can say so once. */
+  hasUnopenableEvidence(finding: RecipeReadinessFinding): boolean {
+    return finding.evidence.some((item) => !this.evidenceOpens(item));
   }
 
   activateEvidence(evidence: RecipeReadinessEvidence): void {

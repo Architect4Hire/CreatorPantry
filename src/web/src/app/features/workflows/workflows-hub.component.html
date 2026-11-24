@@ -49,7 +49,7 @@
 
       <!-- Where the work in progress will be, while it is still being read. -->
       @if (checking() && !workInProgressShown()) {
-        <ul cpCardGrid minColumn="22rem" class="topics" aria-busy="true" aria-hidden="true">
+        <ul cpCardGrid minColumn="var(--cp-measure-field)" class="topics" aria-busy="true" aria-hidden="true">
           <li
             ><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card
           ></li>
@@ -59,7 +59,7 @@
       <!-- Returning: what was under way and what needs a look come first. Each card is only here when it has something
            to say, or something it couldn't read. -->
       @if (workInProgressShown()) {
-        <ul cpCardGrid minColumn="22rem" aria-label="Your work in progress" class="topics">
+        <ul cpCardGrid minColumn="var(--cp-measure-field)" aria-label="Your work in progress" class="topics">
           @if (continueRows().length > 0 || continueDegraded()) {
             <li>
               <cp-topic-card #continueCard heading="Continue where you left off" headingId="hub-continue-heading">
@@ -78,6 +78,18 @@
                       {{ retrying().has('continue') ? 'Trying again…' : 'Try again' }}
                     </button>
                   </cp-notice>
+                }
+                @if (continueSearchable()) {
+                  <cp-list-filter
+                    label="Search your work in progress"
+                    name="continue-search"
+                    placeholder="Search, such as “recipe” or “bread”"
+                    [(query)]="continueQuery"
+                    [status]="continueMatchText()"
+                    [noMatch]="continueVisible().length === 0 && continueFiltering()"
+                    noMatchTitle="Nothing in progress matches that"
+                    noMatchDescription="Try another word, or clear the search to see everything you have under way."
+                  />
                 }
                 @if (continueVisible().length > 0) {
                   <ul class="rows" aria-labelledby="hub-continue-heading">
