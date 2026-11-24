@@ -54,12 +54,14 @@ import { LongFormDraftService } from '../../services/long-form-draft.service';
 import { WorkflowHubService } from '../../services/workflow-hub.service';
 import { WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { LIST_PREVIEW_ROWS, matchesWords, searchWords } from '../../shared/list-filter/list-filter';
+import { ListFilterComponent } from '../../shared/list-filter/list-filter.component';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { LONG_FORM_DEFINITION_KEY, longFormLink } from '../../shared/workflow-shell/workflow-journeys';
 import { continueRunState } from '../../shared/workflow-shell/workflow-continue';
 
 /** How many rows each list on the hub shows before "Show more". */
-export const WORKFLOWS_HUB_ROWS = 5;
+export const WORKFLOWS_HUB_ROWS = LIST_PREVIEW_ROWS;
 
 /** How far back the long-form read looks: the workspace's most recently changed pieces. */
 const LONG_FORM_LOOKBACK = 20;
@@ -247,6 +249,7 @@ function newKey(): string {
     CpSkeletonComponent,
     CpStatusPillComponent,
     CpTopicCardComponent,
+    ListFilterComponent,
   ],
   templateUrl: './workflows-hub.component.html',
   styleUrl: './workflows-hub.component.scss',
@@ -283,6 +286,8 @@ export class WorkflowsHubComponent {
   protected readonly discarded = signal(false);
 
   protected readonly query = signal('');
+  /** What the creator typed to narrow "Continue where you left off", which has its own search. */
+  protected readonly continueQuery = signal('');
   /** How many rows each list shows; "Show more" adds five. */
   protected readonly shown: Readonly<Record<HubRunView, WritableSignal<number>>> = {
     mine: signal(WORKFLOWS_HUB_ROWS),
@@ -393,9 +398,41 @@ export class WorkflowsHubComponent {
     return rows.sort((a, b) => b.at - a.at);
   });
 
-  readonly continueVisible = computed(() => this.continueRows().slice(0, this.shown.mine()));
+  private readonly continueWords = computed(() => searchWords(this.continueQuery()));
 
-  readonly continueHasMore = computed(() => this.hasMore('mine', this.continueRows().length));
+  /** A search is on: every row in hand that matches is shown, not the first five. */
+  readonly continueFiltering = computed(() => this.continueWords().length > 0);
+
+  /** The rows in hand that hold every word searched for. Searched on what a row says: its work, name, step and date. */
+  private readonly continueMatches = computed(() => {
+    const words = this.continueWords();
+    return this.continueRows().filter((row) =>
+      matchesWords(`${row.goal} ${row.title ?? ''} ${row.detail} ${row.when}`, words),
+    );
+  });
+
+  readonly continueVisible = computed(() =>
+    this.continueFiltering() ? this.continueMatches() : this.continueRows().slice(0, this.shown.mine()),
+  );
+
+  /** "Show more" is for the plain list. A search is over what is already loaded, so it has no more of its own. */
+  readonly continueHasMore = computed(
+    () => !this.continueFiltering() && this.hasMore('mine', this.continueRows().length),
+  );
+
+  /** Offered whenever there is work to search, so the creator never has to wonder where it went at five rows or six. */
+  readonly continueSearchable = computed(() => this.continueRows().length > 0);
+
+  /** The one announcement of what the search found, including nothing. */
+  readonly continueMatchText = computed(() => {
+    if (!this.continueFiltering()) return '';
+    const found = this.continueMatches().length;
+    const said = found === 0 ? 'Nothing matches that.' : `${found} of ${this.continueRows().length} shown.`;
+    // The runs are read a page at a time, so a search cannot see what has not been read yet. Said, not hidden.
+    const page = this.mine();
+    const unread = page.state === 'read' && page.value.nextCursor !== null;
+    return unread ? `${said} Only the work loaded so far is searched.` : said;
+  });
 
   /** Some of the creator's work in progress could not be read. */
   readonly continueDegraded = computed(
@@ -592,11 +629,7 @@ export class WorkflowsHubComponent {
   });
 
   readonly shownGoals = computed(() => {
-    const words = this.query()
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((word) => word !== '');
+    const words = searchWords(this.query());
     if (words.length === 0) return this.goalCards();
     return this.goalCards().filter((card) => {
       const text = `${card.goal} ${card.description} ${card.outcome}`.toLowerCase();
@@ -925,6 +958,7 @@ export class WorkflowsHubComponent {
     this.kept.set(null);
     this.discarded.set(false);
     this.query.set('');
+    this.continueQuery.set('');
     for (const view of ['mine', 'attention', 'completed'] as const) this.shown[view].set(WORKFLOWS_HUB_ROWS);
     this.loadingMore.set(null);
     this.moreProblem.set(null);

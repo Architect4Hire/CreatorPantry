@@ -33,6 +33,14 @@
   width: 100%;
 }
 
+/* The work-in-progress cards are as wide as the search box under "What do you want to accomplish?" — the field
+   measure — rather than stretching to fill whatever room the grid's columns leave. The grid's own floor is that
+   measure too (in the template), so a column is never narrower than the cap; on a narrow screen both give way to
+   the page. */
+.topics > li {
+  max-width: var(--cp-measure-field);
+}
+
 /* A short list inside a topic card: what the work is, and the one way into it. */
 .rows {
   display: grid;

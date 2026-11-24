@@ -289,8 +289,10 @@ function control(scope: Element | null, label: string): HTMLElement | null {
   );
 }
 
-async function search(value: string): Promise<void> {
-  const input = root().querySelector<HTMLInputElement>('input[type="search"]')!;
+/** Types into the goals' search, or into the one in "Continue where you left off" when that card is named. */
+async function search(value: string, within: 'goals' | 'continue' = 'goals'): Promise<void> {
+  const scope = within === 'goals' ? root().querySelector('section.goals') : card('Continue where you left off');
+  const input = scope!.querySelector<HTMLInputElement>('input[type="search"]')!;
   input.value = value;
   input.dispatchEvent(new Event('input'));
   await settle();
@@ -464,6 +466,138 @@ describe('WorkflowsHubComponent', () => {
       expect(rows('Continue where you left off').length).toBe(7);
       expect(runReads.some((read) => read.view === 'mine' && read.cursor === 'next-page')).toBeTrue();
       expect(control(card('Continue where you left off'), 'Show more')).toBeNull();
+    });
+
+    describe('searching what is in progress', () => {
+      const work = (count: number, nextCursor: string | null = null) => ({
+        mine: {
+          items: Array.from({ length: count }, (_, i) =>
+            summary(`run-${i}`, {
+              title: i % 2 === 0 ? 'Create a recipe' : `Soda bread ${i}`,
+              nextStepTitle: i === 0 ? 'Approve it' : 'Ingredients',
+              updatedAt: `2026-10-1${i}T10:00:00Z`,
+            }),
+          ),
+          nextCursor,
+        },
+      });
+
+      it('offers a search whenever there is work in progress, whether five rows or fewer, or more', async () => {
+        for (const [count, cursor] of [
+          [1, null],
+          [5, null],
+          [6, null],
+          [3, 'next-page'],
+        ] as const) {
+          await create({ runs: work(count, cursor) });
+          expect(card('Continue where you left off')!.querySelector('input[type="search"]')).not.toBeNull();
+        }
+      });
+
+      it('is as wide as the search box under the goals, whatever room the page leaves', async () => {
+        // The specs load no design tokens, so the measure a real page has is given here, and given back after.
+        const page = document.documentElement.style;
+        page.setProperty('--cp-measure-field', '60ch');
+        try {
+          await create({ runs: work(1) });
+
+          const panel = root().querySelector<HTMLElement>('ul.topics > li')!;
+          const goalsSearch = root().querySelector<HTMLElement>('section.goals .search')!;
+
+          expect(goalsSearch.getBoundingClientRect().width).toBeGreaterThan(0);
+          expect(panel.getBoundingClientRect().width).toBeCloseTo(goalsSearch.getBoundingClientRect().width, 0);
+        } finally {
+          page.removeProperty('--cp-measure-field');
+        }
+      });
+
+      it('shows the first five until the search is used', async () => {
+        await create({ runs: work(8) });
+
+        expect(rows('Continue where you left off').length).toBe(5);
+      });
+
+      it('filters five rows too, which is the case that had no search before', async () => {
+        await create({ runs: work(5) });
+
+        await search('approve', 'continue');
+
+        expect(rows('Continue where you left off').length).toBe(1);
+      });
+
+      it('offers no search when nothing is in progress', async () => {
+        await create({ runs: work(0) });
+
+        expect(card('Continue where you left off')).toBeNull();
+      });
+
+      it('shows every row in hand that matches, past the first five, and says how many', async () => {
+        await create({ runs: work(8) });
+
+        await search('soda', 'continue');
+
+        // Runs 1, 3, 5 and 7 are the ones named "Soda bread n".
+        expect(rows('Continue where you left off').length).toBe(4);
+        expect(rows('Continue where you left off').every((row) => row.includes('Soda bread'))).toBeTrue();
+        expect(card('Continue where you left off')!.querySelector('[role="status"]')!.textContent).toContain(
+          '4 of 8 shown.',
+        );
+        expect(control(card('Continue where you left off'), 'Show more')).toBeNull();
+      });
+
+      it('matches on the step a row is at, and needs every word', async () => {
+        await create({ runs: work(8) });
+
+        await search('approve', 'continue');
+        expect(rows('Continue where you left off').length).toBe(1);
+
+        await search('approve soda', 'continue');
+        expect(rows('Continue where you left off').length).toBe(0);
+      });
+
+      it('says when nothing matches, and goes back to the first five on clearing', async () => {
+        await create({ runs: work(8) });
+
+        await search('spaceship', 'continue');
+        const continuing = card('Continue where you left off')!;
+        expect(continuing.querySelector('cp-empty-state')).not.toBeNull();
+        expect(continuing.querySelector('[role="status"]')!.textContent).toContain('Nothing matches that.');
+
+        control(continuing, 'Clear search')!.click();
+        await settle();
+
+        expect(rows('Continue where you left off').length).toBe(5);
+        expect(card('Continue where you left off')!.querySelector('cp-empty-state')).toBeNull();
+        expect(control(card('Continue where you left off'), 'Show more')).not.toBeNull();
+      });
+
+      it('says that only what is loaded is searched while the server has more', async () => {
+        await create({ runs: work(6, 'next-page') });
+
+        await search('soda', 'continue');
+
+        expect(card('Continue where you left off')!.textContent).toContain('Only the work loaded so far is searched.');
+      });
+
+      it('does not touch the goals search, or the other way round', async () => {
+        await create({ runs: work(8) });
+
+        await search('soda', 'continue');
+        expect(goals().length).toBeGreaterThan(1);
+
+        await search('recipe');
+        expect(rows('Continue where you left off').length).toBe(4);
+      });
+
+      it('keeps the stop and continue controls of a row that is shown', async () => {
+        await create({ runs: work(8) });
+
+        await search('approve', 'continue');
+
+        const row = card('Continue where you left off')!;
+        expect(control(row, 'Continue')).not.toBeNull();
+        expect(control(row, 'Stop')).not.toBeNull();
+      });
     });
 
     it('says why each thing needs a look, and whose it is when it is not the reader’s', async () => {
@@ -928,7 +1062,11 @@ describe('WorkflowsHubComponent', () => {
     it('names the search, and every link and button by what it does', async () => {
       await create({ runs: { mine: { items: [summary('run-1', { title: 'Soda bread' })], nextCursor: null } } });
 
-      expect(root().querySelector('cp-search-field')!.getAttribute('label')).toBe('Search what you can do');
+      // Two searches now, each named for what it searches, so neither is "the search".
+      const labels = Array.from(root().querySelectorAll<HTMLInputElement>('input[type="search"]')).map((input) =>
+        input.labels?.[0]?.textContent?.trim(),
+      );
+      expect(labels).toEqual(['Search your work in progress', 'Search what you can do']);
       for (const el of Array.from(root().querySelectorAll<HTMLElement>('a, button'))) {
         const name = el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '';
         expect(name.length).withContext(el.outerHTML).toBeGreaterThan(0);

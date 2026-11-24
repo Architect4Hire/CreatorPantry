@@ -7,14 +7,15 @@ import {
   CpChoiceOption,
   CpFormSectionComponent,
   CpNoticeComponent,
-  CpSearchFieldComponent,
   CpSkeletonComponent,
 } from '@creator-pantry/ui';
-import { debounceTime, distinctUntilChanged, firstValueFrom, switchMap } from 'rxjs';
+import { firstValueFrom, switchMap } from 'rxjs';
 
 import { DEFAULT_RECIPE_SEARCH_QUERY, RecipeSummary } from '../../../models/recipe.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeService } from '../../../services/recipe.service';
+import { LIST_PREVIEW_ROWS, matchesWords, searchWords } from '../../../shared/list-filter/list-filter';
+import { ListFilterComponent } from '../../../shared/list-filter/list-filter.component';
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { linkedRecipeId } from './recipe-run';
 
@@ -31,10 +32,19 @@ type Found =
   | { readonly status: 'unavailable' }
   | { readonly status: 'ready'; readonly recipes: readonly RecipeSummary[]; readonly nextCursor: string | null };
 
-/** How long typing settles before the list is asked again. */
-const SEARCH_SETTLE_MS = 300;
+/** What a recipe's row says under its name: the version it is at and when it last changed. */
+function hintOf(recipe: Picked): string | undefined {
+  return recipe.latestVersionNumber
+    ? `Version ${recipe.latestVersionNumber}, changed ${new Date(recipe.updatedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}`
+    : undefined;
+}
 
-/** What a search found, said aloud: the list itself changes silently. */
+/** What a recipe is found by: the words on its row, so a title, a version number or a date all find it. */
+function searchableText(recipe: Picked): string {
+  return `${recipe.title} ${hintOf(recipe) ?? ''}`;
+}
+
+/** What a read of the library found, said aloud: the list itself changes silently. */
 function countSaid(shown: number, total: number | null): string {
   if (shown === 0) return 'No recipes found.';
   const count = total ?? shown;
@@ -47,6 +57,11 @@ function countSaid(shown: number, total: number | null): string {
  * it. A read of the library and nothing more — picking names the recipe as the step's result, and Continue asks the
  * server to link it. A run started from a recipe has this step done already; coming Back to it shows the recipe the
  * run holds and offers to change it.
+ *
+ * <p>The library is read once and the list is filtered here, in the browser, by {@link ListFilterComponent}: the
+ * first five recipes until the creator types, then every loaded recipe that matches. "Show more recipes" reads the
+ * next page when the ones in hand run out, and a filter only ever sees what has been read — said, in its status,
+ * while the server has more.</p>
  */
 @Component({
   selector: 'cp-recipe-choose-step',
@@ -57,16 +72,12 @@ function countSaid(shown: number, total: number | null): string {
     CpChoiceGroupComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
-    CpSearchFieldComponent,
     CpSkeletonComponent,
+    ListFilterComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <cp-form-section sectionId="recipe-choose" heading="Which recipe?" [intro]="intro()">
-      <cp-search-field label="Search your recipes">
-        <input type="search" name="search" autocomplete="off" [value]="searchText()" (input)="onSearch($event)" />
-      </cp-search-field>
-
       <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
       <p class="cp-sr-only" role="status">{{ found().status === 'loading' ? 'Finding your recipes…' : '' }}</p>
       @switch (found().status) {
@@ -81,18 +92,29 @@ function countSaid(shown: number, total: number | null): string {
           </cp-notice>
         }
         @case ('ready') {
-          @if (options().length > 0) {
-            <cp-choice-group
-              label="Your recipes"
-              idPrefix="recipe-choose-"
-              [options]="options()"
-              [value]="picked()"
-              (valueChange)="pick($event)"
+          @if (held().length > 0) {
+            <cp-list-filter
+              label="Search your recipes"
+              placeholder="Search, such as “banana” or “loaf”"
+              [(query)]="query"
+              [status]="statusText()"
+              [noMatch]="filtering() && matches().length === 0"
+              noMatchTitle="No recipe matches that"
+              noMatchDescription="Try another word, or clear the search to see all your recipes."
             />
+            @if (options().length > 0) {
+              <cp-choice-group
+                label="Your recipes"
+                idPrefix="recipe-choose-"
+                [options]="options()"
+                [value]="picked()"
+                (valueChange)="pick($event)"
+              />
+            }
             @if (moreFailed()) {
               <cp-notice tone="error" role="alert">More recipes couldn’t be read just now. Try again.</cp-notice>
             }
-            @if (moreCursor()) {
+            @if (moreAvailable()) {
               <div class="cp-actions">
                 <button
                   cpButton
@@ -100,14 +122,12 @@ function countSaid(shown: number, total: number | null): string {
                   type="button"
                   variant="secondary"
                   [attr.aria-disabled]="loadingMore() || null"
-                  (click)="loadMore()"
+                  (click)="showMore()"
                 >
-                  {{ loadingMore() ? 'Loading more…' : 'Show more recipes' }}
+                  {{ loadingMore() ? 'Loading more…' : filtering() ? 'Load more recipes' : 'Show more recipes' }}
                 </button>
               </div>
             }
-          } @else if (searchText().trim().length > 0) {
-            <p class="plain">No recipe matches “{{ searchText().trim() }}”.</p>
           } @else {
             <p class="plain">
               There are no recipes to improve yet.
@@ -122,12 +142,6 @@ function countSaid(shown: number, total: number | null): string {
     .plain {
       margin: 0;
     }
-
-    /* Not in a toolbar, so nothing beside it sets its width: it takes the field measure the section already
-       holds it to, rather than the browser's default of about twenty characters. */
-    cp-search-field input {
-      width: 100%;
-    }
   `,
 })
 export class RecipeChooseStepComponent implements OnInit {
@@ -139,21 +153,54 @@ export class RecipeChooseStepComponent implements OnInit {
   private readonly recipes = inject(RecipeService);
   private readonly port = inject(WorkflowStepPort);
 
-  protected readonly searchText = signal('');
+  /** What the creator typed to narrow the list. Nothing typed shows the first five. */
+  protected readonly query = signal('');
   protected readonly found = signal<Found>({ status: 'loading' });
   private readonly retries = signal(0);
+
+  /** How many recipes the plain list shows; "Show more recipes" adds five. A filter ignores it. */
+  private readonly shown = signal(LIST_PREVIEW_ROWS);
 
   /** The recipe picked here, or the one the run already holds when the creator came Back to change it. */
   private readonly pickedId = signal<string | null>(null);
 
-  /** The picked recipe as it was listed, so it stays on show when a later search would leave it out. */
+  /** The picked recipe as it was listed, so it stays on show when the first five or a filter would leave it out. */
   private readonly pickedRecipe = signal<Picked | null>(null);
 
   protected readonly loadingMore = signal(false);
 
+  private readonly words = computed(() => searchWords(this.query()));
+  protected readonly filtering = computed(() => this.words().length > 0);
+
+  /** Every recipe read so far, which is what a filter searches. */
+  protected readonly held = computed<readonly RecipeSummary[]>(() => {
+    const found = this.found();
+    return found.status === 'ready' ? found.recipes : [];
+  });
+
+  /** The recipes in hand that hold every word typed. */
+  protected readonly matches = computed(() => {
+    const words = this.words();
+    return this.held().filter((recipe) => matchesWords(searchableText(recipe), words));
+  });
+
   protected readonly moreCursor = computed(() => {
     const found = this.found();
     return found.status === 'ready' ? found.nextCursor : null;
+  });
+
+  /** Something more to show: recipes in hand that the first five left out, or a next page on the server. */
+  protected readonly moreAvailable = computed(
+    () => (!this.filtering() && this.held().length > this.shown()) || this.moreCursor() !== null,
+  );
+
+  /** The one sentence about what the filter found, including nothing. */
+  protected readonly statusText = computed(() => {
+    if (!this.filtering()) return '';
+    const found = this.matches().length;
+    const said = found === 0 ? 'Nothing matches that.' : `${found} of ${this.held().length} shown.`;
+    // The library is read a page at a time, so a filter cannot see what has not been read yet. Said, not hidden.
+    return this.moreCursor() !== null ? `${said} Only the recipes loaded so far are searched.` : said;
   });
 
   protected readonly picked = computed<readonly string[]>(() => {
@@ -162,20 +209,17 @@ export class RecipeChooseStepComponent implements OnInit {
   });
 
   protected readonly options = computed<readonly CpChoiceOption[]>(() => {
-    const found = this.found();
-    if (found.status !== 'ready') return [];
-    // The pick first when this search would not list it: what Continue will link is always the one showing as picked.
+    if (this.found().status !== 'ready') return [];
+    const listed = this.filtering() ? this.matches() : this.held().slice(0, this.shown());
+    // The pick first when the list would not show it: what Continue will link is always the one showing as picked.
     const kept = this.pickedRecipe();
-    const listed =
-      kept && !found.recipes.some((recipe) => recipe.id === kept.id) ? [kept, ...found.recipes] : found.recipes;
-    return listed.map((recipe) => ({
-      value: recipe.id,
-      label: recipe.title,
-      hint: recipe.latestVersionNumber
-        ? `Version ${recipe.latestVersionNumber}, changed ${new Date(recipe.updatedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}`
-        : undefined,
-    }));
+    const rows: readonly Picked[] =
+      kept && !listed.some((recipe) => recipe.id === kept.id) ? [kept, ...listed] : listed;
+    return rows.map((recipe) => ({ value: recipe.id, label: recipe.title, hint: hintOf(recipe) }));
   });
+
+  /** Set when the next page could not be read, and said beside the button that asked for it. */
+  protected readonly moreFailed = signal(false);
 
   constructor() {
     const unregister = this.port.register({
@@ -189,14 +233,12 @@ export class RecipeChooseStepComponent implements OnInit {
     });
     inject(DestroyRef).onDestroy(unregister);
 
-    // One read per settled search; a newer one replaces an older still in flight.
-    toObservable(computed(() => ({ text: this.searchText().trim(), retry: this.retries() })))
+    // One read of the library, and again on "Try again". Everything after it is filtering what was read.
+    toObservable(this.retries)
       .pipe(
-        debounceTime(SEARCH_SETTLE_MS),
-        distinctUntilChanged((a, b) => a.text === b.text && a.retry === b.retry),
-        switchMap(({ text }) => {
+        switchMap(() => {
           this.found.set({ status: 'loading' });
-          return this.recipes.searchRecipes(this.workspaceSlug(), { ...DEFAULT_RECIPE_SEARCH_QUERY, search: text });
+          return this.recipes.searchRecipes(this.workspaceSlug(), DEFAULT_RECIPE_SEARCH_QUERY);
         }),
         takeUntilDestroyed(),
       )
@@ -240,27 +282,33 @@ export class RecipeChooseStepComponent implements OnInit {
     if (name) this.port.announce(`${name} chosen. Continue when you’re ready.`);
   }
 
-  /** The next page of the same search, added below what is listed. */
-  protected async loadMore(): Promise<void> {
+  /**
+   * Shows five more recipes, reading the next page when the ones in hand run out. While a filter is on there is no
+   * "five more" — it already shows every match — so the button only reads the next page for it to search.
+   */
+  protected async showMore(): Promise<void> {
     const found = this.found();
-    if (found.status !== 'ready' || found.nextCursor === null || this.loadingMore()) return;
+    if (found.status !== 'ready' || this.loadingMore()) return;
 
-    const searched = this.searchText().trim();
+    if (!this.filtering()) this.shown.update((shown) => shown + LIST_PREVIEW_ROWS);
+    if (found.nextCursor !== null && (this.filtering() || found.recipes.length < this.shown())) await this.fetchNext();
+  }
+
+  /** The next page of the library, added to what is in hand. */
+  private async fetchNext(): Promise<void> {
+    const found = this.found();
+    if (found.status !== 'ready' || found.nextCursor === null) return;
+
     this.loadingMore.set(true);
     this.moreFailed.set(false);
     try {
       const outcome = await firstValueFrom(
-        this.recipes.searchRecipes(this.workspaceSlug(), {
-          ...DEFAULT_RECIPE_SEARCH_QUERY,
-          search: searched,
-          cursor: found.nextCursor,
-        }),
+        this.recipes.searchRecipes(this.workspaceSlug(), { ...DEFAULT_RECIPE_SEARCH_QUERY, cursor: found.nextCursor }),
       );
 
-      // A page for a search that is no longer the one on screen is dropped, never pasted under another's results.
+      // A page for a list that has since been read again is dropped, never pasted under another's results.
       const now = this.found();
-      if (this.searchText().trim() !== searched || now.status !== 'ready' || now.nextCursor !== found.nextCursor)
-        return;
+      if (now.status !== 'ready' || now.nextCursor !== found.nextCursor) return;
 
       if (outcome.status === 'found') {
         this.found.set({
@@ -277,13 +325,6 @@ export class RecipeChooseStepComponent implements OnInit {
     } finally {
       this.loadingMore.set(false);
     }
-  }
-
-  /** Set when the next page could not be read, and said beside the button that asked for it. */
-  protected readonly moreFailed = signal(false);
-
-  protected onSearch(event: Event): void {
-    this.searchText.set((event.target as HTMLInputElement).value);
   }
 
   protected retry(): void {
