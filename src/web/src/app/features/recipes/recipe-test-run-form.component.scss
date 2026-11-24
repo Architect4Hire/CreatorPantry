@@ -213,3 +213,16 @@ form {
     transition: transform var(--cp-duration-normal) var(--cp-ease);
   }
 }
+
+/* In a step the summary is prose the creator writes at length, so its box takes the whole width of the step rather
+   than the field measure a section holds a short field to. The section names this as the one thing to change. */
+.section-wide {
+  --cp-form-section-measure: none;
+}
+
+/* The prose inside a note or a problem — what was noticed, the problem in a line, and at more length — takes the whole
+   width of the step too. The row caps its fields to the measure itself, so the cap is lifted here, where it is set;
+   a select in the same row stays at the measure. */
+.row cp-field.field-wide {
+  max-width: none;
+}

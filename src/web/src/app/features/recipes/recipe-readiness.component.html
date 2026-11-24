@@ -239,12 +239,25 @@
                           and several kinds have none yet. Activating it asks the host to go there. Its text is
                           the record in the editor's words, never a property name.
                         -->
-                        <button cpButton variant="text" size="sm" type="button" (click)="activateEvidence(item)">
-                          {{ evidenceText(item) }}
-                        </button>
+                        @if (evidenceOpens(item)) {
+                          <button cpButton variant="text" size="sm" type="button" (click)="activateEvidence(item)">
+                            {{ evidenceText(item) }}
+                          </button>
+                        } @else {
+                          <!-- Named, and not offered as something to open: nothing on this page opens it, and a
+                               control that does nothing when pressed is worse than none. -->
+                          <span class="evidence-plain">{{ evidenceText(item) }}</span>
+                        }
                       </li>
                     }
                   </ul>
+                  @if (hasUnopenableEvidence(finding)) {
+                    <p class="evidence-note">
+                      These are named, not linked: nothing on this page opens them. A suggestion waiting for a decision
+                      is decided in Improve a recipe, and the findings of a review are advice that has no answer to
+                      give.
+                    </p>
+                  }
                   @if (moreEvidence(finding) > 0) {
                     <div class="evidence-more">
                       <button cpButton variant="text" size="sm" type="button" (click)="toggleEvidence(finding.ruleId)">

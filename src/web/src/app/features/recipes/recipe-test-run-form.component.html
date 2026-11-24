@@ -166,6 +166,7 @@
     >
     <ng-template #conditionsSection
       ><cp-form-section
+        [class.section-wide]="inStep()"
         heading="Conditions"
         intro="Anything about your kitchen or your kit that would change the result."
         [sectionId]="idPrefix + '-section-conditions'"
@@ -288,6 +289,7 @@
     ></ng-template>
     <ng-template #summarySection
       ><cp-form-section
+        [class.section-wide]="inStep()"
         heading="How it went"
         intro="The cook as a whole, as opposed to one thing you noticed."
         [sectionId]="idPrefix + '-section-summary'"
@@ -383,6 +385,7 @@
               </cp-field>
 
               <cp-field
+                [class.field-wide]="inStep()"
                 label="What you noticed"
                 [forId]="idPrefix + '-observations-text-' + row.key"
                 [error]="rowFieldError('observations', row.key, 'text')"
@@ -513,6 +516,7 @@
               </cp-field>
 
               <cp-field
+                [class.field-wide]="inStep()"
                 label="The problem, in one line"
                 [forId]="idPrefix + '-issues-title-' + row.key"
                 [required]="true"
@@ -532,6 +536,7 @@
               </cp-field>
 
               <cp-field
+                [class.field-wide]="inStep()"
                 label="At more length"
                 [forId]="idPrefix + '-issues-description-' + row.key"
                 [error]="rowFieldError('issues', row.key, 'description')"

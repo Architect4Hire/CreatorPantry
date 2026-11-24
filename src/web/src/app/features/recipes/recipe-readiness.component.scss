@@ -254,3 +254,21 @@ cp-card {
 .evidence-more {
   display: flex;
 }
+
+/* A record named but not openable: read as text, in the body colour, so it does not look like the links beside it. */
+.evidence-plain {
+  display: block;
+  padding-block: var(--cp-space-1);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.evidence-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}

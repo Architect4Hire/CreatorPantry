@@ -368,6 +368,49 @@ describe('RecipeReadinessComponent', () => {
     expect(list?.hidden).toBeFalse();
   });
 
+  it('names an AI proposal’s cautions as text, not as controls that do nothing', async () => {
+    service.readinessOutcome = {
+      status: 'found',
+      readiness: readiness({
+        findings: [
+          finding({
+            ruleId: 'recipe.ai.safetyCautionOutstanding',
+            status: 'Blocker',
+            summary: 'No safety or culinary caution from an AI proposal is still unanswered.',
+            evidence: [
+              {
+                kind: 'AiProposal',
+                recordId: 'p1',
+                fieldName: 'SafetyCaution',
+                label: 'Time fields look inconsistent.',
+              },
+              { kind: 'RecipeIngredientLine', recordId: 'l1', fieldName: 'ingredientId', label: '1 glug of oil' },
+            ],
+          }),
+        ],
+      }),
+    };
+    const element = await render();
+
+    const items = Array.from(element.querySelectorAll('.evidence li'));
+    // The proposal's caution is text; the ingredient line, which can be opened, is still a button.
+    expect(items[0].querySelector('button')).toBeNull();
+    expect(items[0].querySelector('.evidence-plain')!.textContent).toContain('Time fields look inconsistent.');
+    expect(items[1].querySelector('button')).not.toBeNull();
+    expect(element.querySelector('.evidence-note')!.textContent).toContain('nothing on this page opens them');
+
+    await click(element, '1 glug of oil');
+    expect(evidence.length).toBe(1);
+    expect(evidence[0].kind).toBe('RecipeIngredientLine');
+  });
+
+  it('says nothing about unopenable records when every record can be opened', async () => {
+    const element = await render();
+
+    expect(element.querySelector('.evidence-note')).toBeNull();
+    expect(element.querySelector('.evidence-plain')).toBeNull();
+  });
+
   it('emits the evidence a reader activated rather than linking it itself', async () => {
     const element = await render();
 
@@ -603,6 +646,23 @@ describe('RecipeReadinessComponent', () => {
     await click(element, 'Approve');
 
     expect(element.textContent).toContain('saves a version of the recipe exactly as it stands');
+  });
+
+  it('leaves a gap between the dialog’s two buttons', async () => {
+    // These tests load no design tokens, so the spacing the dialog's footer uses is defined here, and removed after.
+    document.documentElement.style.setProperty('--cp-space-2', '0.5rem');
+    try {
+      const element = await render('ReadyForReview');
+
+      await click(element, 'Approve');
+
+      const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] footer button'));
+      const cancel = buttons.find((button) => button.textContent?.trim() === 'Cancel')!.getBoundingClientRect();
+      const approve = buttons.find((button) => button.textContent?.trim() === 'Approve')!.getBoundingClientRect();
+      expect(Math.round(approve.left - cancel.right)).toBeGreaterThanOrEqual(8);
+    } finally {
+      document.documentElement.style.removeProperty('--cp-space-2');
+    }
   });
 
   it('closes the dialog without moving anything', async () => {

@@ -78,6 +78,18 @@ import { cpCaptureFocus, cpLockBodyScroll, cpTrapTab } from './modal-surface';
         gap: var(--cp-space-2);
         margin-top: var(--cp-space-5);
       }
+      /*
+       * Buttons come in either as the footer's own children, each marked [cpDialogActions], or inside one wrapper that
+       * is. The footer's gap reaches only its children, so a wrapper with no layout of its own left its buttons touching.
+       * It lays them out the same way. A wrapper that brings its own layout — .cp-actions, or a class of the consumer's —
+       * keeps it: the selector is :where(), so it never outweighs one.
+       */
+      :host ::ng-deep :where(footer > [cpDialogActions]:not(button, a, .cp-actions)) {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: var(--cp-space-2);
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

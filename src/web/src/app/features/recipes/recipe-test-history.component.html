@@ -1,54 +1,10 @@
 @if (showFilters()) {
+  <!--
+    One row up front: the verdicts people actually filter by, "Cooked by me", and the one button that opens the rest.
+    Versions, dates and outstanding problems are occasional, so they wait behind it — open by themselves when one is set
+    or refused.
+  -->
   <cp-toolbar ariaLabel="Test history filters" [loading]="state().status === 'loading'">
-    <!--
-    Typed filters are applied on submit rather than on every keystroke: "3, 5" matches nothing while it is
-    still "3,", and a list that emptied itself mid-type would read as "no tests".
-  -->
-    <!--
-    `cp-field`, so these are drawn as every other field is and keep the label they need: a date box says nothing
-    about which end of the range it is. Their errors stay in the lines under the toolbar, which describe them.
-  -->
-    <form class="typed" cpToolbarSearch (ngSubmit)="applyTypedFilters()">
-      <cp-field label="Versions" [forId]="idPrefix + '-versions'">
-        <input
-          [id]="idPrefix + '-versions'"
-          type="text"
-          name="versions"
-          inputmode="numeric"
-          placeholder="e.g. 3, 5"
-          [value]="versionsText()"
-          (input)="versionsText.set($any($event.target).value)"
-          [attr.aria-invalid]="filterError('version') ? 'true' : null"
-          [attr.aria-describedby]="filterError('version') ? idPrefix + '-versions-error' : null"
-        />
-      </cp-field>
-
-      <cp-field label="Cooked from" [forId]="idPrefix + '-from'">
-        <input
-          [id]="idPrefix + '-from'"
-          type="date"
-          name="testedFrom"
-          [value]="testedFromDate()"
-          (change)="testedFromDate.set($any($event.target).value); applyTypedFilters()"
-          [attr.aria-invalid]="filterError('testedFrom') ? 'true' : null"
-        />
-      </cp-field>
-
-      <cp-field label="Cooked to" [forId]="idPrefix + '-to'">
-        <input
-          [id]="idPrefix + '-to'"
-          type="date"
-          name="testedTo"
-          [value]="testedToDate()"
-          (change)="testedToDate.set($any($event.target).value); applyTypedFilters()"
-          [attr.aria-invalid]="filterError('testedBefore') ? 'true' : null"
-        />
-      </cp-field>
-
-      <!-- The default size, so it stands as tall as the fields it applies. -->
-      <button cpButton variant="secondary" type="submit">Apply</button>
-    </form>
-
     <div cpChipGroup cpToolbarFilters label="Filter by the tester's verdict">
       @for (outcome of outcomeOptions; track outcome) {
         <button cpChip [pressed]="isOutcomeSelected(outcome)" (click)="toggleOutcome(outcome)">
@@ -61,24 +17,22 @@
       }
     </div>
 
-    <!-- In the filters slot, beside the verdicts: it is a filter, and in the actions slot it wrapped onto a line of
-       its own under everything else. -->
-    <cp-select-field cpToolbarFilters label="Filter by outstanding problems">
-      <!--
-      Single-valued, so a select rather than chips. Labelled as a record of what testers wrote: it is never a
-      readiness, safety or dietary finding.
-    -->
-      <select
-        [id]="idPrefix + '-issues'"
-        name="issues"
-        [value]="issueFilter()"
-        (change)="setIssueFilter($any($event.target).value)"
-      >
-        <option value="">Any problems</option>
-        <option value="HasUnresolved">{{ issueFilterLabels['HasUnresolved'] }}</option>
-        <option value="AllResolved">{{ issueFilterLabels['AllResolved'] }}</option>
-      </select>
-    </cp-select-field>
+    <!-- Says how many of the rest are on, so a closed panel never hides a filter that is narrowing the list. -->
+    <button
+      cpButton
+      cpToolbarActions
+      variant="secondary"
+      size="sm"
+      type="button"
+      [attr.aria-expanded]="filtersOpen()"
+      [attr.aria-controls]="idPrefix + '-more-filters'"
+      (click)="toggleMoreFilters()"
+    >
+      Filters
+      @if (moreFilterCount() > 0) {
+        · {{ moreFilterCount() }}
+      }
+    </button>
 
     @if (hasActiveFilters()) {
       <button cpButton cpToolbarActions variant="text" size="sm" type="button" (click)="clearFilters()">
@@ -86,16 +40,66 @@
       </button>
     }
   </cp-toolbar>
-}
 
-@if (filterError('version')) {
-  <p class="filter-error" [id]="idPrefix + '-versions-error'" role="alert">{{ filterError('version') }}</p>
-}
-@if (filterError('issues')) {
-  <p class="filter-error" role="alert">{{ filterError('issues') }}</p>
-}
-@if (filterError('testedFrom') || filterError('testedBefore')) {
-  <p class="filter-error" role="alert">{{ filterError('testedFrom') }} {{ filterError('testedBefore') }}</p>
+  <!--
+    The typed and dated filters, in one row of their own. None has an Apply: the dates apply as they are chosen, and
+    the versions when the box is left or Enter is pressed — a half-typed "3," matches nothing, so it is never sent
+    while it is still being typed. Each refusal is on the field that carries it, which also wires it to the control.
+  -->
+  <div class="more-filters" [id]="idPrefix + '-more-filters'" [hidden]="!filtersOpen()">
+    <cp-field-row class="typed" minColumn="11rem">
+      <cp-field label="Versions" [forId]="idPrefix + '-versions'" [error]="filterError('version')">
+        <input
+          [id]="idPrefix + '-versions'"
+          type="text"
+          name="versions"
+          inputmode="numeric"
+          placeholder="e.g. 3, 5"
+          [value]="versionsText()"
+          (input)="versionsText.set($any($event.target).value)"
+          (keydown.enter)="applyVersionsOnEnter($event)"
+          (blur)="commitVersions()"
+        />
+      </cp-field>
+
+      <cp-field label="Cooked from" [forId]="idPrefix + '-from'" [error]="filterError('testedFrom')">
+        <input
+          [id]="idPrefix + '-from'"
+          type="date"
+          name="testedFrom"
+          [value]="testedFromDate()"
+          (change)="testedFromDate.set($any($event.target).value); applyTypedFilters()"
+        />
+      </cp-field>
+
+      <cp-field label="Cooked to" [forId]="idPrefix + '-to'" [error]="filterError('testedBefore')">
+        <input
+          [id]="idPrefix + '-to'"
+          type="date"
+          name="testedTo"
+          [value]="testedToDate()"
+          (change)="testedToDate.set($any($event.target).value); applyTypedFilters()"
+        />
+      </cp-field>
+
+      <!--
+        Single-valued, so a select rather than chips. Labelled as a record of what testers wrote: it is never a
+        readiness, safety or dietary finding.
+      -->
+      <cp-field label="Outstanding problems" [forId]="idPrefix + '-issues'" [error]="filterError('issues')">
+        <select
+          [id]="idPrefix + '-issues'"
+          name="issues"
+          [value]="issueFilter()"
+          (change)="setIssueFilter($any($event.target).value)"
+        >
+          <option value="">Any problems</option>
+          <option value="HasUnresolved">{{ issueFilterLabels['HasUnresolved'] }}</option>
+          <option value="AllResolved">{{ issueFilterLabels['AllResolved'] }}</option>
+        </select>
+      </cp-field>
+    </cp-field-row>
+  </div>
 }
 
 <cp-list-shell
