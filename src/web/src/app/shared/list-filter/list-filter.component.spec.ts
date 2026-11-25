@@ -1,7 +1,7 @@
 import { Component, computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { LIST_PAGE_SIZE, matchesWords, pageCount, pageSlice, searchWords } from './list-filter';
+import { LIST_BATCH_SIZE, matchesWords, searchWords } from './list-filter';
 import { ListFilterComponent } from './list-filter.component';
 
 @Component({
@@ -14,7 +14,7 @@ import { ListFilterComponent } from './list-filter.component';
       placeholder="Search, such as “loaf”"
       noun="recipes"
       [(query)]="query"
-      [(page)]="page"
+      [(shown)]="shown"
       [total]="total()"
       [status]="status()"
       [noMatch]="noMatch()"
@@ -34,7 +34,7 @@ import { ListFilterComponent } from './list-filter.component';
 })
 class HostComponent {
   readonly query = signal('');
-  readonly page = signal(1);
+  readonly shown = signal(LIST_BATCH_SIZE);
   readonly status = signal('');
   readonly noMatch = signal(false);
   readonly hasMore = signal(false);
@@ -43,7 +43,7 @@ class HostComponent {
   asked = 0;
 
   readonly total = computed(() => this.all().length);
-  readonly visible = computed(() => pageSlice(this.all(), this.page()));
+  readonly visible = computed(() => this.all().slice(0, this.shown()));
 }
 
 const rowsOf = (count: number, from = 1) => Array.from({ length: count }, (_, i) => `Recipe ${from + i}`);
@@ -63,29 +63,8 @@ describe('searchWords and matchesWords', () => {
     expect(matchesWords('anything', [])).toBeTrue();
   });
 
-  it('pages by ten, the number every filtered list is paged by', () => {
-    expect(LIST_PAGE_SIZE).toBe(10);
-  });
-});
-
-describe('pageCount and pageSlice', () => {
-  it('counts pages, and an empty list is still one page', () => {
-    expect([0, 1, 10, 11, 20, 21].map((total) => pageCount(total))).toEqual([1, 1, 1, 2, 2, 3]);
-  });
-
-  it('slices a page of ten, counting from one', () => {
-    const rows = rowsOf(23);
-
-    expect(pageSlice(rows, 1)).toEqual(rows.slice(0, 10));
-    expect(pageSlice(rows, 3)).toEqual(rows.slice(20));
-  });
-
-  it('puts a page past the end on the last page and one before the start on the first', () => {
-    const rows = rowsOf(23);
-
-    expect(pageSlice(rows, 9)).toEqual(rows.slice(20));
-    expect(pageSlice(rows, 0)).toEqual(rows.slice(0, 10));
-    expect(pageSlice(rows, Number.NaN)).toEqual(rows.slice(0, 10));
+  it('starts at ten, and adds ten, the number every filtered list grows by', () => {
+    expect(LIST_BATCH_SIZE).toBe(10);
   });
 });
 
@@ -146,16 +125,21 @@ describe('ListFilterComponent', () => {
     expect(input().value).toBe('');
   });
 
-  describe('paging', () => {
+  describe('growing', () => {
     const button = (name: string) =>
       Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.trim() === name) ??
       null;
     const listed = () => Array.from(root().querySelectorAll('.rows li')).map((li) => li.textContent?.trim());
     const summary = () => root().querySelector('.summary')!.textContent?.trim();
-    const pageNumber = () => root().querySelector('.page-number')?.textContent?.trim();
+    const scroller = () => root().querySelector<HTMLElement>('.scroller')!;
 
     const load = (count: number) => {
       host.all.set(rowsOf(count));
+      fixture.detectChanges();
+    };
+
+    const loadMore = () => {
+      button('Load more recipes')!.click();
       fixture.detectChanges();
     };
 
@@ -163,16 +147,15 @@ describe('ListFilterComponent', () => {
       load(0);
 
       expect(root().querySelector('.scroller')).toBeNull();
-      expect(root().querySelector('.pager')).toBeNull();
+      expect(root().querySelector('.summary')).toBeNull();
     });
 
     it('holds the list in a region that scrolls', () => {
       load(10);
 
-      const scroller = root().querySelector<HTMLElement>('.scroller')!;
-      expect(scroller.querySelector('.rows')).not.toBeNull();
-      expect(getComputedStyle(scroller).overflowY).toBe('auto');
-      expect(getComputedStyle(scroller).maxHeight).not.toBe('none');
+      expect(scroller().querySelector('.rows')).not.toBeNull();
+      expect(getComputedStyle(scroller()).overflowY).toBe('auto');
+      expect(getComputedStyle(scroller()).maxHeight).not.toBe('none');
     });
 
     it('colours its scrollbar from the theme, which also drops the platform bar’s arrow buttons', () => {
@@ -182,125 +165,89 @@ describe('ListFilterComponent', () => {
       try {
         load(10);
 
-        const scroller = root().querySelector<HTMLElement>('.scroller')!;
-        expect(getComputedStyle(scroller).scrollbarColor).not.toBe('auto');
+        expect(getComputedStyle(scroller()).scrollbarColor).not.toBe('auto');
       } finally {
         page.removeProperty('--cp-border-control');
       }
     });
 
-    it('says which rows are shown, and offers no pages when they all fit on one', () => {
+    it('says how many are shown, and offers nothing more when they all are', () => {
       load(8);
 
-      expect(summary()).toBe('Showing 1–8 of 8 recipes');
+      expect(summary()).toBe('Showing 8 of 8 recipes');
       expect(listed().length).toBe(8);
-      expect(root().querySelector('nav')).toBeNull();
+      expect(button('Load more recipes')).toBeNull();
     });
 
-    it('says a single row without a range', () => {
-      load(1);
+    it('offers nothing more at exactly one batch', () => {
+      load(10);
 
-      expect(summary()).toBe('Showing 1 of 1 recipes');
+      expect(summary()).toBe('Showing 10 of 10 recipes');
+      expect(button('Load more recipes')).toBeNull();
     });
 
-    it('shows ten to a page, with Previous, the page it is on, and Next', () => {
+    it('shows the first ten, with Load more as the last thing in the list’s own region', () => {
       load(23);
 
       expect(listed()).toEqual(rowsOf(10));
-      expect(summary()).toBe('Showing 1–10 of 23 recipes');
-      expect(pageNumber()).toBe('Page 1 of 3');
-      expect(root().querySelector('nav')!.getAttribute('aria-label')).toBe('Pages of recipes');
+      expect(summary()).toBe('Showing 10 of 23 recipes');
+      const more = button('Load more recipes')!;
+      expect(scroller().contains(more)).toBeTrue();
+      expect(scroller().lastElementChild!.contains(more)).toBeTrue();
     });
 
-    it('moves a page on Next and back on Previous, and the last page holds what is left', () => {
+    it('adds ten for each Load more, and the last of them is what is left', () => {
       load(23);
 
-      button('Next')!.click();
-      fixture.detectChanges();
-      expect(listed()).toEqual(rowsOf(10, 11));
-      expect(host.page()).toBe(2);
+      loadMore();
+      expect(listed()).toEqual(rowsOf(20));
+      expect(host.shown()).toBe(20);
+      expect(summary()).toBe('Showing 20 of 23 recipes');
 
-      button('Next')!.click();
-      fixture.detectChanges();
-      expect(listed()).toEqual(rowsOf(3, 21));
-      expect(summary()).toBe('Showing 21–23 of 23 recipes');
-
-      button('Previous')!.click();
-      fixture.detectChanges();
-      expect(pageNumber()).toBe('Page 2 of 3');
+      loadMore();
+      expect(listed()).toEqual(rowsOf(23));
+      expect(summary()).toBe('Showing 23 of 23 recipes');
+      expect(button('Load more recipes')).toBeNull();
     });
 
-    it('marks Previous on the first page and Next on the last as unavailable, and does nothing when pressed', () => {
+    it('keeps focus in the list when Load more goes, rather than dropping it on the page', () => {
       load(15);
+      button('Load more recipes')!.focus();
 
-      expect(button('Previous')!.getAttribute('aria-disabled')).toBe('true');
-      expect(button('Next')!.getAttribute('aria-disabled')).toBeNull();
+      loadMore();
 
-      button('Previous')!.click();
-      fixture.detectChanges();
-      expect(host.page()).toBe(1);
-
-      button('Next')!.click();
-      fixture.detectChanges();
-      expect(button('Next')!.getAttribute('aria-disabled')).toBe('true');
-
-      button('Next')!.click();
-      fixture.detectChanges();
-      expect(host.page()).toBe(2);
+      expect(button('Load more recipes')).toBeNull();
+      expect(document.activeElement).toBe(scroller());
     });
 
-    it('keeps the buttons focusable while they are unavailable, so focus is never lost on the last page', () => {
-      load(15);
-
-      expect(button('Previous')!.disabled).toBeFalse();
-      button('Next')!.click();
-      fixture.detectChanges();
-      expect(button('Next')!.disabled).toBeFalse();
-    });
-
-    it('goes back to the top of the list on a new page', () => {
-      load(23);
-      const scroller = root().querySelector<HTMLElement>('.scroller')!;
-      scroller.style.maxHeight = '3rem';
-      scroller.scrollTop = 40;
-      expect(scroller.scrollTop).toBeGreaterThan(0);
-
-      button('Next')!.click();
-      fixture.detectChanges();
-
-      expect(scroller.scrollTop).toBe(0);
-    });
-
-    it('goes back to page one when something is typed, and when the search is cleared', () => {
-      load(23);
-      button('Next')!.click();
-      fixture.detectChanges();
-      expect(host.page()).toBe(2);
+    it('goes back to the first ten when something is typed, and when the search is cleared', () => {
+      load(35);
+      loadMore();
+      loadMore();
+      expect(host.shown()).toBe(30);
 
       input().value = 'rye';
       input().dispatchEvent(new Event('input'));
-      expect(host.page()).toBe(1);
-      fixture.detectChanges();
+      expect(host.shown()).toBe(10);
 
-      host.page.set(2);
+      fixture.detectChanges();
+      loadMore();
       host.query.set('rye');
       host.noMatch.set(true);
       fixture.detectChanges();
       button('Clear search')!.click();
-      expect(host.page()).toBe(1);
+      expect(host.shown()).toBe(10);
     });
 
-    it('lands on the last page that is left when the list shrinks under the creator', () => {
+    it('grows the same way whatever is in the list, so a search does not change how it is asked for', () => {
       load(23);
-      host.page.set(3);
+      host.status.set('23 of 40 match.');
+      host.query.set('rye');
       fixture.detectChanges();
 
-      host.all.set(rowsOf(12));
-      fixture.detectChanges();
-
-      expect(host.page()).toBe(2);
-      expect(listed()).toEqual(rowsOf(2, 11));
-      expect(pageNumber()).toBe('Page 2 of 2');
+      expect(listed()).toEqual(rowsOf(10));
+      loadMore();
+      expect(listed()).toEqual(rowsOf(20));
     });
 
     it('draws the no-results state in the list’s place, with no footer', () => {
@@ -310,42 +257,90 @@ describe('ListFilterComponent', () => {
 
       expect(root().querySelector('cp-empty-state')).not.toBeNull();
       expect(root().querySelector('.scroller')).toBeNull();
-      expect(root().querySelector('.pager')).toBeNull();
+      expect(root().querySelector('.summary')).toBeNull();
     });
 
-    it('announces where the creator is as a status, so a new page is heard', () => {
+    it('announces how many are showing as a status, so rows added by Load more are heard', () => {
       load(23);
 
       expect(root().querySelector('.summary')!.getAttribute('role')).toBe('status');
     });
 
+    it('keeps showing what exists when the list shrinks under the creator', () => {
+      load(23);
+      loadMore();
+      loadMore();
+
+      host.all.set(rowsOf(12));
+      fixture.detectChanges();
+
+      expect(listed()).toEqual(rowsOf(12));
+      expect(summary()).toBe('Showing 12 of 12 recipes');
+      expect(button('Load more recipes')).toBeNull();
+    });
+
     describe('when the server has more', () => {
-      it('says the count is what has been loaded, and offers to load more — beside the pages', () => {
+      it('says the count is what has been loaded, and offers Load more', () => {
         load(23);
         host.hasMore.set(true);
         fixture.detectChanges();
 
-        expect(summary()).toBe('Showing 1–10 of the 23 recipes loaded so far');
+        expect(summary()).toBe('Showing 10 of the 23 recipes loaded so far');
         expect(button('Load more recipes')).not.toBeNull();
-        expect(button('Next')).not.toBeNull();
       });
 
-      it('offers it even when everything loaded fits on one page', () => {
-        load(4);
+      it('shows the next ten it already has, and asks the page for nothing', () => {
+        load(23);
         host.hasMore.set(true);
         fixture.detectChanges();
 
-        expect(button('Load more recipes')).not.toBeNull();
-        expect(root().querySelector('nav')).toBeNull();
+        loadMore();
+
+        expect(listed()).toEqual(rowsOf(20));
+        expect(host.asked).toBe(0);
       });
 
-      it('asks the page for more, once, and not again while it is loading', () => {
-        load(4);
+      it('shows what is left and asks the page for more, when the rows in hand will not fill a batch', () => {
+        load(23);
         host.hasMore.set(true);
         fixture.detectChanges();
+        loadMore();
 
-        button('Load more recipes')!.click();
+        loadMore();
+
+        expect(listed()).toEqual(rowsOf(23));
         expect(host.asked).toBe(1);
+      });
+
+      it('offers it even when everything loaded is already showing', () => {
+        load(4);
+        host.hasMore.set(true);
+        fixture.detectChanges();
+
+        expect(button('Load more recipes')).not.toBeNull();
+        loadMore();
+        expect(host.asked).toBe(1);
+      });
+
+      it('shows the rows when they arrive, because the count ran ahead of them', () => {
+        load(10);
+        host.hasMore.set(true);
+        fixture.detectChanges();
+        loadMore();
+        expect(host.asked).toBe(1);
+
+        host.all.set(rowsOf(20));
+        fixture.detectChanges();
+
+        expect(listed()).toEqual(rowsOf(20));
+        expect(summary()).toBe('Showing 20 of the 20 recipes loaded so far');
+      });
+
+      it('says it is loading, and does not ask again until the rows are in', () => {
+        load(4);
+        host.hasMore.set(true);
+        fixture.detectChanges();
+        loadMore();
 
         host.loadingMore.set(true);
         fixture.detectChanges();
@@ -355,22 +350,12 @@ describe('ListFilterComponent', () => {
         expect(host.asked).toBe(1);
       });
 
-      it('grows its pages when the rows arrive, and stays on the page it was on', () => {
-        load(10);
-        host.hasMore.set(true);
-        fixture.detectChanges();
-        expect(button('Next')).toBeNull();
-
-        host.all.set(rowsOf(20));
-        fixture.detectChanges();
-
-        expect(pageNumber()).toBe('Page 1 of 2');
-        expect(listed()).toEqual(rowsOf(10));
-      });
-
       it('offers nothing to load once the server has no more', () => {
         load(23);
 
+        expect(button('Load more recipes')).not.toBeNull();
+        loadMore();
+        loadMore();
         expect(button('Load more recipes')).toBeNull();
       });
     });

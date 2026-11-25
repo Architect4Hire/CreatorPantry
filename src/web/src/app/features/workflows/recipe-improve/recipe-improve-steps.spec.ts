@@ -380,25 +380,36 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       root(fixture).querySelector('cp-list-filter [role="status"]')!.textContent;
 
     const footer = <T>(fixture: ComponentFixture<T>) =>
-      (root(fixture).querySelector('cp-list-filter .pager')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      (root(fixture).querySelector('cp-list-filter .summary')?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
-    it('shows ten recipes to a page, and the rest on the next pages', async () => {
+    it('shows ten recipes, and ten more for each Load more recipes', async () => {
       recipes.searchRecipes.and.returnValue(library(23));
       const fixture = await choose();
 
       expect(listedIds(fixture)).toEqual(Array.from({ length: 10 }, (_, i) => `recipe-${i + 1}`));
-      expect(footer(fixture)).toContain('Showing 1–10 of 23 recipes');
-      expect(footer(fixture)).toContain('Page 1 of 3');
+      expect(footer(fixture)).toContain('Showing 10 of 23 recipes');
 
-      button(fixture, 'Next')!.click();
+      button(fixture, 'Load more recipes')!.click();
       await settle(fixture);
-      expect(listedIds(fixture)).toEqual(Array.from({ length: 10 }, (_, i) => `recipe-${i + 11}`));
+      expect(listedIds(fixture)).toEqual(Array.from({ length: 20 }, (_, i) => `recipe-${i + 1}`));
 
-      button(fixture, 'Next')!.click();
+      button(fixture, 'Load more recipes')!.click();
       await settle(fixture);
-      expect(listedIds(fixture)).toEqual(['recipe-21', 'recipe-22', 'recipe-23']);
-      expect(footer(fixture)).toContain('Showing 21–23 of 23 recipes');
-      expect(button(fixture, 'Next')!.getAttribute('aria-disabled')).toBe('true');
+      expect(listedIds(fixture).length).toBe(23);
+      expect(footer(fixture)).toContain('Showing 23 of 23 recipes');
+      expect(button(fixture, 'Load more recipes')).toBeNull();
+    });
+
+    it('does not read the library again to show recipes it already has', async () => {
+      recipes.searchRecipes.and.returnValue(library(23, 'next'));
+      const fixture = await choose();
+      recipes.searchRecipes.calls.reset();
+
+      button(fixture, 'Load more recipes')!.click();
+      await settle(fixture);
+
+      expect(listedIds(fixture).length).toBe(20);
+      expect(recipes.searchRecipes).not.toHaveBeenCalled();
     });
 
     it('holds the recipes in a region that scrolls', async () => {
@@ -410,12 +421,12 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(getComputedStyle(scroller).overflowY).toBe('auto');
     });
 
-    it('says how many there are, with no pages, when they all fit on one', async () => {
+    it('says how many there are, and offers no Load more, when they all fit in the first ten', async () => {
       recipes.searchRecipes.and.returnValue(library(8));
       const fixture = await choose();
 
-      expect(footer(fixture)).toContain('Showing 1–8 of 8 recipes');
-      expect(button(fixture, 'Next')).toBeNull();
+      expect(footer(fixture)).toContain('Showing 8 of 8 recipes');
+      expect(button(fixture, 'Load more recipes')).toBeNull();
     });
 
     it('offers the filter beside a short list too', async () => {
@@ -427,34 +438,35 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(listedIds(fixture)).toEqual(['recipe-2']);
     });
 
-    it('filters and pages the recipes it has read as the creator types, without asking the server again', async () => {
+    it('filters the recipes it has read as the creator types, and grows the matches the same way, without asking the server again', async () => {
       recipes.searchRecipes.and.returnValue(library(30));
       const fixture = await choose();
       recipes.searchRecipes.calls.reset();
 
       await filterBy(fixture, 'rye');
 
-      // Every even recipe is a "Rye loaf": fifteen of thirty, ten to a page.
+      // Every even recipe is a "Rye loaf": fifteen of thirty, ten of them to begin with.
       expect(listedIds(fixture)).toEqual(Array.from({ length: 10 }, (_, i) => `recipe-${(i + 1) * 2}`));
       expect(filterStatus(fixture)).toContain('15 of 30 match.');
-      expect(footer(fixture)).toContain('Showing 1–10 of 15 recipes');
+      expect(footer(fixture)).toContain('Showing 10 of 15 recipes');
       expect(recipes.searchRecipes).not.toHaveBeenCalled();
 
-      button(fixture, 'Next')!.click();
+      button(fixture, 'Load more recipes')!.click();
       await settle(fixture);
-      expect(listedIds(fixture)).toEqual(Array.from({ length: 5 }, (_, i) => `recipe-${(i + 11) * 2}`));
+      expect(listedIds(fixture)).toEqual(Array.from({ length: 15 }, (_, i) => `recipe-${(i + 1) * 2}`));
+      expect(button(fixture, 'Load more recipes')).toBeNull();
     });
 
-    it('goes back to the first page when something is typed', async () => {
+    it('starts again at the first ten when something is typed', async () => {
       recipes.searchRecipes.and.returnValue(library(30));
       const fixture = await choose();
-      button(fixture, 'Next')!.click();
+      button(fixture, 'Load more recipes')!.click();
       await settle(fixture);
-      expect(footer(fixture)).toContain('Page 2 of 3');
+      expect(listedIds(fixture).length).toBe(20);
 
       await filterBy(fixture, 'rye');
 
-      expect(footer(fixture)).toContain('Page 1 of 2');
+      expect(listedIds(fixture).length).toBe(10);
       expect(listedIds(fixture)[0]).toBe('recipe-2');
     });
 
@@ -470,7 +482,7 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(listedIds(fixture).length).toBe(4);
     });
 
-    it('says when nothing matches, with no pages, and puts the first page back on clearing', async () => {
+    it('says when nothing matches, with no footer, and puts the first ten back on clearing', async () => {
       recipes.searchRecipes.and.returnValue(library(23));
       const fixture = await choose();
 
@@ -498,18 +510,20 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(port.registration()!.results!()).toEqual([{ kind: 'Recipe', id: 'recipe-1' }]);
     });
 
-    it('leaves the pick on its own page, and does not repeat it on the others', async () => {
+    it('shows the pick above the rows while a filter hides it, and only in its own place once it is shown again', async () => {
       recipes.searchRecipes.and.returnValue(library(23));
       const fixture = await choose();
       await pick(fixture, 'recipe-choose-recipe-1');
 
-      button(fixture, 'Next')!.click();
-      await settle(fixture);
+      await filterBy(fixture, 'rye');
+      expect(listedIds(fixture)[0]).toBe('recipe-1');
 
-      expect(listedIds(fixture)).toEqual(Array.from({ length: 10 }, (_, i) => `recipe-${i + 11}`));
+      button(fixture, 'Clear search')?.click();
+      await filterBy(fixture, '');
 
-      button(fixture, 'Previous')!.click();
-      await settle(fixture);
+      // Back in its own row, once, and not repeated above the rest.
+      expect(listedIds(fixture).filter((id) => id === 'recipe-1').length).toBe(1);
+      expect(listedIds(fixture).length).toBe(10);
       expect(root(fixture).querySelector<HTMLInputElement>('#recipe-choose-recipe-1')!.checked).toBeTrue();
     });
 
@@ -534,11 +548,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(filterStatus(fixture)).not.toContain('Only the recipes loaded so far');
     });
 
-    it('adds pages when it reads more of the library, and stays on the page it was on', async () => {
+    it('shows what it reads when it reads more of the library, because the count ran ahead of it', async () => {
       recipes.searchRecipes.and.returnValue(library(10, 'next'));
       const fixture = await choose();
-      expect(footer(fixture)).toContain('Showing 1–10 of the 10 recipes loaded so far');
-      expect(button(fixture, 'Next')).toBeNull();
+      expect(footer(fixture)).toContain('Showing 10 of the 10 recipes loaded so far');
 
       recipes.searchRecipes.and.returnValue(
         of<RecipeSearchOutcome>({
@@ -549,13 +562,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       button(fixture, 'Load more recipes')!.click();
       await settle(fixture);
 
-      expect(footer(fixture)).toContain('Page 1 of 2');
-      expect(listedIds(fixture).length).toBe(10);
+      expect(listedIds(fixture).length).toBe(11);
+      expect(listedIds(fixture)[10]).toBe('recipe-11');
+      expect(footer(fixture)).toContain('Showing 11 of 11 recipes');
       expect(button(fixture, 'Load more recipes')).toBeNull();
-
-      button(fixture, 'Next')!.click();
-      await settle(fixture);
-      expect(listedIds(fixture)).toEqual(['recipe-11']);
     });
 
     it('offers no filter when there are no recipes at all', async () => {

@@ -87,7 +87,7 @@
                     placeholder="Search, such as “recipe” or “bread”"
                     noun="recipes in progress"
                     [(query)]="continueQuery"
-                    [(page)]="continuePage"
+                    [(shown)]="continueShown"
                     [total]="continueMatches().length"
                     [status]="continueMatchText()"
                     [noMatch]="continueMatches().length === 0 && continueFiltering()"

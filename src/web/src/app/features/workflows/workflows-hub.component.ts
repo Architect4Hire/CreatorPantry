@@ -54,7 +54,7 @@ import { LongFormDraftService } from '../../services/long-form-draft.service';
 import { WorkflowHubService } from '../../services/workflow-hub.service';
 import { WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
-import { matchesWords, pageSlice, searchWords } from '../../shared/list-filter/list-filter';
+import { LIST_BATCH_SIZE, matchesWords, searchWords } from '../../shared/list-filter/list-filter';
 import { ListFilterComponent } from '../../shared/list-filter/list-filter.component';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { LONG_FORM_DEFINITION_KEY, longFormLink } from '../../shared/workflow-shell/workflow-journeys';
@@ -62,7 +62,7 @@ import { continueRunState } from '../../shared/workflow-shell/workflow-continue'
 
 /**
  * How many rows "Needs attention" and "Recent outcomes" show before "Show more", and how many runs the hub asks the
- * server for at a time. "Continue where you left off" pages by `LIST_PAGE_SIZE` instead, in its filter's footer.
+ * server for at a time. "Continue where you left off" grows by `LIST_BATCH_SIZE` instead, with "Load more" in its filter.
  */
 export const WORKFLOWS_HUB_ROWS = 5;
 
@@ -294,8 +294,8 @@ export class WorkflowsHubComponent {
   protected readonly query = signal('');
   /** What the creator typed to narrow "Continue where you left off", which has its own search. */
   protected readonly continueQuery = signal('');
-  /** The page of "Continue where you left off" on show, counting from 1. */
-  protected readonly continuePage = signal(1);
+  /** How many of the rows of "Continue where you left off" are on show; "Load more" adds ten. */
+  protected readonly continueShown = signal(LIST_BATCH_SIZE);
   /** How many rows each of the other lists shows; "Show more" adds five. */
   protected readonly shown: Readonly<Record<ShownView, WritableSignal<number>>> = {
     attention: signal(WORKFLOWS_HUB_ROWS),
@@ -421,10 +421,10 @@ export class WorkflowsHubComponent {
     );
   });
 
-  /** The rows on the page the creator is on: `LIST_PAGE_SIZE` of the matches, in the filter's footer's pages. */
-  readonly continueVisible = computed(() => pageSlice(this.continueMatches(), this.continuePage()));
+  /** The matches on show: the first batch of them, and ten more for each "Load more". */
+  readonly continueVisible = computed(() => this.continueMatches().slice(0, this.continueShown()));
 
-  /** The server has runs the hub has not read yet, which the filter's footer offers to read. */
+  /** The server has runs the hub has not read yet, which "Load more" reads when the rows in hand run out. */
   readonly continueHasMore = computed(() => {
     const page = this.mine();
     return page.state === 'read' && page.value.nextCursor !== null;
@@ -977,7 +977,7 @@ export class WorkflowsHubComponent {
     this.discarded.set(false);
     this.query.set('');
     this.continueQuery.set('');
-    this.continuePage.set(1);
+    this.continueShown.set(LIST_BATCH_SIZE);
     for (const view of ['attention', 'completed'] as const) this.shown[view].set(WORKFLOWS_HUB_ROWS);
     this.loadingMore.set(null);
     this.moreProblem.set(null);

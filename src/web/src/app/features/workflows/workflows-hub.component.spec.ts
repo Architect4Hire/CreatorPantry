@@ -452,31 +452,42 @@ describe('WorkflowsHubComponent', () => {
       expect(new Set(names).size).toBe(2);
     });
 
-    it('pages ten at a time in a footer, reading the next page of runs only when asked', async () => {
+    it('shows ten, and ten more for each Load more — reading the next page of runs only when the rows in hand run out', async () => {
       const items = Array.from({ length: 12 }, (_, i) =>
         summary(`run-${i}`, { title: `Run ${i}`, updatedAt: `2026-10-${10 + i}T10:00:00Z` }),
       );
       await create({ runs: { mine: { items, nextCursor: 'next-page' } } });
       const continuing = () => card('Continue where you left off')!;
-      const footer = () => continuing().querySelector('.pager')!.textContent!.replace(/\s+/g, ' ');
+      const footer = () => continuing().querySelector('.summary')!.textContent!.replace(/\s+/g, ' ');
 
       expect(rows('Continue where you left off').length).toBe(10);
-      expect(footer()).toContain('Showing 1–10 of the 12 recipes in progress loaded so far');
-      expect(footer()).toContain('Page 1 of 2');
+      expect(footer()).toContain('Showing 10 of the 12 recipes in progress loaded so far');
       expect(runReads.some((read) => read.cursor === 'next-page')).toBeFalse();
 
-      control(continuing(), 'Next')!.click();
-      await settle();
-      expect(rows('Continue where you left off').length).toBe(2);
-
-      // Reading more adds a row to the page the creator is on, and the server has no more after it.
+      // Twelve in hand will not fill the next ten, so the next page of runs is read while those are shown.
       control(continuing(), 'Load more')!.click();
       await settle();
 
       expect(runReads.some((read) => read.view === 'mine' && read.cursor === 'next-page')).toBeTrue();
-      expect(rows('Continue where you left off').length).toBe(3);
-      expect(footer()).toContain('Showing 11–13 of 13 recipes in progress');
+      expect(rows('Continue where you left off').length).toBe(13);
+      expect(footer()).toContain('Showing 13 of 13 recipes in progress');
       expect(control(continuing(), 'Load more')).toBeNull();
+    });
+
+    it('shows the rows it has before it reads any more, when they fill the next ten', async () => {
+      const items = Array.from({ length: 25 }, (_, i) =>
+        summary(`run-${i}`, {
+          title: `Run ${i}`,
+          updatedAt: new Date(Date.UTC(2026, 9, 1, 10) + i * 3_600_000).toISOString(),
+        }),
+      );
+      await create({ runs: { mine: { items, nextCursor: 'next-page' } } });
+
+      control(card('Continue where you left off'), 'Load more')!.click();
+      await settle();
+
+      expect(rows('Continue where you left off').length).toBe(20);
+      expect(runReads.some((read) => read.cursor === 'next-page')).toBeFalse();
     });
 
     it('holds the rows in a region that scrolls, so ten of them do not push the page’s other cards away', async () => {
@@ -490,13 +501,13 @@ describe('WorkflowsHubComponent', () => {
       expect(getComputedStyle(scroller).overflowY).toBe('auto');
     });
 
-    it('shows a footer saying how many there are, even when they all fit on one page', async () => {
+    it('says how many there are, and offers no Load more, when they all fit in the first ten', async () => {
       const items = Array.from({ length: 3 }, (_, i) => summary(`run-${i}`, { updatedAt: `2026-10-1${i}T10:00:00Z` }));
       await create({ runs: { mine: { items, nextCursor: null } } });
 
       const continuing = card('Continue where you left off')!;
-      expect(continuing.querySelector('.pager')!.textContent).toContain('Showing 1–3 of 3 recipes in progress');
-      expect(control(continuing, 'Next')).toBeNull();
+      expect(continuing.querySelector('.summary')!.textContent).toContain('Showing 3 of 3 recipes in progress');
+      expect(control(continuing, 'Load more')).toBeNull();
     });
 
     describe('searching what is in progress', () => {
@@ -543,7 +554,7 @@ describe('WorkflowsHubComponent', () => {
         }
       });
 
-      it('shows a page of ten until the search is used', async () => {
+      it('shows ten until the search is used', async () => {
         await create({ runs: work(25) });
 
         expect(rows('Continue where you left off').length).toBe(10);
@@ -563,32 +574,34 @@ describe('WorkflowsHubComponent', () => {
         expect(card('Continue where you left off')).toBeNull();
       });
 
-      it('pages what matches, past the first page, and says how many matched', async () => {
+      it('grows what matches the same way — ten, then ten more — and says how many matched', async () => {
         await create({ runs: work(25) });
 
         await search('soda', 'continue');
 
-        // The twelve odd-numbered runs are the ones named "Soda bread n": a page of ten, then two.
+        // The twelve odd-numbered runs are the ones named "Soda bread n": ten, then the two that are left.
         const continuing = () => card('Continue where you left off')!;
         expect(rows('Continue where you left off').length).toBe(10);
         expect(rows('Continue where you left off').every((row) => row.includes('Soda bread'))).toBeTrue();
         expect(continuing().querySelector('[role="status"]')!.textContent).toContain('12 of 25 match.');
-        expect(continuing().querySelector('.pager')!.textContent).toContain('Showing 1–10 of 12 recipes in progress');
+        expect(continuing().querySelector('.summary')!.textContent).toContain('Showing 10 of 12 recipes in progress');
 
-        control(continuing(), 'Next')!.click();
+        control(continuing(), 'Load more')!.click();
         await settle();
-        expect(rows('Continue where you left off').length).toBe(2);
+        expect(rows('Continue where you left off').length).toBe(12);
+        expect(control(continuing(), 'Load more')).toBeNull();
       });
 
-      it('goes back to the first page when a search is typed', async () => {
-        await create({ runs: work(25) });
-        control(card('Continue where you left off'), 'Next')!.click();
+      it('starts again at the first ten when a search is typed', async () => {
+        await create({ runs: work(35) });
+        control(card('Continue where you left off'), 'Load more')!.click();
         await settle();
-        expect(card('Continue where you left off')!.textContent).toContain('Page 2 of 3');
+        expect(rows('Continue where you left off').length).toBe(20);
 
-        await search('soda', 'continue');
+        await search('recipe', 'continue');
 
-        expect(card('Continue where you left off')!.textContent).toContain('Page 1 of 2');
+        // Eighteen of the thirty-five are "Create a recipe": ten of them, not the twenty that were showing.
+        expect(rows('Continue where you left off').length).toBe(10);
       });
 
       it('matches on the step a row is at, and needs every word', async () => {
@@ -601,13 +614,14 @@ describe('WorkflowsHubComponent', () => {
         expect(rows('Continue where you left off').length).toBe(0);
       });
 
-      it('says when nothing matches, with no pages, and goes back to the list on clearing', async () => {
+      it('says when nothing matches, with no Load more, and goes back to the list on clearing', async () => {
         await create({ runs: work(25) });
 
         await search('spaceship', 'continue');
         const continuing = card('Continue where you left off')!;
         expect(continuing.querySelector('cp-empty-state')).not.toBeNull();
-        expect(continuing.querySelector('.pager')).toBeNull();
+        expect(continuing.querySelector('.summary')).toBeNull();
+        expect(control(continuing, 'Load more')).toBeNull();
         expect(continuing.querySelector('[role="status"]')!.textContent).toContain('Nothing matches that.');
 
         control(continuing, 'Clear search')!.click();
@@ -615,7 +629,9 @@ describe('WorkflowsHubComponent', () => {
 
         expect(rows('Continue where you left off').length).toBe(10);
         expect(card('Continue where you left off')!.querySelector('cp-empty-state')).toBeNull();
-        expect(card('Continue where you left off')!.textContent).toContain('Page 1 of 3');
+        expect(card('Continue where you left off')!.querySelector('.summary')!.textContent).toContain(
+          'Showing 10 of 25 recipes in progress',
+        );
       });
 
       it('says that only what is loaded is searched while the server has more', async () => {

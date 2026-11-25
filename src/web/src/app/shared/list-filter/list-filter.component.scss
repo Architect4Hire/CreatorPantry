@@ -19,9 +19,10 @@
   margin: 0;
 }
 
-/* The list, held to a height so a page of ten rows scrolls inside the card instead of pushing the page's other
-   cards a screen away. The inset keeps a focused row's ring from being clipped by the edge of the region, and the
-   stable gutter keeps rows from shifting sideways when a page needs the scrollbar and the next one does not. */
+/* The list, held to a height so ten rows, and the ten more after them, scroll inside the card instead of pushing
+   the page's other cards a screen away. The inset keeps a focused row's ring from being clipped by the edge of the
+   region, and the stable gutter keeps rows from shifting sideways when the list needs the scrollbar and then does
+   not. */
 .scroller {
   max-height: min(28rem, 70vh);
   overflow-y: auto;
@@ -36,26 +37,15 @@
   margin: calc(-1 * var(--cp-space-1));
 }
 
-.pager {
+/* The region takes focus only to keep it in the list when "Load more" goes; a ring round the whole region would
+   say nothing a creator can act on. */
+.scroller:focus {
+  outline: none;
+}
+
+/* "Load more", at the foot of the rows it adds to. */
+.more {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cp-space-2) var(--cp-space-4);
-}
-
-.summary {
-  min-width: 0;
-}
-
-.pager-actions,
-.pages {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-2);
-}
-
-.page-number {
-  white-space: nowrap;
+  justify-content: center;
+  padding-top: var(--cp-space-4);
 }

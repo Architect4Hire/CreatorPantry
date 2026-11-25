@@ -14,7 +14,7 @@ import { firstValueFrom, switchMap } from 'rxjs';
 import { DEFAULT_RECIPE_SEARCH_QUERY, RecipeSummary } from '../../../models/recipe.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeService } from '../../../services/recipe.service';
-import { matchesWords, pageSlice, searchWords } from '../../../shared/list-filter/list-filter';
+import { LIST_BATCH_SIZE, matchesWords, searchWords } from '../../../shared/list-filter/list-filter';
 import { ListFilterComponent } from '../../../shared/list-filter/list-filter.component';
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { linkedRecipeId } from './recipe-run';
@@ -58,10 +58,11 @@ function countSaid(shown: number, total: number | null): string {
  * server to link it. A run started from a recipe has this step done already; coming Back to it shows the recipe the
  * run holds and offers to change it.
  *
- * <p>The library is read once and the list is filtered and paged here, in the browser, by
- * {@link ListFilterComponent}: ten recipes to a page in a region that scrolls, narrowed to the loaded recipes that
- * match as the creator types. "Load more recipes" reads the next page of the library, and a filter only ever sees
- * what has been read — said, in its status, while the server has more.</p>
+ * <p>The library is read once and the list is filtered here, in the browser, by {@link ListFilterComponent}: ten
+ * recipes in a region that scrolls, and ten more for each "Load more recipes" — narrowed to the loaded recipes that
+ * match as the creator types, and grown the same way. Asking for more than the loaded recipes can fill reads the
+ * next page of the library, and a filter only ever sees what has been read — said, in its status, while the server
+ * has more.</p>
  */
 @Component({
   selector: 'cp-recipe-choose-step',
@@ -98,7 +99,7 @@ function countSaid(shown: number, total: number | null): string {
               placeholder="Search, such as “banana” or “loaf”"
               noun="recipes"
               [(query)]="query"
-              [(page)]="page"
+              [(shown)]="shown"
               [total]="matches().length"
               [status]="statusText()"
               [noMatch]="filtering() && matches().length === 0"
@@ -150,8 +151,8 @@ export class RecipeChooseStepComponent implements OnInit {
   protected readonly found = signal<Found>({ status: 'loading' });
   private readonly retries = signal(0);
 
-  /** The page of recipes on show, counting from 1. */
-  protected readonly page = signal(1);
+  /** How many of the matching recipes are on show: a batch of ten, and ten more for each "Load more recipes". */
+  protected readonly shown = signal(LIST_BATCH_SIZE);
 
   /** The recipe picked here, or the one the run already holds when the creator came Back to change it. */
   private readonly pickedId = signal<string | null>(null);
@@ -197,13 +198,13 @@ export class RecipeChooseStepComponent implements OnInit {
 
   protected readonly options = computed<readonly CpChoiceOption[]>(() => {
     if (this.found().status !== 'ready') return [];
-    const listed = pageSlice(this.matches(), this.page());
-    // The pick first when no page of the list has it — a filter left it out, or it is a recipe the pages never read —
-    // so what Continue will link is always on show as picked. One that is on another page stays on that page: it is
-    // counted there, and repeating it here would make a page of ten read as eleven.
+    const listed = this.matches().slice(0, this.shown());
+    // The pick first when the rows on show do not have it — a filter left it out, it is further down than the
+    // creator has loaded, or it is a recipe that was never read — so what Continue will link is always on show as
+    // picked. Once its own row is shown it is there, and not repeated above.
     const kept = this.pickedRecipe();
     const rows: readonly Picked[] =
-      kept && !this.matches().some((recipe) => recipe.id === kept.id) ? [kept, ...listed] : listed;
+      kept && !listed.some((recipe) => recipe.id === kept.id) ? [kept, ...listed] : listed;
     return rows.map((recipe) => ({ value: recipe.id, label: recipe.title, hint: hintOf(recipe) }));
   });
 
@@ -271,7 +272,7 @@ export class RecipeChooseStepComponent implements OnInit {
     if (name) this.port.announce(`${name} chosen. Continue when you’re ready.`);
   }
 
-  /** The next page of the library, added to what is in hand — which adds pages, and shows none of them yet. */
+  /** The next page of the library, added to what is in hand; "Load more recipes" shows it as it arrives. */
   protected async fetchNext(): Promise<void> {
     const found = this.found();
     if (found.status !== 'ready' || found.nextCursor === null || this.loadingMore()) return;
