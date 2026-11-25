@@ -1715,7 +1715,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
         );
       }
 
-      it('says what the draft is and offers the decision first, with no status line, no nav and no edits but the name', fakeAsync(() => {
+      it('says what the draft is and offers the decision last, with no status line, no nav and no edits but the name', fakeAsync(() => {
         service.statuses = [previewDraft()];
         render({});
 
@@ -1726,13 +1726,17 @@ describe('RecipeFirstDraftReviewComponent', () => {
         expect(text()).toContain('1 ingredient · 1 step · 1 piece of equipment');
         expect(text()).toContain('A quick version.');
 
-        // The decision comes before the recipe it is about, and Discard is quiet beside it.
+        // The decision comes after what it left open and the recipe it is about, and Discard is quiet beside it.
         const accept = element().querySelector<HTMLButtonElement>('button.draft-accept')!;
         expect(accept.textContent?.trim()).toBe('Use this draft');
         expect(accept.classList).toContain('cp-button--primary');
         expect(element().querySelector('button.draft-discard')?.classList).toContain('cp-button--text');
-        const ingredients = element().querySelector('#cp-draft-ingredients')!;
-        expect(accept.compareDocumentPosition(ingredients) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        for (const earlier of ['#cp-draft-unresolved', '#cp-draft-ingredients', '#cp-draft-method']) {
+          const part = element().querySelector(earlier)!;
+          expect(part.compareDocumentPosition(accept) & Node.DOCUMENT_POSITION_FOLLOWING)
+            .withContext(earlier)
+            .toBeTruthy();
+        }
 
         // The name is the one thing to edit here; the steps that follow edit the rest.
         expect(
@@ -1808,6 +1812,11 @@ describe('RecipeFirstDraftReviewComponent', () => {
         const accept = element().querySelector<HTMLButtonElement>('button.draft-accept')!;
         expect(accept.getAttribute('aria-disabled')).toBe('true');
         expect(element().querySelector('#draft-accept-blocker')?.textContent).toContain('needs a title');
+
+        // Beside it means in the same part of the card, not up with the title where the button used to be.
+        const decision = accept.closest('.preview-actions')!;
+        expect(decision.querySelector('#draft-accept-blocker')).not.toBeNull();
+        expect(decision.querySelector('.draft-missing')).not.toBeNull();
       }));
     });
 

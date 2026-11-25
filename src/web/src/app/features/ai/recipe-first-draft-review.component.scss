@@ -372,8 +372,8 @@
 }
 
 /*
- * The preview (RecipeStudioHost.compactDraft): what the draft is and the one decision first, then what it left
- * open, then the recipe to read. Spacing between parts is the review's own gap; inside a part, a tighter one.
+ * The preview (RecipeStudioHost.compactDraft): what the draft is, what it left open, the recipe to read, and last the
+ * one decision. Spacing between parts is the review's own gap; inside a part, a tighter one.
  */
 .preview {
   display: grid;

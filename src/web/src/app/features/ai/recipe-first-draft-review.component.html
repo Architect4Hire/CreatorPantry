@@ -589,9 +589,10 @@
 </ng-template>
 
 <!--
-  The draft as a preview with one decision (RecipeStudioHost.compactDraft): what it is and the decision first, what
-  it left open, then the recipe to read — nothing to edit but its name, because the steps that follow are where the
-  recipe is edited. The same acceptance as the full review, with the same blockers; only the asking differs.
+  The draft as a preview with one decision (RecipeStudioHost.compactDraft): what it is, what it left open, then the
+  recipe to read, and the decision last — it creates the recipe and moves the run on, so it is asked once all of that
+  has been read. Nothing to edit but its name, because the steps that follow are where the recipe is edited. The
+  same acceptance as the full review, with the same blockers; only the asking differs.
 -->
 <ng-template #preview>
   @let p = draft();
@@ -612,40 +613,6 @@
       @if (p.description) {
         <p class="plain preview-description">{{ p.description }}</p>
       }
-
-      @if (missingRequired().length > 0) {
-        <cp-notice tone="warning" role="status" class="draft-missing">
-          Not complete enough to become a recipe yet. Still missing: {{ missingRequired().join(', ') }}.
-        </cp-notice>
-      }
-      @if (acceptBlocker(); as blocker) {
-        <cp-notice tone="warning" role="status" class="draft-accept-blocker" id="draft-accept-blocker">
-          {{ blocker }}
-        </cp-notice>
-      }
-      @if (acceptProblem(); as problem) {
-        <cp-notice tone="error" role="alert" class="draft-accept-problem">{{ problem }}</cp-notice>
-      }
-
-      <div class="cp-actions">
-        <!-- aria-disabled rather than disabled, for the reason the full review gives. -->
-        <button
-          cpButton
-          [busy]="accepting()"
-          type="button"
-          variant="primary"
-          class="draft-accept"
-          [attr.aria-disabled]="canAccept() ? null : 'true'"
-          [attr.aria-describedby]="acceptBlocker() ? 'draft-accept-blocker' : 'draft-actions-note'"
-          (click)="accept()"
-        >
-          {{ accepting() ? 'Creating your recipe…' : 'Use this draft' }}
-        </button>
-        <button cpButton type="button" variant="text" class="draft-discard" (click)="discard()">Discard</button>
-      </div>
-      <p class="plain cp-muted preview-note" id="draft-actions-note">
-        Adds it to your recipes and moves on to the next step, where you can change anything in it.
-      </p>
     </div>
 
     @if (unresolvedQuestions().length > 0) {
@@ -792,6 +759,44 @@
         </ul>
       </section>
     }
+
+    <!-- The decision, after the recipe it is about: what it is, what it left open and the recipe itself have all been
+         read by the time it is asked, and what stops it sits beside the control it stops. -->
+    <div class="preview-decision preview-actions">
+      @if (missingRequired().length > 0) {
+        <cp-notice tone="warning" role="status" class="draft-missing">
+          Not complete enough to become a recipe yet. Still missing: {{ missingRequired().join(', ') }}.
+        </cp-notice>
+      }
+      @if (acceptBlocker(); as blocker) {
+        <cp-notice tone="warning" role="status" class="draft-accept-blocker" id="draft-accept-blocker">
+          {{ blocker }}
+        </cp-notice>
+      }
+      @if (acceptProblem(); as problem) {
+        <cp-notice tone="error" role="alert" class="draft-accept-problem">{{ problem }}</cp-notice>
+      }
+
+      <div class="cp-actions">
+        <!-- aria-disabled rather than disabled, for the reason the full review gives. -->
+        <button
+          cpButton
+          [busy]="accepting()"
+          type="button"
+          variant="primary"
+          class="draft-accept"
+          [attr.aria-disabled]="canAccept() ? null : 'true'"
+          [attr.aria-describedby]="acceptBlocker() ? 'draft-accept-blocker' : 'draft-actions-note'"
+          (click)="accept()"
+        >
+          {{ accepting() ? 'Creating your recipe…' : 'Use this draft' }}
+        </button>
+        <button cpButton type="button" variant="text" class="draft-discard" (click)="discard()">Discard</button>
+      </div>
+      <p class="plain cp-muted preview-note" id="draft-actions-note">
+        Adds it to your recipes and moves on to the next step, where you can change anything in it.
+      </p>
+    </div>
 
     <!-- What made it, out of the way: the model is recorded on the request, and a creator rarely needs it here. -->
     @if (operation()?.proposal; as proposal) {
