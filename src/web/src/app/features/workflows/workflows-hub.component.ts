@@ -54,14 +54,17 @@ import { LongFormDraftService } from '../../services/long-form-draft.service';
 import { WorkflowHubService } from '../../services/workflow-hub.service';
 import { WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
-import { LIST_PREVIEW_ROWS, matchesWords, searchWords } from '../../shared/list-filter/list-filter';
+import { matchesWords, pageSlice, searchWords } from '../../shared/list-filter/list-filter';
 import { ListFilterComponent } from '../../shared/list-filter/list-filter.component';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { LONG_FORM_DEFINITION_KEY, longFormLink } from '../../shared/workflow-shell/workflow-journeys';
 import { continueRunState } from '../../shared/workflow-shell/workflow-continue';
 
-/** How many rows each list on the hub shows before "Show more". */
-export const WORKFLOWS_HUB_ROWS = LIST_PREVIEW_ROWS;
+/**
+ * How many rows "Needs attention" and "Recent outcomes" show before "Show more", and how many runs the hub asks the
+ * server for at a time. "Continue where you left off" pages by `LIST_PAGE_SIZE` instead, in its filter's footer.
+ */
+export const WORKFLOWS_HUB_ROWS = 5;
 
 /** How far back the long-form read looks: the workspace's most recently changed pieces. */
 const LONG_FORM_LOOKBACK = 20;
@@ -89,8 +92,11 @@ type Read<T> =
 
 type Phase = 'loading' | 'unavailable' | 'not_found' | 'ready';
 
-/** The three lists of runs the hub reads, each its own page and its own "Show more". */
+/** The three lists of runs the hub reads, each its own page of the server's. */
 export type HubRunView = 'mine' | 'attention' | 'completed';
+
+/** The lists that grow by "Show more". The one that does not, "mine", is paged by its filter's footer. */
+type ShownView = Exclude<HubRunView, 'mine'>;
 
 /** A part of the page that can be read again on its own. */
 export type HubSection = 'continue' | 'attention' | 'outcomes' | 'definitions';
@@ -288,9 +294,10 @@ export class WorkflowsHubComponent {
   protected readonly query = signal('');
   /** What the creator typed to narrow "Continue where you left off", which has its own search. */
   protected readonly continueQuery = signal('');
-  /** How many rows each list shows; "Show more" adds five. */
-  protected readonly shown: Readonly<Record<HubRunView, WritableSignal<number>>> = {
-    mine: signal(WORKFLOWS_HUB_ROWS),
+  /** The page of "Continue where you left off" on show, counting from 1. */
+  protected readonly continuePage = signal(1);
+  /** How many rows each of the other lists shows; "Show more" adds five. */
+  protected readonly shown: Readonly<Record<ShownView, WritableSignal<number>>> = {
     attention: signal(WORKFLOWS_HUB_ROWS),
     completed: signal(WORKFLOWS_HUB_ROWS),
   };
@@ -400,34 +407,37 @@ export class WorkflowsHubComponent {
 
   private readonly continueWords = computed(() => searchWords(this.continueQuery()));
 
-  /** A search is on: every row in hand that matches is shown, not the first five. */
+  /** A search is on, so what is paged is what matches rather than everything in hand. */
   readonly continueFiltering = computed(() => this.continueWords().length > 0);
 
-  /** The rows in hand that hold every word searched for. Searched on what a row says: its work, name, step and date. */
-  private readonly continueMatches = computed(() => {
+  /**
+   * The rows in hand that hold every word searched for — all of them while nothing is typed. Searched on what a row
+   * says: its work, name, step and date.
+   */
+  readonly continueMatches = computed(() => {
     const words = this.continueWords();
     return this.continueRows().filter((row) =>
       matchesWords(`${row.goal} ${row.title ?? ''} ${row.detail} ${row.when}`, words),
     );
   });
 
-  readonly continueVisible = computed(() =>
-    this.continueFiltering() ? this.continueMatches() : this.continueRows().slice(0, this.shown.mine()),
-  );
+  /** The rows on the page the creator is on: `LIST_PAGE_SIZE` of the matches, in the filter's footer's pages. */
+  readonly continueVisible = computed(() => pageSlice(this.continueMatches(), this.continuePage()));
 
-  /** "Show more" is for the plain list. A search is over what is already loaded, so it has no more of its own. */
-  readonly continueHasMore = computed(
-    () => !this.continueFiltering() && this.hasMore('mine', this.continueRows().length),
-  );
+  /** The server has runs the hub has not read yet, which the filter's footer offers to read. */
+  readonly continueHasMore = computed(() => {
+    const page = this.mine();
+    return page.state === 'read' && page.value.nextCursor !== null;
+  });
 
-  /** Offered whenever there is work to search, so the creator never has to wonder where it went at five rows or six. */
+  /** Offered whenever there is work to search, so the creator never has to wonder where it went at one row or ten. */
   readonly continueSearchable = computed(() => this.continueRows().length > 0);
 
   /** The one announcement of what the search found, including nothing. */
   readonly continueMatchText = computed(() => {
     if (!this.continueFiltering()) return '';
     const found = this.continueMatches().length;
-    const said = found === 0 ? 'Nothing matches that.' : `${found} of ${this.continueRows().length} shown.`;
+    const said = found === 0 ? 'Nothing matches that.' : `${found} of ${this.continueRows().length} match.`;
     // The runs are read a page at a time, so a search cannot see what has not been read yet. Said, not hidden.
     const page = this.mine();
     const unread = page.state === 'read' && page.value.nextCursor !== null;
@@ -760,10 +770,16 @@ export class WorkflowsHubComponent {
   }
 
   /** Shows five more rows of a list, reading its next page of runs when the rows in hand run out. */
-  protected async showMore(view: HubRunView): Promise<void> {
+  protected async showMore(view: ShownView): Promise<void> {
     if (this.loadingMore() !== null) return;
     this.shown[view].update((shown) => shown + WORKFLOWS_HUB_ROWS);
     await this.fetchMore(view);
+  }
+
+  /** Reads the next page of the creator's runs, for the filter's footer. The new rows add pages; none is shown yet. */
+  protected async loadMoreContinue(): Promise<void> {
+    if (this.loadingMore() !== null) return;
+    await this.fetchMore('mine');
   }
 
   /** Tries the next page of a list again, after it could not be read. */
@@ -776,7 +792,9 @@ export class WorkflowsHubComponent {
     const page = into();
     const rows =
       view === 'mine' ? this.continueRows() : view === 'attention' ? this.attentionRows() : this.outcomeRows();
-    if (page.state !== 'read' || page.value.nextCursor === null || rows.length >= this.shown[view]()) return;
+    // A list that grows by "Show more" reads only when the rows in hand run out; the paged one reads on asking.
+    if (page.state !== 'read' || page.value.nextCursor === null) return;
+    if (view !== 'mine' && rows.length >= this.shown[view]()) return;
 
     const slug = this.workspaceSlug();
     const key = this.readKey;
@@ -797,7 +815,7 @@ export class WorkflowsHubComponent {
     });
   }
 
-  private hasMore(view: HubRunView, rows: number): boolean {
+  private hasMore(view: ShownView, rows: number): boolean {
     const page = this.pageOf(view)();
     return rows > this.shown[view]() || (page.state === 'read' && page.value.nextCursor !== null);
   }
@@ -959,7 +977,8 @@ export class WorkflowsHubComponent {
     this.discarded.set(false);
     this.query.set('');
     this.continueQuery.set('');
-    for (const view of ['mine', 'attention', 'completed'] as const) this.shown[view].set(WORKFLOWS_HUB_ROWS);
+    this.continuePage.set(1);
+    for (const view of ['attention', 'completed'] as const) this.shown[view].set(WORKFLOWS_HUB_ROWS);
     this.loadingMore.set(null);
     this.moreProblem.set(null);
     this.retrying.set(new Set());

@@ -452,20 +452,51 @@ describe('WorkflowsHubComponent', () => {
       expect(new Set(names).size).toBe(2);
     });
 
-    it('shows five, then more on asking — reading the next page of runs when it needs to', async () => {
-      const items = Array.from({ length: 6 }, (_, i) =>
-        summary(`run-${i}`, { title: `Run ${i}`, updatedAt: `2026-10-1${i}T10:00:00Z` }),
+    it('pages ten at a time in a footer, reading the next page of runs only when asked', async () => {
+      const items = Array.from({ length: 12 }, (_, i) =>
+        summary(`run-${i}`, { title: `Run ${i}`, updatedAt: `2026-10-${10 + i}T10:00:00Z` }),
       );
       await create({ runs: { mine: { items, nextCursor: 'next-page' } } });
+      const continuing = () => card('Continue where you left off')!;
+      const footer = () => continuing().querySelector('.pager')!.textContent!.replace(/\s+/g, ' ');
 
-      expect(rows('Continue where you left off').length).toBe(5);
+      expect(rows('Continue where you left off').length).toBe(10);
+      expect(footer()).toContain('Showing 1–10 of the 12 recipes in progress loaded so far');
+      expect(footer()).toContain('Page 1 of 2');
+      expect(runReads.some((read) => read.cursor === 'next-page')).toBeFalse();
 
-      control(card('Continue where you left off'), 'Show more')!.click();
+      control(continuing(), 'Next')!.click();
+      await settle();
+      expect(rows('Continue where you left off').length).toBe(2);
+
+      // Reading more adds a row to the page the creator is on, and the server has no more after it.
+      control(continuing(), 'Load more')!.click();
       await settle();
 
-      expect(rows('Continue where you left off').length).toBe(7);
       expect(runReads.some((read) => read.view === 'mine' && read.cursor === 'next-page')).toBeTrue();
-      expect(control(card('Continue where you left off'), 'Show more')).toBeNull();
+      expect(rows('Continue where you left off').length).toBe(3);
+      expect(footer()).toContain('Showing 11–13 of 13 recipes in progress');
+      expect(control(continuing(), 'Load more')).toBeNull();
+    });
+
+    it('holds the rows in a region that scrolls, so ten of them do not push the page’s other cards away', async () => {
+      const items = Array.from({ length: 10 }, (_, i) =>
+        summary(`run-${i}`, { title: `Run ${i}`, updatedAt: `2026-10-${10 + i}T10:00:00Z` }),
+      );
+      await create({ runs: { mine: { items, nextCursor: null } } });
+
+      const scroller = card('Continue where you left off')!.querySelector<HTMLElement>('.scroller')!;
+      expect(scroller.querySelectorAll('.rows > li').length).toBe(10);
+      expect(getComputedStyle(scroller).overflowY).toBe('auto');
+    });
+
+    it('shows a footer saying how many there are, even when they all fit on one page', async () => {
+      const items = Array.from({ length: 3 }, (_, i) => summary(`run-${i}`, { updatedAt: `2026-10-1${i}T10:00:00Z` }));
+      await create({ runs: { mine: { items, nextCursor: null } } });
+
+      const continuing = card('Continue where you left off')!;
+      expect(continuing.querySelector('.pager')!.textContent).toContain('Showing 1–3 of 3 recipes in progress');
+      expect(control(continuing, 'Next')).toBeNull();
     });
 
     describe('searching what is in progress', () => {
@@ -475,18 +506,19 @@ describe('WorkflowsHubComponent', () => {
             summary(`run-${i}`, {
               title: i % 2 === 0 ? 'Create a recipe' : `Soda bread ${i}`,
               nextStepTitle: i === 0 ? 'Approve it' : 'Ingredients',
-              updatedAt: `2026-10-1${i}T10:00:00Z`,
+              // An hour apart, so any number of rows is a valid and distinct time, newest first.
+              updatedAt: new Date(Date.UTC(2026, 9, 1, 10) + i * 3_600_000).toISOString(),
             }),
           ),
           nextCursor,
         },
       });
 
-      it('offers a search whenever there is work in progress, whether five rows or fewer, or more', async () => {
+      it('offers a search whenever there is work in progress, whether one row, a page, or more', async () => {
         for (const [count, cursor] of [
           [1, null],
-          [5, null],
-          [6, null],
+          [10, null],
+          [11, null],
           [3, 'next-page'],
         ] as const) {
           await create({ runs: work(count, cursor) });
@@ -511,13 +543,13 @@ describe('WorkflowsHubComponent', () => {
         }
       });
 
-      it('shows the first five until the search is used', async () => {
-        await create({ runs: work(8) });
+      it('shows a page of ten until the search is used', async () => {
+        await create({ runs: work(25) });
 
-        expect(rows('Continue where you left off').length).toBe(5);
+        expect(rows('Continue where you left off').length).toBe(10);
       });
 
-      it('filters five rows too, which is the case that had no search before', async () => {
+      it('filters a short list too', async () => {
         await create({ runs: work(5) });
 
         await search('approve', 'continue');
@@ -531,18 +563,32 @@ describe('WorkflowsHubComponent', () => {
         expect(card('Continue where you left off')).toBeNull();
       });
 
-      it('shows every row in hand that matches, past the first five, and says how many', async () => {
-        await create({ runs: work(8) });
+      it('pages what matches, past the first page, and says how many matched', async () => {
+        await create({ runs: work(25) });
 
         await search('soda', 'continue');
 
-        // Runs 1, 3, 5 and 7 are the ones named "Soda bread n".
-        expect(rows('Continue where you left off').length).toBe(4);
+        // The twelve odd-numbered runs are the ones named "Soda bread n": a page of ten, then two.
+        const continuing = () => card('Continue where you left off')!;
+        expect(rows('Continue where you left off').length).toBe(10);
         expect(rows('Continue where you left off').every((row) => row.includes('Soda bread'))).toBeTrue();
-        expect(card('Continue where you left off')!.querySelector('[role="status"]')!.textContent).toContain(
-          '4 of 8 shown.',
-        );
-        expect(control(card('Continue where you left off'), 'Show more')).toBeNull();
+        expect(continuing().querySelector('[role="status"]')!.textContent).toContain('12 of 25 match.');
+        expect(continuing().querySelector('.pager')!.textContent).toContain('Showing 1–10 of 12 recipes in progress');
+
+        control(continuing(), 'Next')!.click();
+        await settle();
+        expect(rows('Continue where you left off').length).toBe(2);
+      });
+
+      it('goes back to the first page when a search is typed', async () => {
+        await create({ runs: work(25) });
+        control(card('Continue where you left off'), 'Next')!.click();
+        await settle();
+        expect(card('Continue where you left off')!.textContent).toContain('Page 2 of 3');
+
+        await search('soda', 'continue');
+
+        expect(card('Continue where you left off')!.textContent).toContain('Page 1 of 2');
       });
 
       it('matches on the step a row is at, and needs every word', async () => {
@@ -555,20 +601,21 @@ describe('WorkflowsHubComponent', () => {
         expect(rows('Continue where you left off').length).toBe(0);
       });
 
-      it('says when nothing matches, and goes back to the first five on clearing', async () => {
-        await create({ runs: work(8) });
+      it('says when nothing matches, with no pages, and goes back to the list on clearing', async () => {
+        await create({ runs: work(25) });
 
         await search('spaceship', 'continue');
         const continuing = card('Continue where you left off')!;
         expect(continuing.querySelector('cp-empty-state')).not.toBeNull();
+        expect(continuing.querySelector('.pager')).toBeNull();
         expect(continuing.querySelector('[role="status"]')!.textContent).toContain('Nothing matches that.');
 
         control(continuing, 'Clear search')!.click();
         await settle();
 
-        expect(rows('Continue where you left off').length).toBe(5);
+        expect(rows('Continue where you left off').length).toBe(10);
         expect(card('Continue where you left off')!.querySelector('cp-empty-state')).toBeNull();
-        expect(control(card('Continue where you left off'), 'Show more')).not.toBeNull();
+        expect(card('Continue where you left off')!.textContent).toContain('Page 1 of 3');
       });
 
       it('says that only what is loaded is searched while the server has more', async () => {
@@ -638,7 +685,7 @@ describe('WorkflowsHubComponent', () => {
       await create({ runs: { mine: { items, nextCursor: 'next-page' } } });
       failNextPage = true;
 
-      control(card('Continue where you left off'), 'Show more')!.click();
+      control(card('Continue where you left off'), 'Load more')!.click();
       await settle();
       expect(card('Continue where you left off')!.textContent).toContain('More couldn’t be loaded right now.');
 

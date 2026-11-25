@@ -18,3 +18,44 @@
 .plain {
   margin: 0;
 }
+
+/* The list, held to a height so a page of ten rows scrolls inside the card instead of pushing the page's other
+   cards a screen away. The inset keeps a focused row's ring from being clipped by the edge of the region, and the
+   stable gutter keeps rows from shifting sideways when a page needs the scrollbar and the next one does not. */
+.scroller {
+  max-height: min(28rem, 70vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  /* A rounded thumb with no arrow buttons and no track, instead of the platform's bar. Setting a colour is what
+     drops the arrows; the width stays the platform's standard one, which is easier to grab than "thin". The thumb
+     is the control border, which holds 3:1 against every surface in both themes. */
+  scrollbar-width: auto;
+  scrollbar-color: var(--cp-border-control) transparent;
+  /* Room on the right, so the bar does not sit against the Continue and Stop buttons. */
+  padding: var(--cp-space-1) var(--cp-space-5) var(--cp-space-1) var(--cp-space-1);
+  margin: calc(-1 * var(--cp-space-1));
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2) var(--cp-space-4);
+}
+
+.summary {
+  min-width: 0;
+}
+
+.pager-actions,
+.pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.page-number {
+  white-space: nowrap;
+}

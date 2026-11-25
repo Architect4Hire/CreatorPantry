@@ -80,60 +80,67 @@
                   </cp-notice>
                 }
                 @if (continueSearchable()) {
+                  <!-- The filter, the list in a region that scrolls, and the footer that pages it ten at a time. -->
                   <cp-list-filter
                     label="Search your work in progress"
                     name="continue-search"
                     placeholder="Search, such as “recipe” or “bread”"
+                    noun="recipes in progress"
                     [(query)]="continueQuery"
+                    [(page)]="continuePage"
+                    [total]="continueMatches().length"
                     [status]="continueMatchText()"
-                    [noMatch]="continueVisible().length === 0 && continueFiltering()"
+                    [noMatch]="continueMatches().length === 0 && continueFiltering()"
+                    [hasMore]="continueHasMore()"
+                    [loadingMore]="loadingMore() === 'mine'"
+                    loadMoreLabel="Load more"
+                    (loadMore)="loadMoreContinue()"
                     noMatchTitle="Nothing in progress matches that"
                     noMatchDescription="Try another word, or clear the search to see everything you have under way."
-                  />
-                }
-                @if (continueVisible().length > 0) {
-                  <ul class="rows" aria-labelledby="hub-continue-heading">
-                    @for (row of continueVisible(); track row.id) {
-                      <li>
-                        <span class="row-text">
-                          <strong>{{ row.goal }}</strong>
-                          @if (row.title) {
-                            <span>{{ row.title }}</span>
-                          }
-                          <span class="cp-muted">{{ row.detail }}</span>
-                          @if (row.when) {
-                            <span class="cp-muted">Last saved {{ row.when }}</span>
-                          }
-                        </span>
-                        <span class="cp-actions">
-                          <a
-                            cpButton
-                            variant="secondary"
-                            size="sm"
-                            [routerLink]="row.link"
-                            [state]="row.state"
-                            [attr.aria-label]="row.actionLabel"
-                            >{{ row.action }}</a
-                          >
-                          <!-- A run left behind can be stopped here, without opening it. Quiet, after Continue. -->
-                          @if (row.runId && !viewOnly()) {
-                            <button
+                  >
+                    <ul class="rows" aria-labelledby="hub-continue-heading">
+                      @for (row of continueVisible(); track row.id) {
+                        <li>
+                          <span class="row-text">
+                            <strong>{{ row.goal }}</strong>
+                            @if (row.title) {
+                              <span>{{ row.title }}</span>
+                            }
+                            <span class="cp-muted">{{ row.detail }}</span>
+                            @if (row.when) {
+                              <span class="cp-muted">Last saved {{ row.when }}</span>
+                            }
+                          </span>
+                          <span class="cp-actions">
+                            <a
                               cpButton
-                              [busy]="stoppingRun() === row.runId"
-                              type="button"
-                              variant="ghost"
+                              variant="secondary"
                               size="sm"
-                              [attr.aria-label]="row.stopLabel"
-                              [attr.aria-disabled]="stoppingRun() !== null || null"
-                              (click)="stopRun(row)"
+                              [routerLink]="row.link"
+                              [state]="row.state"
+                              [attr.aria-label]="row.actionLabel"
+                              >{{ row.action }}</a
                             >
-                              {{ stoppingRun() === row.runId ? 'Stopping…' : 'Stop' }}
-                            </button>
-                          }
-                        </span>
-                      </li>
-                    }
-                  </ul>
+                            <!-- A run left behind can be stopped here, without opening it. Quiet, after Continue. -->
+                            @if (row.runId && !viewOnly()) {
+                              <button
+                                cpButton
+                                [busy]="stoppingRun() === row.runId"
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                [attr.aria-label]="row.stopLabel"
+                                [attr.aria-disabled]="stoppingRun() !== null || null"
+                                (click)="stopRun(row)"
+                              >
+                                {{ stoppingRun() === row.runId ? 'Stopping…' : 'Stop' }}
+                              </button>
+                            }
+                          </span>
+                        </li>
+                      }
+                    </ul>
+                  </cp-list-filter>
                 }
                 @if (stopProblem(); as problem) {
                   <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
@@ -151,20 +158,6 @@
                       >Try again</button
                     >
                   </cp-notice>
-                }
-                @if (continueHasMore()) {
-                  <div cpTopicCardActions class="cp-actions">
-                    <button
-                      cpButton
-                      [busy]="loadingMore() === 'mine'"
-                      type="button"
-                      variant="ghost"
-                      [attr.aria-disabled]="loadingMore() !== null || null"
-                      (click)="showMore('mine')"
-                    >
-                      {{ loadingMore() === 'mine' ? 'Loading more…' : 'Show more' }}
-                    </button>
-                  </div>
                 }
               </cp-topic-card>
             </li>

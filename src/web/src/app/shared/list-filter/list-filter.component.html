@@ -22,4 +22,58 @@
   >
     <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="clear()">Clear search</button>
   </cp-empty-state>
+} @else if (total() > 0) {
+  <!-- The page's own list, held to a height and scrolling past it. Its rows are focusable, so a keyboard reaches
+       what is below the fold by tabbing, and the browser scrolls the focused row into view. -->
+  <div class="scroller" #scroller>
+    <ng-content />
+  </div>
+
+  <div class="pager">
+    <!-- Said again on every page, so a new page is announced as the rows it holds, not just as a button pressed. -->
+    <p class="plain cp-muted summary" role="status">{{ summary() }}</p>
+
+    @if (pages() > 1 || hasMore()) {
+      <div class="pager-actions">
+        @if (pages() > 1) {
+          <nav class="pages" [attr.aria-label]="'Pages of ' + noun()">
+            <button
+              cpButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [attr.aria-disabled]="current() === 1 || null"
+              (click)="previous()"
+            >
+              Previous
+            </button>
+            <span class="page-number">Page {{ current() }} of {{ pages() }}</span>
+            <button
+              cpButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [attr.aria-disabled]="current() === pages() || null"
+              (click)="next()"
+            >
+              Next
+            </button>
+          </nav>
+        }
+        @if (hasMore()) {
+          <button
+            cpButton
+            [busy]="loadingMore()"
+            variant="ghost"
+            size="sm"
+            type="button"
+            [attr.aria-disabled]="loadingMore() || null"
+            (click)="askForMore()"
+          >
+            {{ loadingMore() ? 'Loading more…' : loadMoreLabel() }}
+          </button>
+        }
+      </div>
+    }
+  </div>
 }
