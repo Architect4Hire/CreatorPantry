@@ -18,3 +18,34 @@
 .plain {
   margin: 0;
 }
+
+/* The list, held to a height so ten rows, and the ten more after them, scroll inside the card instead of pushing
+   the page's other cards a screen away. The inset keeps a focused row's ring from being clipped by the edge of the
+   region, and the stable gutter keeps rows from shifting sideways when the list needs the scrollbar and then does
+   not. */
+.scroller {
+  max-height: min(28rem, 70vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  /* A rounded thumb with no arrow buttons and no track, instead of the platform's bar. Setting a colour is what
+     drops the arrows; the width stays the platform's standard one, which is easier to grab than "thin". The thumb
+     is the control border, which holds 3:1 against every surface in both themes. */
+  scrollbar-width: auto;
+  scrollbar-color: var(--cp-border-control) transparent;
+  /* Room on the right, so the bar does not sit against the Continue and Stop buttons. */
+  padding: var(--cp-space-1) var(--cp-space-5) var(--cp-space-1) var(--cp-space-1);
+  margin: calc(-1 * var(--cp-space-1));
+}
+
+/* The region takes focus only to keep it in the list when "Load more" goes; a ring round the whole region would
+   say nothing a creator can act on. */
+.scroller:focus {
+  outline: none;
+}
+
+/* "Load more", at the foot of the rows it adds to. */
+.more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--cp-space-4);
+}

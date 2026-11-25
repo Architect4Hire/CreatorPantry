@@ -1,10 +1,11 @@
 /**
- * How many rows a list shows before the creator asks for more, or starts typing in its filter.
+ * How many rows a list shows to begin with, and how many more each "Load more" adds, in a
+ * {@link ListFilterComponent}. The same with or without a search typed.
  *
- * The one number every list that has a {@link ListFilterComponent} previews, so the hub's work in progress and a
- * workflow's "Which recipe?" read alike.
+ * The one number every list that has a filter grows by, so the hub's work in progress and a workflow's "Which
+ * recipe?" read alike.
  */
-export const LIST_PREVIEW_ROWS = 5;
+export const LIST_BATCH_SIZE = 10;
 
 /** The words in a filter box, lower-cased. Empty when nothing has been typed — which is "no filter", not "match nothing". */
 export function searchWords(query: string): readonly string[] {

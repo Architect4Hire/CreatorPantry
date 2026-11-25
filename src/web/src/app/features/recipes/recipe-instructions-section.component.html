@@ -160,6 +160,19 @@
                         [name]="'stepNote' + step.key"
                       />
                     </cp-field>
+                    <!-- Put away as it was opened: a note nobody wants hides, and "+ Note" comes back. -->
+                    <div class="step-field-actions">
+                      <button
+                        cpButton
+                        variant="text"
+                        size="sm"
+                        type="button"
+                        [attr.aria-label]="'Remove the note from step ' + (stepIndex + 1)"
+                        (click)="removeStepNote(group.key, step.key, stepIndex)"
+                      >
+                        Remove note
+                      </button>
+                    </div>
                   }
 
                   @if (step.showDuration) {

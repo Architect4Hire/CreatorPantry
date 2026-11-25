@@ -14,7 +14,7 @@ import { firstValueFrom, switchMap } from 'rxjs';
 import { DEFAULT_RECIPE_SEARCH_QUERY, RecipeSummary } from '../../../models/recipe.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeService } from '../../../services/recipe.service';
-import { LIST_PREVIEW_ROWS, matchesWords, searchWords } from '../../../shared/list-filter/list-filter';
+import { LIST_BATCH_SIZE, matchesWords, searchWords } from '../../../shared/list-filter/list-filter';
 import { ListFilterComponent } from '../../../shared/list-filter/list-filter.component';
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { linkedRecipeId } from './recipe-run';
@@ -58,10 +58,11 @@ function countSaid(shown: number, total: number | null): string {
  * server to link it. A run started from a recipe has this step done already; coming Back to it shows the recipe the
  * run holds and offers to change it.
  *
- * <p>The library is read once and the list is filtered here, in the browser, by {@link ListFilterComponent}: the
- * first five recipes until the creator types, then every loaded recipe that matches. "Show more recipes" reads the
- * next page when the ones in hand run out, and a filter only ever sees what has been read — said, in its status,
- * while the server has more.</p>
+ * <p>The library is read once and the list is filtered here, in the browser, by {@link ListFilterComponent}: ten
+ * recipes in a region that scrolls, and ten more for each "Load more recipes" — narrowed to the loaded recipes that
+ * match as the creator types, and grown the same way. Asking for more than the loaded recipes can fill reads the
+ * next page of the library, and a filter only ever sees what has been read — said, in its status, while the server
+ * has more.</p>
  */
 @Component({
   selector: 'cp-recipe-choose-step',
@@ -96,13 +97,19 @@ function countSaid(shown: number, total: number | null): string {
             <cp-list-filter
               label="Search your recipes"
               placeholder="Search, such as “banana” or “loaf”"
+              noun="recipes"
               [(query)]="query"
+              [(shown)]="shown"
+              [total]="matches().length"
               [status]="statusText()"
               [noMatch]="filtering() && matches().length === 0"
+              [hasMore]="moreCursor() !== null"
+              [loadingMore]="loadingMore()"
+              loadMoreLabel="Load more recipes"
+              (loadMore)="fetchNext()"
               noMatchTitle="No recipe matches that"
               noMatchDescription="Try another word, or clear the search to see all your recipes."
-            />
-            @if (options().length > 0) {
+            >
               <cp-choice-group
                 label="Your recipes"
                 idPrefix="recipe-choose-"
@@ -110,23 +117,9 @@ function countSaid(shown: number, total: number | null): string {
                 [value]="picked()"
                 (valueChange)="pick($event)"
               />
-            }
+            </cp-list-filter>
             @if (moreFailed()) {
               <cp-notice tone="error" role="alert">More recipes couldn’t be read just now. Try again.</cp-notice>
-            }
-            @if (moreAvailable()) {
-              <div class="cp-actions">
-                <button
-                  cpButton
-                  [busy]="loadingMore()"
-                  type="button"
-                  variant="secondary"
-                  [attr.aria-disabled]="loadingMore() || null"
-                  (click)="showMore()"
-                >
-                  {{ loadingMore() ? 'Loading more…' : filtering() ? 'Load more recipes' : 'Show more recipes' }}
-                </button>
-              </div>
             }
           } @else {
             <p class="plain">
@@ -153,13 +146,13 @@ export class RecipeChooseStepComponent implements OnInit {
   private readonly recipes = inject(RecipeService);
   private readonly port = inject(WorkflowStepPort);
 
-  /** What the creator typed to narrow the list. Nothing typed shows the first five. */
+  /** What the creator typed to narrow the list. Nothing typed shows every recipe in hand. */
   protected readonly query = signal('');
   protected readonly found = signal<Found>({ status: 'loading' });
   private readonly retries = signal(0);
 
-  /** How many recipes the plain list shows; "Show more recipes" adds five. A filter ignores it. */
-  private readonly shown = signal(LIST_PREVIEW_ROWS);
+  /** How many of the matching recipes are on show: a batch of ten, and ten more for each "Load more recipes". */
+  protected readonly shown = signal(LIST_BATCH_SIZE);
 
   /** The recipe picked here, or the one the run already holds when the creator came Back to change it. */
   private readonly pickedId = signal<string | null>(null);
@@ -178,7 +171,7 @@ export class RecipeChooseStepComponent implements OnInit {
     return found.status === 'ready' ? found.recipes : [];
   });
 
-  /** The recipes in hand that hold every word typed. */
+  /** The recipes in hand that hold every word typed — all of them while nothing is typed. */
   protected readonly matches = computed(() => {
     const words = this.words();
     return this.held().filter((recipe) => matchesWords(searchableText(recipe), words));
@@ -189,16 +182,11 @@ export class RecipeChooseStepComponent implements OnInit {
     return found.status === 'ready' ? found.nextCursor : null;
   });
 
-  /** Something more to show: recipes in hand that the first five left out, or a next page on the server. */
-  protected readonly moreAvailable = computed(
-    () => (!this.filtering() && this.held().length > this.shown()) || this.moreCursor() !== null,
-  );
-
   /** The one sentence about what the filter found, including nothing. */
   protected readonly statusText = computed(() => {
     if (!this.filtering()) return '';
     const found = this.matches().length;
-    const said = found === 0 ? 'Nothing matches that.' : `${found} of ${this.held().length} shown.`;
+    const said = found === 0 ? 'Nothing matches that.' : `${found} of ${this.held().length} match.`;
     // The library is read a page at a time, so a filter cannot see what has not been read yet. Said, not hidden.
     return this.moreCursor() !== null ? `${said} Only the recipes loaded so far are searched.` : said;
   });
@@ -210,8 +198,10 @@ export class RecipeChooseStepComponent implements OnInit {
 
   protected readonly options = computed<readonly CpChoiceOption[]>(() => {
     if (this.found().status !== 'ready') return [];
-    const listed = this.filtering() ? this.matches() : this.held().slice(0, this.shown());
-    // The pick first when the list would not show it: what Continue will link is always the one showing as picked.
+    const listed = this.matches().slice(0, this.shown());
+    // The pick first when the rows on show do not have it — a filter left it out, it is further down than the
+    // creator has loaded, or it is a recipe that was never read — so what Continue will link is always on show as
+    // picked. Once its own row is shown it is there, and not repeated above.
     const kept = this.pickedRecipe();
     const rows: readonly Picked[] =
       kept && !listed.some((recipe) => recipe.id === kept.id) ? [kept, ...listed] : listed;
@@ -282,22 +272,10 @@ export class RecipeChooseStepComponent implements OnInit {
     if (name) this.port.announce(`${name} chosen. Continue when you’re ready.`);
   }
 
-  /**
-   * Shows five more recipes, reading the next page when the ones in hand run out. While a filter is on there is no
-   * "five more" — it already shows every match — so the button only reads the next page for it to search.
-   */
-  protected async showMore(): Promise<void> {
+  /** The next page of the library, added to what is in hand; "Load more recipes" shows it as it arrives. */
+  protected async fetchNext(): Promise<void> {
     const found = this.found();
-    if (found.status !== 'ready' || this.loadingMore()) return;
-
-    if (!this.filtering()) this.shown.update((shown) => shown + LIST_PREVIEW_ROWS);
-    if (found.nextCursor !== null && (this.filtering() || found.recipes.length < this.shown())) await this.fetchNext();
-  }
-
-  /** The next page of the library, added to what is in hand. */
-  private async fetchNext(): Promise<void> {
-    const found = this.found();
-    if (found.status !== 'ready' || found.nextCursor === null) return;
+    if (found.status !== 'ready' || found.nextCursor === null || this.loadingMore()) return;
 
     this.loadingMore.set(true);
     this.moreFailed.set(false);

@@ -203,8 +203,10 @@
   min-height: 2.75rem;
 }
 
-/* "+ Note" and "+ Duration": a line of quiet offers under the words, not fields. */
-.step-offers {
+/* "+ Note" and "+ Duration": a line of quiet offers under the words, not fields. "Remove note" is the same kind of
+   quiet control, under the field it puts away. */
+.step-offers,
+.step-field-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--cp-space-1) var(--cp-space-3);

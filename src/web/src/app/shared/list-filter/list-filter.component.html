@@ -22,4 +22,29 @@
   >
     <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="clear()">Clear search</button>
   </cp-empty-state>
+} @else if (total() > 0) {
+  <!-- The page's own list, held to a height and scrolling past it, with "Load more" as its last row so the rows it
+       adds appear where it was. Its rows are focusable, so a keyboard reaches what is below the fold by tabbing,
+       and the browser scrolls the focused row into view. The region itself takes focus only when "Load more" goes. -->
+  <div class="scroller" #scroller tabindex="-1">
+    <ng-content />
+
+    @if (more()) {
+      <div class="more">
+        <button
+          cpButton
+          [busy]="loadingMore()"
+          variant="secondary"
+          type="button"
+          [attr.aria-disabled]="loadingMore() || null"
+          (click)="askForMore()"
+        >
+          {{ loadingMore() ? 'Loading more…' : loadMoreLabel() }}
+        </button>
+      </div>
+    }
+  </div>
+
+  <!-- Said again whenever the count changes, so rows added by "Load more" are announced as how many there are now. -->
+  <p class="plain cp-muted summary" role="status">{{ summary() }}</p>
 }
