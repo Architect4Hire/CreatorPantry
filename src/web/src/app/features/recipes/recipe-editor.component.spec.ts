@@ -4340,6 +4340,71 @@ describe('RecipeEditorComponent', () => {
       expect(root.querySelector('.step-offers')).withContext('nothing left to offer').toBeNull();
     });
 
+    it('puts an opened note away again: an empty one at once, with "+ Note" back and focus on it', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      const root = harness.routeNativeElement!;
+      const key = component.form.instructionGroups()[0].steps[0].key;
+      const noteOffer = 'button[aria-label="Add a note to step 1"]';
+
+      root.querySelector<HTMLButtonElement>(noteOffer)!.click();
+      harness.detectChanges();
+      expect(root.querySelector(`#step-note-${key}`)).not.toBeNull();
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Remove the note from step 1"]')!.click();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(confirmService.confirm).not.toHaveBeenCalled();
+      expect(root.querySelector(`#step-note-${key}`)).toBeNull();
+      expect(root.querySelector('button[aria-label="Remove the note from step 1"]')).toBeNull();
+      const offer = root.querySelector<HTMLButtonElement>(noteOffer)!;
+      expect(offer).not.toBeNull();
+      expect(document.activeElement).toBe(offer);
+    });
+
+    it('asks before taking away a note with words in it, and keeps it when the creator says to', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      const root = harness.routeNativeElement!;
+      const key = component.form.instructionGroups()[0].steps[0].key;
+      const step = () => component.form.instructionGroups()[0].steps[0];
+      const remove = () =>
+        root.querySelector<HTMLButtonElement>('button[aria-label="Remove the note from step 1"]')!.click();
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Add a note to step 1"]')!.click();
+      harness.detectChanges();
+      // A new field's first write of its empty value is a microtask; typing waits for it, as a creator does.
+      await harness.fixture.whenStable();
+      const note = root.querySelector<HTMLInputElement>(`#step-note-${key}`)!;
+      note.value = 'Make sure the bowl is dry.';
+      note.dispatchEvent(new Event('input'));
+      harness.detectChanges();
+      expect(step().note).toBe('Make sure the bowl is dry.');
+
+      // Kept: asked, answered no, and nothing changed.
+      remove();
+      expect(confirmService.confirm).toHaveBeenCalledTimes(1);
+      confirmService.answer(false);
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+      expect(root.querySelector<HTMLInputElement>(`#step-note-${key}`)!.value).toBe('Make sure the bowl is dry.');
+      expect(step().note).toBe('Make sure the bowl is dry.');
+
+      // Removed: its words go with the field, so the next save does not write them back.
+      remove();
+      confirmService.answer(true);
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+      expect(root.querySelector(`#step-note-${key}`)).toBeNull();
+      expect(step().note).toBe('');
+      expect(root.querySelector('button[aria-label="Add a note to step 1"]')).not.toBeNull();
+    });
+
     it('reads as a numbered list: the number before the words, move and remove level with them at the right', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);

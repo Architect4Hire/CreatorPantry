@@ -203,6 +203,44 @@ export class RecipeInstructionsSectionComponent {
   }
 
   /**
+   * Takes this step's note away and puts "+ Note" back, for a step whose note is not wanted: an AI draft wrote one
+   * the creator does not need, or it was opened and never filled in. The field was only ever offered, so the
+   * creator can put it away as well as open it.
+   *
+   * A note with words in it asks first, as {@link removeStep} does, because a slip of the pointer should not cost
+   * something written; an empty one goes at once. Focus goes to the offer that comes back — leaving it on a button
+   * that has just removed itself would strand a keyboard user — once the render that draws it has run.
+   */
+  async removeStepNote(groupKey: string, stepKey: string, stepIndex: number): Promise<void> {
+    const step = this.form
+      .instructionGroups()
+      .find((group) => group.key === groupKey)
+      ?.steps.find((candidate) => candidate.key === stepKey);
+    if (!step) return;
+
+    if (step.note.trim() !== '') {
+      const agreed = await this.confirmer.confirm({
+        title: `Remove the note from step ${stepIndex + 1}?`,
+        message: 'Its words go with it. The rest of the step stays as it is.',
+        confirmLabel: 'Remove note',
+        cancelLabel: 'Keep it',
+        tone: 'danger',
+      });
+      if (!agreed) return;
+    }
+
+    this.form.updateInstructionStep(groupKey, stepKey, { note: '', showNote: false });
+
+    afterNextRender(
+      () =>
+        this.elementRef.nativeElement
+          .querySelector<HTMLElement>(`button[aria-label="Add a note to step ${stepIndex + 1}"]`)
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
    * Removes a step. A step with words in it asks first: the control is a small ✕ beside its text now, not a
    * labelled button of its own, and a slip of the pointer should not cost a written step. An empty one goes at
    * once — there is nothing to lose, and asking would only be in the way.
