@@ -15,6 +15,13 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RecipeStudioHost } from './recipe-studio-host';
 import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
+import { RecipeSheetComponent } from '../../shared/recipe-sheet/recipe-sheet.component';
+import {
+  hasOpenQuestion as textHasOpenQuestion,
+  ingredientSheetGroups,
+  preparationNoteToShow,
+  stepSheetGroups,
+} from '../../shared/recipe-sheet/recipe-sheet.model';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, distinctUntilChanged, expand, from, of, switchMap, timer } from 'rxjs';
 import {
@@ -28,6 +35,7 @@ import {
   CpFactComponent,
   CpFactsComponent,
   CpFieldComponent,
+  CpIconComponent,
   CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
@@ -161,10 +169,12 @@ interface EditTarget {
     CpFactComponent,
     CpFactsComponent,
     CpFieldComponent,
+    CpIconComponent,
     CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpSkeletonComponent,
     CpStatusPillComponent,
+    RecipeSheetComponent,
     RouterLink,
     CpBackLinkComponent,
     ShellNavIconComponent,
@@ -446,6 +456,30 @@ export class RecipeFirstDraftReviewComponent {
       .filter((text) => text.trim().length > 0 && !ingredientLineStatesAmount(text)),
   );
 
+  /** Whether a line or step still carries the model's question where its value belongs, as it reads right now. */
+  hasOpenQuestion(text: string | null | undefined): boolean {
+    return textHasOpenQuestion(text);
+  }
+
+  /**
+   * How many ingredient lines and steps still carry a question, as they read now.
+   *
+   * Read through {@link valueOf}, so the count goes down as the creator types the answers in, and a mark that
+   * outlived its own fix is never left behind.
+   */
+  readonly openInLines = computed(() => {
+    const draft = this.draft();
+
+    return {
+      lines: draft.ingredientGroups
+        .flatMap((group) => group.items)
+        .filter((line) => this.hasOpenQuestion(this.valueOf(`${line.changeId}:displayText`, line.displayText))).length,
+      steps: draft.instructionGroups
+        .flatMap((group) => group.items)
+        .filter((step) => this.hasOpenQuestion(this.valueOf(`${step.changeId}:text`, step.text))).length,
+    };
+  });
+
   /**
    * The draft's distinct unit words, trimmed and sorted — the words accepting it will match to CreatorPantry units.
    *
@@ -545,16 +579,22 @@ export class RecipeFirstDraftReviewComponent {
       .join(', '),
   );
 
-  /**
-   * A line's preparation note when the line does not already say it. A model often writes "3 ripe bananas, mashed"
-   * and then "mashed" as the note as well, and the same word under the line reads as a second instruction.
-   */
+  /** A line's preparation note when the line does not already say it (the full review's own line editor). */
   preparationNoteShown(line: RecipeDraftIngredient): string | null {
-    const note = line.preparationNote?.trim() ?? '';
-    if (note.length === 0) return null;
-    const text = (this.valueOf(`${line.changeId}:displayText`, line.displayText) ?? '').toLowerCase();
-    return text.includes(note.toLowerCase()) ? null : note;
+    return preparationNoteToShow(line.preparationNote, this.valueOf(`${line.changeId}:displayText`, line.displayText));
   }
+
+  /** The draft's ingredients and method as the shared recipe sheet reads them, in the creator's own wording where they have reworded a line. */
+  readonly previewIngredients = computed(() =>
+    ingredientSheetGroups(this.draft(), {
+      read: (key, proposed) => this.valueOf(key, proposed),
+      unitWarning: (line) =>
+        this.unitIsUnrecognised(line.unitText) ? `Unit “${line.unitText?.trim()}” not recognised` : null,
+    }),
+  );
+  readonly previewSteps = computed(() =>
+    stepSheetGroups(this.draft(), { read: (key, proposed) => this.valueOf(key, proposed) }),
+  );
 
   /** In-page destinations over one long document. Not tabs — everything is present, this only moves you. */
   readonly sections = computed<readonly CpAnchorNavItem[]>(() => {
@@ -1022,18 +1062,27 @@ export class RecipeFirstDraftReviewComponent {
   }
 
   onSectionActivated(item: CpAnchorNavItem): void {
-    this.activeSection.set(item.targetId);
+    this.goToSection(item.targetId);
+  }
+
+  /** Takes the creator to one part of the draft: the nav's destinations, and the links in the questions' note. */
+  goToSection(targetId: string): void {
+    this.activeSection.set(targetId);
 
     // The nav neither scrolls nor moves focus, by design — it emits and the consumer decides. The heading is
     // what should receive focus, so a keyboard or screen-reader user lands on the section's name rather than
     // somewhere in the middle of it.
     //
     // Scoped to this host rather than `document`: these ids are not instance-namespaced, so a second mounted
-    // instance would otherwise steal the target. And no `behavior` is passed — a behavior given to
-    // `scrollIntoView` overrides CSS `scroll-behavior`, which is how global.scss honours
-    // `prefers-reduced-motion`. Letting the stylesheet decide is what keeps that promise.
-    const heading = this.elementRef.nativeElement.querySelector<HTMLElement>(`#${CSS.escape(item.targetId)}`);
-    heading?.scrollIntoView({ block: 'start' });
+    // instance would otherwise steal the target.
+    //
+    // The scroll is smooth unless the creator asked for reduced motion. No stylesheet makes it so: global.scss
+    // only switches `scroll-behavior` off under `prefers-reduced-motion`, it never turns it on, so leaving
+    // `behavior` out is an instant jump over a long draft — which is what read as choppy. Focus is moved with
+    // `preventScroll`, because focusing without it would cut the smooth scroll short.
+    const heading = this.elementRef.nativeElement.querySelector<HTMLElement>(`#${CSS.escape(targetId)}`);
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    heading?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
     heading?.focus({ preventScroll: true });
   }
 

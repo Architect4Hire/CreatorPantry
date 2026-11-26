@@ -1,0 +1,61 @@
+:host {
+  /* Where the margin rule runs, from the sheet's left edge. Narrower on a small screen, where the width is the
+     reader's and the rule is the first thing to give up. */
+  --cp-sheet-margin: 2.5rem;
+
+  display: block;
+  position: relative;
+  min-width: 0;
+  padding: var(--cp-space-6) var(--cp-space-6) var(--cp-space-6) calc(var(--cp-sheet-margin) + var(--cp-space-5));
+  /* A chunky outline and a hard, un-blurred edge under it, as a sticker or a card in a picture book has: the
+     sheet reads as a thing with a thickness, not a patch of colour. */
+  border: 2px solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-xl);
+  background: var(--cp-surface-subtle);
+  box-shadow: 0 4px 0 var(--cp-border-strong);
+}
+
+/* The margin: one rule down the left, in the stronger border so it can be found on warm paper and on charcoal,
+   and drawn on the sheet rather than the content so a long list does not move it. Decoration only. */
+:host::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--cp-sheet-margin);
+  width: 2px;
+  background: var(--cp-border-strong);
+  pointer-events: none;
+}
+
+/* Punched holes down the margin, like a page from a ring binder: a ring of the surface the sheet sits on, so
+   they read as holes through it, in an outline of the sheet's own edge. A tile repeated down the left; the
+   first is a little in from the top so the corner stays clear. Decoration only. */
+:host::after {
+  content: '';
+  position: absolute;
+  inset-block: var(--cp-space-4);
+  inset-inline-start: calc(var(--cp-sheet-margin) / 2 - 0.5rem);
+  width: 1rem;
+  background: radial-gradient(
+      circle at 50% 0.5rem,
+      var(--cp-sheet-hole, var(--cp-surface)) 0 0.32rem,
+      var(--cp-border-strong) 0.34rem 0.46rem,
+      transparent 0.48rem
+    )
+    0 0 / 1rem 5.5rem repeat-y;
+  pointer-events: none;
+}
+
+@media (max-width: 40rem) {
+  :host {
+    --cp-sheet-margin: 1.25rem;
+
+    padding: var(--cp-space-4) var(--cp-space-4) var(--cp-space-4) calc(var(--cp-sheet-margin) + var(--cp-space-3));
+    border-radius: var(--cp-radius-lg);
+  }
+
+  /* No room for holes in a margin this narrow. */
+  :host::after {
+    display: none;
+  }
+}

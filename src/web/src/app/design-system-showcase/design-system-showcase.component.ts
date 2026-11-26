@@ -52,8 +52,10 @@ import {
   CpLoadingBarComponent,
   CpProgressTone,
   CpQuickActionComponent,
+  CpRuledListComponent,
   CpSearchFieldComponent,
   CpSelectFieldComponent,
+  CpSheetComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpStep,
@@ -70,6 +72,8 @@ import {
   CpUploaderComponent,
   CpValidationSummaryComponent,
 } from '@creator-pantry/ui';
+import { RecipeSheetComponent } from '../shared/recipe-sheet/recipe-sheet.component';
+import { RecipeSheetGroup } from '../shared/recipe-sheet/recipe-sheet.model';
 
 import { ConfirmService } from '../core/confirm.service';
 import { FormValidator } from '../core/forms/form-validator';
@@ -129,6 +133,9 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpChipComponent,
     CpChipGroupComponent,
     CpMenuSelectComponent,
+    CpRuledListComponent,
+    CpSheetComponent,
+    RecipeSheetComponent,
     CpChoiceGroupComponent,
     CpNoticeComponent,
     CpOptionCardComponent,
@@ -255,6 +262,46 @@ export class DesignSystemShowcaseComponent {
   protected toggleChip(status: string): void {
     this.chipsOn.update((on) => (on.includes(status) ? on.filter((each) => each !== status) : [...on, status]));
   }
+
+  /** The recipe-sheet example: a draft's two lists, with groups, notes, an optional line and one open question. */
+  protected readonly recipeSheetIngredients: readonly RecipeSheetGroup[] = [
+    {
+      key: 'burgers',
+      title: 'For the burgers',
+      lines: [
+        { key: 'beef', text: '1 lb ground beef', note: 'choose a fat level you like for smashing' },
+        { key: 'cheese', text: '4 slices American cheese', isOptional: true },
+        { key: 'buns', text: '4 hamburger buns' },
+      ],
+    },
+    {
+      key: 'fries',
+      title: 'For the fries',
+      lines: [
+        { key: 'potatoes', text: '2 lb russet potatoes, peeled' },
+        { key: 'oil', text: 'Unresolved question: amount of neutral oil for frying', flagged: true },
+      ],
+    },
+  ];
+  protected readonly recipeSheetSteps: readonly RecipeSheetGroup[] = [
+    {
+      key: 'make-fries',
+      title: 'Make the fries',
+      lines: [
+        { key: 'cut', text: 'Cut the peeled potatoes into fries, aiming for similar thickness so they cook evenly.' },
+        { key: 'heat', text: 'Heat the oil in a heavy pot to about 325°F.', note: 'Keep it steady as you fry.' },
+        { key: 'fry', text: 'Fry the fries in batches until pale and slightly tender.', detail: 'About 6 minutes.' },
+      ],
+    },
+    {
+      key: 'smash',
+      title: 'Smash the burgers',
+      lines: [
+        { key: 'ball', text: 'Divide the ground beef into 4 portions and shape each into a loose ball.' },
+        { key: 'smash', text: 'Smash each portion into a thin patty on a hot, dry skillet and season it.' },
+      ],
+    },
+  ];
 
   /** The menu-select example: the page holds the answer, so it changes only when the page says so. */
   protected readonly menuSelectOptions: readonly CpMenuSelectOption[] = [

@@ -1,0 +1,79 @@
+<cp-sheet>
+  <div class="columns">
+    <section class="part" [attr.aria-labelledby]="ingredientsId()">
+      <h3 [id]="ingredientsId()" tabindex="-1">Ingredients</h3>
+
+      @for (group of ingredients(); track group.key) {
+        @if (group.title) {
+          <h4 class="group">
+            {{ group.title }}
+            @if (group.isOptional) {
+              <cp-badge tone="orange">Optional</cp-badge>
+            }
+          </h4>
+        }
+        <ul cpRuledList>
+          @for (line of group.lines; track line.key) {
+            <li>
+              @if (line.flagged) {
+                <cp-icon name="warning" class="flag" />
+              }
+              {{ line.text }}
+              @if (line.note) {
+                <span class="cp-muted">({{ line.note }})</span>
+              }
+              @if (line.isOptional) {
+                <cp-badge tone="orange">Optional</cp-badge>
+              }
+              @if (line.warning) {
+                <cp-status-pill tone="warning">{{ line.warning }}</cp-status-pill>
+              }
+            </li>
+          }
+        </ul>
+      } @empty {
+        <p class="cp-muted">{{ emptyIngredients() }}</p>
+      }
+    </section>
+
+    <section class="part" [attr.aria-labelledby]="methodId()">
+      <h3 [id]="methodId()" tabindex="-1">Method</h3>
+
+      @for (group of steps(); track group.key) {
+        @if (group.title) {
+          <h4 class="group">
+            {{ group.title }}
+            @if (group.isOptional) {
+              <cp-badge tone="orange">Optional</cp-badge>
+            }
+          </h4>
+        }
+        <ol cpRuledList>
+          @for (step of group.lines; track step.key) {
+            <li>
+              @if (step.flagged) {
+                <cp-icon name="warning" class="flag" />
+              }
+              {{ step.text }}
+              @if (step.note) {
+                <span class="extra cp-muted">{{ step.note }}</span>
+              }
+              @if (step.detail) {
+                <span class="extra cp-muted">{{ step.detail }}</span>
+              }
+            </li>
+          }
+        </ol>
+      } @empty {
+        <p class="cp-muted">{{ emptyMethod() }}</p>
+      }
+    </section>
+  </div>
+
+  @if (notes(); as text) {
+    <section class="part notes" [attr.aria-labelledby]="notesId">
+      <h3 [id]="notesId" tabindex="-1">Notes</h3>
+      <p>{{ text }}</p>
+    </section>
+  }
+</cp-sheet>

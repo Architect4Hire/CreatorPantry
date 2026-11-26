@@ -5,6 +5,19 @@
   <a cpBackLink cpPageHeadBreadcrumb [routerLink]="workflowsLink()">Workflows</a>
 </cp-page-head>
 
+<!-- The picture on its way, said and drawn: a busy pill naming what is happening, one sentence on why it takes
+     a while, and the shape of what is coming. Used wherever the picture is still being made. -->
+<ng-template #pictureWait>
+  <div class="picture-wait" aria-busy="true">
+    <cp-status-pill tone="progress" [busy]="true">Generating your picture</cp-status-pill>
+    <p class="cp-muted">
+      Your lead picture is being generated from this draft. This usually takes a minute or two, and the page updates on
+      its own.
+    </p>
+    <cp-skeleton shape="card" />
+  </div>
+</ng-template>
+
 <div class="quick">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
   <!-- Always present, and outside the busy layout (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
@@ -110,22 +123,28 @@
                 }
               </section>
 
-              <section class="stage" aria-labelledby="cp-quick-recipe-picture-stage">
-                <h3 id="cp-quick-recipe-picture-stage">The picture</h3>
-                @switch (pictureView().kind) {
-                  @case ('ready') {
-                    <p class="cp-muted" role="status">The picture is ready.</p>
+              <!-- Always present, even while the picture's part is not, so its change of words is what a screen
+                   reader hears when the picture starts; the shape is the sight. -->
+              <p class="cp-sr-only" role="status">{{ pictureStatus() }}</p>
+
+              <!-- Nothing is drawn for a picture that has not started: "starts once the recipe is drafted" told the
+                   creator nothing they could use, so the part appears when the picture does. -->
+              @if (pictureView().kind !== 'none') {
+                <section class="stage" aria-labelledby="cp-quick-recipe-picture-stage">
+                  <h3 id="cp-quick-recipe-picture-stage">The picture</h3>
+                  @switch (pictureView().kind) {
+                    @case ('working') {
+                      <ng-container [ngTemplateOutlet]="pictureWait" />
+                    }
+                    @case ('ready') {
+                      <p class="cp-muted" role="status">The picture is ready.</p>
+                    }
+                    @default {
+                      <p class="cp-muted" role="status">{{ $any(pictureView()).sentence }}</p>
+                    }
                   }
-                  @case ('none') {
-                    <p class="cp-muted" role="status"
-                      >Starts once the recipe is drafted, so it can show what is in it.</p
-                    >
-                  }
-                  @default {
-                    <p class="cp-muted" role="status">{{ $any(pictureView()).sentence }}</p>
-                  }
-                }
-              </section>
+                </section>
+              }
 
               <div class="cp-actions">
                 @if (draft.phase().kind === 'failed') {
@@ -171,129 +190,119 @@
                   </cp-notice>
                 }
 
+                <!-- Everything still open, said once: how many lines and steps carry a question where a value
+                     belongs, and the model's own questions in one list, rather than a notice apiece. -->
+                @if (gapSentence(); as sentence) {
+                  <cp-notice tone="warning" role="note">{{ sentence }}</cp-notice>
+                }
+                @if (recipeDraft().unresolvedQuestions.length > 0) {
+                  <section class="questions" aria-labelledby="cp-quick-recipe-questions">
+                    <h3 id="cp-quick-recipe-questions">Needs your answer</h3>
+                    <ul class="lines">
+                      @for (question of recipeDraft().unresolvedQuestions; track question.message) {
+                        <li>{{ question.message }}</li>
+                      }
+                    </ul>
+                  </section>
+                }
+
                 <div class="made">
-                  <section class="shot" aria-labelledby="cp-quick-recipe-picture-heading">
-                    <h3 id="cp-quick-recipe-picture-heading">Lead picture</h3>
-                    @switch (pictureView().kind) {
-                      @case ('ready') {
-                        <cp-content-pipeline-staged-image
-                          [workspaceSlug]="workspaceSlug()"
-                          [image]="$any(pictureView()).image"
-                          [position]="1"
-                          [total]="1"
-                        />
-                        <p class="cp-muted">
-                          <cp-generated-label kind="picture" />
-                          Planned from this draft's ingredients. Nothing has checked the picture against them, so look
-                          that it shows the dish as written.
-                        </p>
+                  <div class="recipe-head">
+                    <section class="shot" aria-labelledby="cp-quick-recipe-picture-heading">
+                      <h3 id="cp-quick-recipe-picture-heading">Lead picture</h3>
+                      <p class="cp-sr-only" role="status">{{ pictureStatus() }}</p>
+                      @switch (pictureView().kind) {
+                        @case ('ready') {
+                          <cp-content-pipeline-staged-image
+                            [workspaceSlug]="workspaceSlug()"
+                            [image]="$any(pictureView()).image"
+                            [position]="1"
+                            [total]="1"
+                          />
+                          <p class="cp-muted">
+                            <cp-generated-label kind="picture" />
+                            Planned from this draft's ingredients. Nothing has checked the picture against them, so look
+                            that it shows the dish as written.
+                          </p>
+                        }
+                        @case ('working') {
+                          <ng-container [ngTemplateOutlet]="pictureWait" />
+                        }
+                        @case ('missed') {
+                          <cp-notice tone="warning" role="status">
+                            {{ $any(pictureView()).sentence }} You can still save the recipe without one.
+                          </cp-notice>
+                        }
+                        @default {
+                          <p class="cp-muted">No picture was asked for.</p>
+                        }
                       }
-                      @case ('working') {
-                        <p class="cp-muted" role="status">{{ $any(pictureView()).sentence }}</p>
-                      }
-                      @case ('missed') {
-                        <cp-notice tone="warning" role="status">
-                          {{ $any(pictureView()).sentence }} You can still save the recipe without one.
-                        </cp-notice>
-                      }
-                      @default {
-                        <p class="cp-muted">No picture was asked for.</p>
-                      }
-                    }
-                    <div class="cp-actions">
-                      @if (pictureView().kind === 'ready') {
-                        <!-- A button beside the picture rather than the picture as a button: the picture can
+                      <div class="cp-actions">
+                        @if (pictureView().kind === 'ready') {
+                          <!-- A button beside the picture rather than the picture as a button: the picture can
                              hold a control of its own ("Try again"), and a button inside a button is invalid. -->
-                        <button
-                          cpButton
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          (click)="viewPictureLarger($event)"
-                        >
-                          View larger
-                        </button>
-                      }
-                      @if (!alreadySaved() && !pictureWorking()) {
-                        <button
-                          cpButton
-                          type="button"
-                          variant="text"
-                          size="sm"
-                          [disabled]="saving()"
-                          (click)="anotherPicture()"
-                        >
-                          {{ pictureView().kind === 'ready' ? 'Make a different picture' : 'Try the picture again' }}
-                        </button>
-                      }
-                    </div>
-                  </section>
-
-                  <section class="recipe" aria-labelledby="cp-quick-recipe-draft-heading">
-                    <p class="plain"><cp-generated-label /></p>
-                    <h3 id="cp-quick-recipe-draft-heading">{{ recipeDraft().title || 'Untitled draft' }}</h3>
-                    @if (recipeDraft().description; as description) {
-                      <p class="plain">{{ description }}</p>
-                    }
-
-                    <dl cpFacts layout="inline">
-                      @if (recipeDraft().yield.yieldText; as yieldText) {
-                        <div cpFact label="Makes">{{ yieldText }}</div>
-                      } @else if (recipeDraft().yield.servingCount; as servings) {
-                        <div cpFact label="Serves">{{ servings }}</div>
-                      }
-                      @if (recipeDraft().timing.prepTimeMinutes; as prep) {
-                        <div cpFact label="Prep">{{ prep }} min</div>
-                      }
-                      @if (recipeDraft().timing.cookTimeMinutes; as cook) {
-                        <div cpFact label="Cook">{{ cook }} min</div>
-                      }
-                      @if (recipeDraft().timing.totalTimeMinutes; as total) {
-                        <div cpFact label="Total">{{ total }} min</div>
-                      }
-                    </dl>
-
-                    <h4>Ingredients</h4>
-                    @for (group of recipeDraft().ingredientGroups; track group.changeId) {
-                      <!-- An untitled group is the ordinary ungrouped list and gets no heading (recipes.md). -->
-                      @if (group.title) {
-                        <h5>{{ group.title }}</h5>
-                      }
-                      <ul class="lines">
-                        @for (line of group.items; track line.changeId) {
-                          <li>{{ line.displayText }}</li>
+                          <button
+                            cpButton
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            (click)="viewPictureLarger($event)"
+                          >
+                            View larger
+                          </button>
                         }
-                      </ul>
-                    } @empty {
-                      <p class="cp-muted">No ingredients came back.</p>
-                    }
-
-                    <h4>Method</h4>
-                    @for (group of recipeDraft().instructionGroups; track group.changeId) {
-                      @if (group.title) {
-                        <h5>{{ group.title }}</h5>
-                      }
-                      <ol class="lines">
-                        @for (item of group.items; track item.changeId) {
-                          <li>{{ item.text }}</li>
+                        @if (!alreadySaved() && !pictureWorking()) {
+                          <button
+                            cpButton
+                            type="button"
+                            variant="text"
+                            size="sm"
+                            [disabled]="saving()"
+                            (click)="anotherPicture()"
+                          >
+                            {{ pictureView().kind === 'ready' ? 'Make a different picture' : 'Try the picture again' }}
+                          </button>
                         }
-                      </ol>
-                    } @empty {
-                      <p class="cp-muted">No method came back.</p>
-                    }
+                      </div>
+                    </section>
 
-                    @if (recipeDraft().notes; as notes) {
-                      <h4>Notes</h4>
-                      <p class="plain notes">{{ notes }}</p>
-                    }
-                  </section>
+                    <section class="intro" aria-labelledby="cp-quick-recipe-draft-heading">
+                      <p class="plain"><cp-generated-label /></p>
+                      <h3 id="cp-quick-recipe-draft-heading">{{ recipeDraft().title || 'Untitled draft' }}</h3>
+                      @if (recipeDraft().description; as description) {
+                        <p class="plain">{{ description }}</p>
+                      }
+
+                      <dl cpFacts layout="inline">
+                        @if (recipeDraft().yield.yieldText; as yieldText) {
+                          <div cpFact label="Makes">{{ yieldText }}</div>
+                        } @else if (recipeDraft().yield.servingCount; as servings) {
+                          <div cpFact label="Serves">{{ servings }}</div>
+                        }
+                        @if (recipeDraft().timing.prepTimeMinutes; as prep) {
+                          <div cpFact label="Prep">{{ prep }} min</div>
+                        }
+                        @if (recipeDraft().timing.cookTimeMinutes; as cook) {
+                          <div cpFact label="Cook">{{ cook }} min</div>
+                        }
+                        @if (recipeDraft().timing.totalTimeMinutes; as total) {
+                          <div cpFact label="Total">{{ total }} min</div>
+                        }
+                      </dl>
+                    </section>
+                  </div>
+
+                  <cp-recipe-sheet
+                    [ingredients]="sheetIngredients()"
+                    [steps]="sheetSteps()"
+                    [notes]="recipeDraft().notes"
+                    ingredientsId="cp-quick-recipe-ingredients"
+                    methodId="cp-quick-recipe-method"
+                  />
                 </div>
 
                 <!-- Everything the draft flagged, in full: a caution left on the line-by-line page would be a
-                     caution this page hid (.claude/rules/ai.md). -->
-                @for (question of recipeDraft().unresolvedQuestions; track question.message) {
-                  <cp-notice tone="warning" role="note">Needs your answer: {{ question.message }}</cp-notice>
-                }
+                     caution this page hid (.claude/rules/ai.md). The open questions are listed above. -->
                 @for (warning of recipeDraft().warnings; track warning.message) {
                   <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
                     {{ warning.message }}

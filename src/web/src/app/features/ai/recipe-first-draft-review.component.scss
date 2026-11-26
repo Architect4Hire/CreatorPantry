@@ -116,6 +116,12 @@
   font-size: var(--cp-font-size-xs);
 }
 
+/* The mark beside a line or step that still carries the model's question. The orange is the accent as text,
+   never the raw accent; the words beside it say the same thing, so it is never colour alone. */
+.draft-flag-icon {
+  color: var(--cp-orange-text);
+}
+
 .draft-group-title {
   display: flex;
   flex-wrap: wrap;
@@ -418,52 +424,15 @@
   letter-spacing: var(--cp-tracking-display);
 }
 
-.preview-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-2);
-  font-size: var(--cp-font-size-md);
-}
-
-.preview-list,
-.preview-steps {
+.preview-list {
   display: grid;
   gap: var(--cp-space-2);
   padding-left: var(--cp-space-5);
   line-height: var(--cp-leading-normal);
 }
 
-.preview-list > li::marker,
-.preview-steps > li::marker {
+.preview-list > li::marker {
   color: var(--cp-text-muted);
-}
-
-.preview-steps {
-  gap: var(--cp-space-3);
-}
-
-.preview-steps > li::marker {
-  font-weight: 700;
-}
-
-.preview-step-extra {
-  display: block;
-  font-size: var(--cp-font-size-sm);
-}
-
-/* Ingredients beside the method where there is room for both, one above the other where there is not. */
-.preview-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-  gap: var(--cp-space-6) var(--cp-space-8);
-  align-items: start;
-}
-
-@media (min-width: 60rem) {
-  .preview-columns {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  }
 }
 
 .preview-provenance {

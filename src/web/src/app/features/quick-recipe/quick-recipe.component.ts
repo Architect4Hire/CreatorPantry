@@ -10,6 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, map } from 'rxjs';
@@ -27,6 +28,7 @@ import {
   CpPageHeadComponent,
   CpProgressComponent,
   CpSkeletonComponent,
+  CpStatusPillComponent,
   CpStep,
   CpStepperComponent,
   CpTopicCardComponent,
@@ -59,6 +61,8 @@ import { RecipeAssetLinkService } from '../../services/recipe-asset-link.service
 import { RecipeDraftService } from '../../services/recipe-draft.service';
 import { RecipeService } from '../../services/recipe.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { RecipeSheetComponent } from '../../shared/recipe-sheet/recipe-sheet.component';
+import { hasOpenQuestion, ingredientSheetGroups, stepSheetGroups } from '../../shared/recipe-sheet/recipe-sheet.model';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { AiOperationStatusComponent } from '../ai/ai-operation-status.component';
 import { AiOperationPhase, AiOperationTracker } from '../ai/ai-operation-tracker';
@@ -124,6 +128,7 @@ type PictureView =
   selector: 'cp-quick-recipe',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     RouterLink,
     AiAllowanceNoticeComponent,
     AiOperationStatusComponent,
@@ -140,7 +145,9 @@ type PictureView =
     CpNoticeComponent,
     CpPageHeadComponent,
     CpProgressComponent,
+    RecipeSheetComponent,
     CpSkeletonComponent,
+    CpStatusPillComponent,
     CpStepperComponent,
     CpTopicCardComponent,
   ],
@@ -247,6 +254,41 @@ export class QuickRecipeComponent {
     draftFromProposal(this.reviewOperation()?.proposal ?? null),
   );
 
+  /**
+   * One sentence for everything still open, so the review says it once instead of on every line: how many lines
+   * and steps carry a question where a value belongs, or — when none do — how many questions the draft left
+   * open. Null when nothing is open.
+   */
+  protected readonly gapSentence = computed<string | null>(() => {
+    const draft = this.recipeDraft();
+    const lines = draft.ingredientGroups
+      .flatMap((group) => group.items)
+      .filter((line) => hasOpenQuestion(line.displayText)).length;
+    const steps = draft.instructionGroups
+      .flatMap((group) => group.items)
+      .filter((item) => hasOpenQuestion(item.text)).length;
+    const open = draft.unresolvedQuestions.length;
+
+    if (lines + steps > 0) {
+      const parts = [
+        lines > 0 ? `${lines} ingredient ${lines === 1 ? 'line' : 'lines'}` : null,
+        steps > 0 ? `${steps} ${steps === 1 ? 'step' : 'steps'}` : null,
+      ].filter((part) => part !== null);
+      const verb = lines + steps === 1 ? 'has' : 'have';
+      const next = this.alreadySaved()
+        ? ''
+        : ' Fill them in with “Change it line by line first” before you cook from this.';
+
+      return `${parts.join(' and ')} ${verb} a question written where the amount, temperature or time belongs.${next}`;
+    }
+
+    return open > 0 ? `The draft left ${open} ${open === 1 ? 'question' : 'questions'} open for you to settle.` : null;
+  });
+
+  /** The draft as the shared recipe sheet reads it: ingredients and method, in the draft's own words. */
+  protected readonly sheetIngredients = computed(() => ingredientSheetGroups(this.recipeDraft()));
+  protected readonly sheetSteps = computed(() => stepSheetGroups(this.recipeDraft()));
+
   protected readonly step = computed<StepId>(() => {
     if (this.reviewOperation() !== null) return 'review';
 
@@ -350,6 +392,15 @@ export class QuickRecipeComponent {
       planningView(this.prompt.phase(), 'Writing the brief for the picture…') ??
       planningView(this.looks.phase(), 'Planning the picture…') ?? { kind: 'none' }
     );
+  });
+
+  /**
+   * What the picture's one offscreen status says while it is on its way, and nothing once it is not. What shows
+   * meanwhile is the shape of the picture (`cp-skeleton`), so no visible sentence stands in for it.
+   */
+  protected readonly pictureStatus = computed(() => {
+    const view = this.pictureView();
+    return view.kind === 'working' ? view.sentence : '';
   });
 
   /** The staged picture a save would keep, or null when there is none to keep. */

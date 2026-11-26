@@ -52,6 +52,8 @@ export const RULES = {
     'Columns of ordered things are `cp-board-column` inside `[cpBoard]`; the feature supplies the list in each and how a thing moves.',
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
+  'ruled-list':
+    'A list read down the page, a rule under each row, is `ul[cpRuledList]` or `ol[cpRuledList]` (numbered), on a `cp-sheet` where it sits like paper; a feature draws no ruled rows, numbers or paper of its own (DESIGN-SYSTEM.md, "A sheet to read down").',
   'stat-tile': 'A figure read at a glance is `cp-stat-tile`: the count and what it counts as one sentence, a line of context and a link (DESIGN-SYSTEM.md, "Meters and figures").',
   'option-card': "One choice among several, compared side by side, is `cp-option-card` in a `ul[cpCardGrid]`: its key facts as tags, the rest behind its disclosure, and its one button. A value a Save submits is `cp-choice-group` (DESIGN-SYSTEM.md, \"Choosing between options\").",
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
@@ -170,6 +172,7 @@ const OWNED_CLASSES = {
   board: ['board', 'board-column', 'lane', 'lanes', 'kanban'],
   stepper: ['step-list', 'steps', 'stepper'],
   chip: ['chip', 'chips'],
+  'ruled-list': ['ruled', 'ruled-list', 'ruled-rows', 'notepad', 'ingredient-lines', 'method-steps'],
   'stat-tile': ['stat', 'stats', 'stat-tile', 'stat-tiles', 'kpi', 'kpis', 'figure-tile', 'figure-tiles'],
   'option-card': ['option-card', 'option-cards', 'concept-card', 'concept-title', 'concept-dietary', 'variant-card'],
   illustration: [

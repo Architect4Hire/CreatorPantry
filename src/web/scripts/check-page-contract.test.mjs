@@ -69,6 +69,16 @@ test('card-grid: no stylesheet lays out its own grid of cards', () => {
   assert.deepEqual(stylesheetViolations('.pair { display: grid; grid-template-columns: minmax(0, 1fr) auto; }'), []);
 });
 
+test('ruled-list: the library owns ruled rows and the paper they sit on', () => {
+  assert.deepEqual(rules(stylesheetViolations('.ingredient-lines li { border-bottom: 1px solid; }')), ['ruled-list']);
+  assert.deepEqual(rules(stylesheetViolations('.method-steps { gap: 1rem; } .notepad { padding: 1rem; }')), [
+    'ruled-list',
+    'ruled-list',
+  ]);
+  // A name that only contains one of these is not the part.
+  assert.deepEqual(stylesheetViolations('.ruled-note { margin: 0; } .sheet > li { margin: 0; }'), []);
+});
+
 test('facts, stepper, chip and toolbar-field: the library owns each', () => {
   assert.deepEqual(rules(stylesheetViolations('.facts { margin: 0; } .fact dt { font-size: 1rem; }')), ['facts', 'facts']);
   assert.deepEqual(rules(stylesheetViolations('.step-list { margin: 0; }')), ['stepper']);
