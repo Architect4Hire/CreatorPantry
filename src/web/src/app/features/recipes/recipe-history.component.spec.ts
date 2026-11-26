@@ -512,6 +512,21 @@ describe('RecipeHistoryComponent', () => {
     expect(buttonWith(element, 'Compare')).toBeUndefined();
   });
 
+  /**
+   * The row's grid reserves two 40px picker columns only while the radios exist. Without that, a lone version's
+   * body fell into the first 40px track and wrapped a word per line.
+   */
+  it('gives a lone version the full row width rather than a picker column', async () => {
+    service.history = { status: 'found', page: { items: [entry(1)], nextCursor: null } };
+    const element = await render();
+
+    const row = rows(element)[0];
+    const body = row.querySelector<HTMLElement>('.version-body')!;
+
+    expect(row.classList.contains('version--pickable')).toBe(false);
+    expect(body.getBoundingClientRect().width).toBeGreaterThan(row.getBoundingClientRect().width / 2);
+  });
+
   it('renders the comparison the server returned for the chosen pair', async () => {
     service.history = { status: 'found', page: { items: [entry(2), entry(1)], nextCursor: null } };
     const element = await render();

@@ -24,12 +24,19 @@
    without either knowing the other's widths. The two picker columns are --cp-space-10 wide, not narrower:
    with the matching min-height on .pick that is the 40px target DESIGN-SYSTEM.md asks for in both
    dimensions, where 1.5rem gave a 24px-wide one. */
+/* The two picker columns exist only while the radios do (`canChoose()`: two or more versions). A row with no
+   pickers is one column; otherwise its body falls into the first 40px track and wraps a word per line. */
 .legend,
 .version {
   display: grid;
-  grid-template-columns: var(--cp-space-10) var(--cp-space-10) 1fr;
+  grid-template-columns: 1fr;
   align-items: start;
   gap: var(--cp-space-3);
+}
+
+.legend,
+.version--pickable {
+  grid-template-columns: var(--cp-space-10) var(--cp-space-10) 1fr;
 }
 
 .legend {
