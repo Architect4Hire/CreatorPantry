@@ -27,7 +27,15 @@ export type RecipeStatus = 'Draft' | 'InDevelopment' | 'Testing' | 'ReadyForRevi
  * rather than an unreadable-body 400.
  */
 export type SettableRecipeStatus = 'Draft' | 'Approved' | 'Archived';
-export type RecipeVersionSource = 'CreatorEdit' | 'AiProposalAccepted' | 'Import' | 'Restore' | 'Duplicate';
+/**
+ * Mirrors RecipeVersionSource: why a version exists.
+ *
+ * `ReadinessApproval` is the snapshot an approval captures so it has immutable words to refer to — content
+ * byte-identical to its parent, the only version minted `Ready`. Every approved recipe's current version is
+ * one, so a client missing the member cannot decode an approved recipe at all.
+ */
+export type RecipeVersionSource =
+  'CreatorEdit' | 'AiProposalAccepted' | 'Import' | 'Restore' | 'Duplicate' | 'ReadinessApproval';
 export type RecipeVersionReadiness = 'Draft' | 'Ready';
 export type IngredientMatchStatus = 'NotAttempted' | 'Matched' | 'NoMatch' | 'Ambiguous';
 export type IngredientScaling = 'Proportional' | 'Fixed' | 'ReviewRequired';
@@ -49,6 +57,7 @@ export const RECIPE_VERSION_SOURCE_VALUES: ReadonlySet<string> = new Set<RecipeV
   'Import',
   'Restore',
   'Duplicate',
+  'ReadinessApproval',
 ]);
 export const RECIPE_VERSION_READINESS_VALUES: ReadonlySet<string> = new Set<RecipeVersionReadiness>(['Draft', 'Ready']);
 const INGREDIENT_MATCH_STATUS_VALUES: ReadonlySet<string> = new Set<IngredientMatchStatus>([

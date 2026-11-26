@@ -122,6 +122,21 @@ describe('decodeRecipeDetail', () => {
     expect(decodeRecipeDetail(VALID_RECIPE_DETAIL)).toEqual(VALID_RECIPE_DETAIL);
   });
 
+  it("decodes an approved recipe, whose current version is the approval's own snapshot", () => {
+    // Every approved recipe's current version has source ReadinessApproval, so a client that does not know
+    // the member rejects the whole detail and the editor reports the recipe as unavailable.
+    const approved = {
+      ...VALID_RECIPE_DETAIL,
+      status: 'Approved',
+      currentVersion: { ...VALID_RECIPE_DETAIL.currentVersion, source: 'ReadinessApproval', readiness: 'Ready' },
+    };
+
+    const result = decodeRecipeDetail(approved);
+
+    expect(result?.status).toBe('Approved');
+    expect(result?.currentVersion?.source).toBe('ReadinessApproval');
+  });
+
   it('decodes a recipe with no current version', () => {
     const result = decodeRecipeDetail({ ...VALID_RECIPE_DETAIL, currentVersion: null });
     expect(result?.currentVersion).toBeNull();

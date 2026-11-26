@@ -64,6 +64,10 @@ const PROVENANCE: Partial<Record<RecipeVersionSource, ProvenanceLabel>> = {
   Restore: { text: 'Restored', icon: '↺' },
   Duplicate: { text: 'Copied', icon: '⧉' },
   Import: { text: 'Imported', icon: '↓' },
+  // The snapshot an approval captured. Its content is byte-identical to its parent, so without this the row
+  // reads as a second copy of the version above it for no visible reason — and which version carries the
+  // decision is exactly what a reader scanning the history is looking for (TESTRUN-005).
+  ReadinessApproval: { text: 'Approved', icon: '✓' },
 };
 
 /** Makes each panel's radio groups unique, so two panels on one page cannot share a selection. */

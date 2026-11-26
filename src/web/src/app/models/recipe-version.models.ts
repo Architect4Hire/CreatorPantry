@@ -19,7 +19,8 @@
 //   so a single new RecipeVersionSource member would blank the history list rather than mislabel one row.
 //   They are held closed anyway, because every other decoder in this app decodes enums closed and one file
 //   deciding otherwise would be its own inconsistency. If a new source member is ever added server-side,
-//   widen these two here first.
+//   widen `RecipeVersionSource` in `recipe.models.ts` first — `ReadinessApproval` was added there and not
+//   here, and every approved recipe's history blanked until it was.
 
 // The shared value sets and primitive guards are imported rather than redeclared: two spellings of one
 // server enum is exactly the drift the header above warns about.

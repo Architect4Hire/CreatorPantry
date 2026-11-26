@@ -66,6 +66,23 @@ describe('recipe version decoders', () => {
       expect(decodeRecipeVersionHistoryPage({ items: [HISTORY_ENTRY, { id: 'v2' }], nextCursor: null })).toBeNull();
     });
 
+    it("decodes an approval's snapshot, which is what an approved recipe's history is topped by", () => {
+      const approval = {
+        ...HISTORY_ENTRY,
+        id: 'v2',
+        versionNumber: 2,
+        source: 'ReadinessApproval',
+        readiness: 'Ready',
+      } as const;
+
+      // One unreadable entry rejects the whole page, so an unknown ReadinessApproval blanked the history of
+      // every approved recipe rather than mislabelling one row.
+      expect(decodeRecipeVersionHistoryPage({ items: [approval, HISTORY_ENTRY], nextCursor: null })).toEqual({
+        items: [approval, HISTORY_ENTRY],
+        nextCursor: null,
+      });
+    });
+
     it('rejects an unknown source rather than passing a string the UI cannot switch on', () => {
       expect(
         decodeRecipeVersionHistoryPage({ items: [{ ...HISTORY_ENTRY, source: 'Telepathy' }], nextCursor: null }),
