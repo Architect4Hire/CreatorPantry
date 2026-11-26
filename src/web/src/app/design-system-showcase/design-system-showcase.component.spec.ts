@@ -390,6 +390,25 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(chips[0].getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('shows a menu select that changes its answer only when a row is picked', async () => {
+    const fixture = await createFixture();
+    const trigger = fixture.nativeElement.querySelector(
+      'cp-menu-select button[aria-haspopup="menu"]',
+    ) as HTMLButtonElement;
+
+    expect(trigger.textContent).toContain('Cozy Fall Kitchen');
+
+    trigger.click();
+    fixture.detectChanges();
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('cp-menu-select [role="menu"] button'),
+    ) as HTMLButtonElement[];
+    rows[1].click();
+    fixture.detectChanges();
+
+    expect(trigger.textContent).toContain('Weeknight Suppers');
+  });
+
   it('shows a stepper that says each state in a word and follows Back and Continue', async () => {
     const fixture = await createFixture();
     const stepper = fixture.nativeElement.querySelector('cp-stepper') as HTMLElement;

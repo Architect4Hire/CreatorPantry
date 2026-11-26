@@ -39,6 +39,8 @@ import {
   CpListShellLoadingLayout,
   CpListShellState,
   CpMediaCardComponent,
+  CpMenuSelectComponent,
+  CpMenuSelectOption,
   CpSkeletonComponent,
   CpSpinnerComponent,
   CpStatTileComponent,
@@ -126,6 +128,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpCheckboxComponent,
     CpChipComponent,
     CpChipGroupComponent,
+    CpMenuSelectComponent,
     CpChoiceGroupComponent,
     CpNoticeComponent,
     CpOptionCardComponent,
@@ -252,6 +255,16 @@ export class DesignSystemShowcaseComponent {
   protected toggleChip(status: string): void {
     this.chipsOn.update((on) => (on.includes(status) ? on.filter((each) => each !== status) : [...on, status]));
   }
+
+  /** The menu-select example: the page holds the answer, so it changes only when the page says so. */
+  protected readonly menuSelectOptions: readonly CpMenuSelectOption[] = [
+    { value: 'cozy-fall', label: 'Cozy Fall Kitchen' },
+    { value: 'weeknight', label: 'Weeknight Suppers' },
+    { value: 'holiday-baking', label: 'Holiday Baking with a very long workspace name' },
+  ];
+  protected readonly menuSelectValue = signal<string | null>('cozy-fall');
+  protected readonly menuSelectActions = [{ id: 'create', label: '+ Create workspace…' }] as const;
+  protected readonly menuSelectLastAction = signal('');
 
   /** A value with a line break of its own, to show what `prose` keeps. */
   readonly topicCardNotes = 'Shot at noon, by the window.\nNo flash.';

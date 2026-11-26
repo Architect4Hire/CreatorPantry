@@ -240,6 +240,12 @@ A filter in a toolbar is one of two controls, and what decides is how many answe
 
 Chips are not tabs, not a choice in a form (`CpChoiceGroupComponent`) and not a badge that can be clicked. A chip never navigates and never removes itself.
 
+### A menu select or a select
+
+A native `<select>` is the right control for a field in a form and a filter in a toolbar (`cp-field`, `cp-select-field`): it is accessible everywhere, and on a phone it opens the system picker. Its open list is the operating system's, though, so its hover and selected rows come out in the OS's blue in both themes and no stylesheet can change them.
+
+`cp-menu-select` is for a choice that sits on a surface the creator looks at all day and whose open list should read as part of the product — the sidebar's workspace switcher. It is drawn like the library's native controls (edge, fill, hover edge, focus ring, a caret that turns over) and opens a card of rows that hover and select in the sheet's own tokens; the chosen row has a fill, a heavier label and a ✓, so it is never told by colour alone. What the menu does rather than chooses ("Create workspace…") is an `actions` entry below a divider, not an option. It is controlled — the page owns `value` — and a feature draws no listbox, popup menu or dropdown of its own.
+
 ### The two shapes: a library and a detail page
 
 Most pages are one of two things, and DAM is the reference for both. Build a new one from the same parts in the same order rather than from a feature stylesheet.

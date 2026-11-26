@@ -1,0 +1,42 @@
+<button
+  #trigger
+  type="button"
+  class="trigger"
+  aria-haspopup="menu"
+  [attr.aria-controls]="open() ? menuId : null"
+  [attr.aria-expanded]="open()"
+  [attr.aria-label]="triggerName()"
+  (click)="toggle()"
+  (keydown)="onTriggerKeydown($event)"
+>
+  <span class="trigger-text">{{ triggerText() }}</span>
+  <span class="caret" aria-hidden="true"></span>
+</button>
+@if (open()) {
+  <div class="menu" role="menu" [id]="menuId" [attr.aria-label]="label()" (keydown)="onMenuKeydown($event)">
+    @for (option of options(); track option.value) {
+      <button
+        #item
+        type="button"
+        class="item"
+        role="menuitemradio"
+        tabindex="-1"
+        [attr.aria-checked]="option.value === value()"
+        (click)="choose(option)"
+      >
+        <span class="item-text">{{ option.label }}</span>
+        @if (option.value === value()) {
+          <span class="check" aria-hidden="true">✓</span>
+        }
+      </button>
+    }
+    @if (actions().length > 0) {
+      <div class="separator" role="separator"></div>
+      @for (action of actions(); track action.id) {
+        <button #item type="button" class="item item--action" role="menuitem" tabindex="-1" (click)="act(action)">
+          <span class="item-text">{{ action.label }}</span>
+        </button>
+      }
+    }
+  </div>
+}

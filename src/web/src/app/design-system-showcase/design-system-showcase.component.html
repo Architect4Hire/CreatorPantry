@@ -1239,6 +1239,30 @@
     </cp-toolbar>
   </section>
 
+  <section aria-labelledby="menu-select-heading">
+    <h2 id="menu-select-heading">Menu select</h2>
+    <p class="section-note">
+      A choice among a few named answers where the control sits on a surface the creator looks at all day, drawn in the
+      theme rather than by the operating system: a native select's open list is painted in the OS's blue and cannot be
+      themed. It follows the menu-button pattern — arrow keys, Home and End, Escape returns focus to the button — and
+      keeps no value of its own, so it shows a new answer only when the page passes it back. An entry in
+      <code>actions</code> does something rather than choosing a value.
+    </p>
+    <div class="showcase-stack">
+      <cp-menu-select
+        label="Switch workspace"
+        [options]="menuSelectOptions"
+        [value]="menuSelectValue()"
+        [actions]="menuSelectActions"
+        (selected)="menuSelectValue.set($event)"
+        (actionChosen)="menuSelectLastAction.set($event)"
+      />
+      <p class="cp-muted" role="status">
+        {{ menuSelectLastAction() ? 'Chose the “' + menuSelectLastAction() + '” action.' : '' }}
+      </p>
+    </div>
+  </section>
+
   <section aria-labelledby="notice-heading">
     <h2 id="notice-heading">Notice</h2>
     <p class="section-note">
