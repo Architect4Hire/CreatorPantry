@@ -78,3 +78,49 @@
   background-size: 0.35rem 0.35rem;
   background-repeat: no-repeat;
 }
+
+/* A number's steppers. The browser draws its own pair of arrows, in the operating system's colours, that no
+   stylesheet can reach — a pale grey box with black glyphs in a dark theme — so they are replaced the way the
+   select's caret is: a pair of wedges drawn in the muted ink from gradients, which follow the theme with no
+   second asset.
+
+   What is drawn is only the picture. The browser's own spin buttons are kept, laid invisibly over the same
+   corner, so a click, a held press and the wheel still step the value exactly as the browser does it, with its
+   min, max and step; nothing here counts for it. Only where the engine has those buttons to restyle: Firefox
+   has none to reach, so it keeps its own, which its colour scheme already draws correctly. After the disabled
+   rule, which resets the background, so a disabled field keeps its arrows. */
+@supports selector(::-webkit-inner-spin-button) {
+  :host ::ng-deep input[type='number'] {
+    position: relative;
+    padding-inline-end: 2.5rem;
+    background-image:
+      linear-gradient(315deg, var(--cp-text-muted) 50%, transparent 50%),
+      linear-gradient(45deg, var(--cp-text-muted) 50%, transparent 50%),
+      linear-gradient(45deg, transparent 50%, var(--cp-text-muted) 50%),
+      linear-gradient(135deg, var(--cp-text-muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 1.15rem) 34%,
+      calc(100% - 0.8rem) 34%,
+      calc(100% - 1.15rem) 68%,
+      calc(100% - 0.8rem) 68%;
+    background-size: 0.35rem 0.35rem;
+    background-repeat: no-repeat;
+  }
+
+  /* Laid over the whole right edge, which the browser splits into an up half and a down half at the middle.
+     The browser holds this button to its own width (15px) whatever `width` says, which left the drawn arrows
+     only half over it: a click had to land on the very edge to step the value. Stretching it sideways from the
+     right edge widens what a click reaches to the whole of the room kept for the arrows, and a transform is the
+     one thing the browser does not hold it to; hit-testing follows it. */
+  :host ::ng-deep input[type='number']::-webkit-inner-spin-button {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    height: auto;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    transform: scaleX(2.6);
+    transform-origin: right center;
+  }
+}

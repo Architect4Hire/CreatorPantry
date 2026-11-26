@@ -48,6 +48,41 @@ describe('CpFieldComponent', () => {
     }
   });
 
+  describe('a number', () => {
+    @Component({
+      standalone: true,
+      imports: [CpFieldComponent],
+      template: `<cp-field label="Prep time" forId="prep">
+        <input id="prep" type="number" min="0" value="15" />
+      </cp-field>`,
+    })
+    class NumberHostComponent {}
+
+    /** The browser's own spin buttons are only there to restyle where the engine has them (Firefox does not). */
+    const engineHasSpinButtons = CSS.supports('selector(::-webkit-inner-spin-button)');
+
+    it('draws its own pair of arrows in the muted ink, as a select draws its caret, not the operating system’s', async () => {
+      if (!engineHasSpinButtons) return pending('this engine has no spin buttons to restyle');
+
+      await TestBed.configureTestingModule({ imports: [NumberHostComponent] }).compileComponents();
+      const fixture = TestBed.createComponent(NumberHostComponent);
+      document.body.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+
+      try {
+        const style = getComputedStyle(fixture.nativeElement.querySelector('#prep') as HTMLElement);
+
+        // Four wedges — an up pair and a down pair — in a background image, so they follow the theme.
+        expect(style.backgroundImage.match(/linear-gradient/g)?.length).toBe(4);
+        // Room for them, so a long value never runs under the arrows.
+        expect(parseFloat(style.paddingInlineEnd)).toBeGreaterThanOrEqual(40);
+        expect(style.position).toBe('relative');
+      } finally {
+        fixture.nativeElement.remove();
+      }
+    });
+  });
+
   describe('error and warning', () => {
     @Component({
       standalone: true,
