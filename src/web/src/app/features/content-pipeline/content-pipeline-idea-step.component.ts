@@ -22,6 +22,7 @@ import {
   CpFieldRowComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSelectFieldComponent,
   CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
@@ -234,6 +235,7 @@ type SubjectMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlink
   selector: 'cp-content-pipeline-idea-step',
   standalone: true,
   imports: [
+    CpSelectFieldComponent,
     CpSkeletonComponent,
     FormsModule,
     CpBadgeComponent,

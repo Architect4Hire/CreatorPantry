@@ -40,7 +40,7 @@
 }
 
 /* A picker is as wide as the reading measure allows and no wider, so the badge and Keep stay on its line. */
-select.facet-value {
+cp-select-field.facet-value {
   max-width: var(--cp-measure-field);
   font-weight: 400;
 }
@@ -56,4 +56,17 @@ select.facet-value {
 .facets button[aria-pressed='true'] {
   background: var(--cp-primary-soft);
   color: var(--cp-text);
+}
+
+/* The paragraph that used to sit above these gave them their room; without it they need it said. */
+.suggest,
+details {
+  margin-block-start: var(--cp-space-6);
+}
+
+/* Inside the disclosure each part is given room from the one above it: the explanation, the field with its hint,
+   and the button. */
+details > cp-field,
+details > .code-actions {
+  margin-block-start: var(--cp-space-4);
 }

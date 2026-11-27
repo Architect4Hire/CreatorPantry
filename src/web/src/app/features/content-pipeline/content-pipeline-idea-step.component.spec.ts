@@ -312,7 +312,7 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await mount();
 
     expect(queries.length).toBe(0);
-    expect(el.textContent).toContain('No idea yet');
+    expect(el.textContent).not.toContain('No idea yet');
     expect(buttonWith('Suggest an idea')).toBeTruthy();
   });
 
@@ -682,8 +682,6 @@ describe('ContentPipelineIdeaStepComponent', () => {
 
     it('asks for an idea around that recipe, at the version that was linked', async () => {
       await mountLinked();
-
-      expect(el.textContent).toContain('around the recipe you linked');
 
       await click('Suggest an idea');
 
