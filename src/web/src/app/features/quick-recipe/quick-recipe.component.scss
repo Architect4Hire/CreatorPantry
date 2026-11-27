@@ -7,7 +7,8 @@
 .name-form,
 .stage,
 .shot,
-.recipe {
+.intro,
+.questions {
   display: grid;
   gap: var(--cp-space-4);
   /* minmax(0, …) so a long value inside the card cannot push the page sideways (DESIGN-SYSTEM.md). */
@@ -19,12 +20,13 @@
 }
 
 .stage,
-.recipe {
+.intro {
   gap: var(--cp-space-2);
 }
 
 .layout,
-.made {
+.made,
+.recipe-head {
   display: grid;
   gap: var(--cp-space-6);
   align-items: start;
@@ -37,8 +39,10 @@
   }
 }
 
+/* The finished draft reads as a recipe card: the picture beside the title and its facts, then the recipe sheet
+   below. Held until the card is wide enough for two columns; below that it is the one column it always was. */
 @media (min-width: 72rem) {
-  .made {
+  .recipe-head {
     grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
   }
 }
@@ -48,6 +52,20 @@
 }
 
 .shot cp-content-pipeline-staged-image {
+  justify-self: stretch;
+}
+
+/* The picture on its way, held to the width the finished one takes beside the recipe, so nothing jumps when it
+   lands. Only a size: the shape and its sweep are cp-skeleton's. */
+.picture-wait {
+  display: grid;
+  gap: var(--cp-space-3);
+  justify-items: start;
+  inline-size: 100%;
+  max-inline-size: 22rem;
+}
+
+.picture-wait cp-skeleton {
   justify-self: stretch;
 }
 
@@ -67,8 +85,4 @@ h3 {
   display: grid;
   gap: var(--cp-space-1);
   padding-inline-start: var(--cp-space-5);
-}
-
-.notes {
-  white-space: pre-line;
 }

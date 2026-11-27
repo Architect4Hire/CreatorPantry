@@ -1,0 +1,129 @@
+:host {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+/* Drawn like the library's native controls (native-control.scss): the control edge, the field fill, the hover
+   edge, and on focus the action-colour ring inside a transparent outline, so a forced-colours user, for whom
+   box-shadow is not painted, still gets the system's own focus line. 40px, the minimum target. */
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 var(--cp-space-3);
+  border: 1px solid var(--cp-border-control);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-field-bg);
+  color: var(--cp-text);
+  font: 600 var(--cp-font-size-sm) / 1.2 var(--cp-font-sans);
+  text-align: start;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--cp-text) 6%, transparent);
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    box-shadow var(--cp-duration-fast) var(--cp-ease);
+}
+.trigger:hover {
+  border-color: var(--cp-text-muted);
+}
+.trigger:is(:focus-visible, [aria-expanded='true']) {
+  border-color: var(--cp-primary);
+  outline: 2px solid transparent;
+  outline-offset: 0;
+  box-shadow: 0 0 0 var(--cp-ring-width) var(--cp-focus);
+}
+
+.trigger-text,
+.item-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A chevron that turns over while the menu is open, in the muted ink so it follows the theme. */
+.caret {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: -0.2rem;
+  border-right: 2px solid var(--cp-text-muted);
+  border-bottom: 2px solid var(--cp-text-muted);
+  transform: rotate(45deg);
+  transition: transform var(--cp-duration-fast) var(--cp-ease);
+}
+.trigger[aria-expanded='true'] .caret {
+  margin-top: 0.2rem;
+  transform: rotate(225deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .caret,
+  .item {
+    transition: none;
+  }
+}
+
+.menu {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + var(--cp-space-1));
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  padding: var(--cp-space-1);
+  border: 1px solid var(--cp-card-edge);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  box-shadow: var(--cp-shadow-md);
+}
+
+/* A quiet fill on hover and focus; the chosen one a soft action-colour fill with a heavier label and a ✓, so
+   it is never told by colour alone. */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text);
+  font: 500 var(--cp-font-size-sm) / 1.2 var(--cp-font-sans);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background var(--cp-duration-fast),
+    color var(--cp-duration-fast);
+}
+.item:is(:hover, :focus-visible) {
+  background: var(--cp-surface-subtle);
+}
+.item:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: -2px;
+}
+.item[aria-checked='true'] {
+  background: var(--cp-primary-soft);
+  color: var(--cp-primary-text);
+  font-weight: 700;
+}
+.check {
+  flex: none;
+}
+.separator {
+  height: 1px;
+  margin: var(--cp-space-1) var(--cp-space-2);
+  background: var(--cp-border);
+}
+.item--action {
+  color: var(--cp-primary-text);
+  font-weight: 600;
+}

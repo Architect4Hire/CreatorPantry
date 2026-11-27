@@ -1,0 +1,56 @@
+:host {
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: cp-ruled;
+}
+
+/* The list holds rows and nothing else, so a descendant selector costs nothing here (as in `ul[cpCardGrid]`).
+   The rule is dashed, as stitching or a line to cut along is: it ruled paper in a picture, not a table. */
+:host ::ng-deep > li {
+  position: relative;
+  padding-block: var(--cp-space-2);
+  border-block-end: 2px dashed var(--cp-border-strong);
+  overflow-wrap: anywhere;
+}
+
+/* A bullet for a plain list: a round dot in the tool's colour, set in the margin before the row's text. */
+:host(ul) ::ng-deep > li {
+  padding-inline-start: 1.5rem;
+}
+
+:host(ul) ::ng-deep > li::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0.375rem;
+  inset-block-start: 1.0625rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-tone);
+}
+
+/* Numbers, in a round badge in the margin before the row's text, from a counter rather than the browser's
+   marker, so the rule can run under the number as well as the words. The badge is the tool's soft fill with
+   its text colour, so it follows the route's tone and both themes. */
+:host(ol) ::ng-deep > li {
+  padding-inline-start: 2.75rem;
+  counter-increment: cp-ruled;
+}
+
+:host(ol) ::ng-deep > li::before {
+  content: counter(cp-ruled);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.3rem;
+  display: grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-tone-soft);
+  color: var(--cp-tone-text);
+  font: 600 var(--cp-font-size-sm) / 1 var(--cp-font-display);
+  font-variant-numeric: tabular-nums;
+}

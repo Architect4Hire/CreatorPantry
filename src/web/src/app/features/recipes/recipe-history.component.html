@@ -46,7 +46,11 @@
 
   <ul class="versions" role="list">
     @for (version of versions(); track version.id) {
-      <li class="version" [attr.aria-current]="isCurrent(version) ? 'true' : null">
+      <li
+        class="version"
+        [class.version--pickable]="canChoose()"
+        [attr.aria-current]="isCurrent(version) ? 'true' : null"
+      >
         @if (canChoose()) {
           <!-- Two native radio groups rather than a custom widget: arrow keys walk one group, Space
                selects, and each group is a single tab stop — behaviour a keyboard user already expects and

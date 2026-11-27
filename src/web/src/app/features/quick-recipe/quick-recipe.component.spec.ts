@@ -119,6 +119,38 @@ const DRAFT = proposal(
 );
 const DRAFT_CHANGE_IDS = DRAFT.changes.map((change) => change.changeId);
 
+/** A draft whose model wrote its own question where an amount and a temperature belong, and left one question open. */
+const DRAFT_WITH_GAPS = proposal(
+  [
+    row({ changeId: 'g-title', fieldName: 'title', afterValue: 'Chocolate Cake' }),
+    row({ changeId: 'g-group', changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1' }),
+    row({
+      changeId: 'g-line-1',
+      changeKind: 'Add',
+      targetKind: 'Ingredient',
+      targetId: 'i1',
+      afterValue: 'Unresolved question: flour amount, all-purpose flour, sifted',
+    }),
+    row({ changeId: 'g-line-2', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'i2', afterValue: '2 eggs' }),
+    row({ changeId: 'g-method', changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'g2' }),
+    row({
+      changeId: 'g-step-1',
+      changeKind: 'Add',
+      targetKind: 'InstructionStep',
+      targetId: 's1',
+      afterValue: 'Preheat the oven to Unresolved question: baking temperature.',
+    }),
+    row({
+      changeId: 'g-step-2',
+      changeKind: 'Add',
+      targetKind: 'InstructionStep',
+      targetId: 's2',
+      afterValue: 'Bake until set.',
+    }),
+  ],
+  [{ kind: 'UnresolvedQuestion', message: 'What size of pan?', changeId: null }],
+);
+
 const LOOKS = proposal([
   row({
     changeId: 'a1',
@@ -512,7 +544,20 @@ describe('QuickRecipeComponent', () => {
       await nameAndStart();
 
       expect(calls.filter((call) => !call.endsWith('.watch'))).toEqual(['draft']);
-      expect(text()).toContain('Starts once the recipe is drafted');
+      // Nothing is shown for a picture that has not started, rather than a part saying it will.
+      expect(text()).not.toContain('Starts once the recipe is drafted');
+      expect(root().querySelector('#cp-quick-recipe-picture-stage')).toBeNull();
+      // The offscreen status is still there, empty, ready to say when the picture starts.
+      expect(root().querySelectorAll('p.cp-sr-only[role="status"]').length).toBeGreaterThan(0);
+    });
+
+    it('shows the picture part once the picture has started', async () => {
+      await create({ imageWatch: { status: 'found', operation: imageRun('Running') } });
+      await nameAndStart();
+
+      // The recipe is written and the picture is on its way: that part is the one worth showing, and it is
+      // drawn on the review step, where the draft is read while the picture is made.
+      expect(root().querySelector('.picture-wait cp-status-pill')?.textContent).toContain('Generating your picture');
     });
 
     it('picks up a reloaded run whose draft is written and whose picture was never asked for', async () => {
@@ -578,6 +623,107 @@ describe('QuickRecipeComponent', () => {
       expect(root().querySelector('cp-content-pipeline-staged-image')).not.toBeNull();
       expect(text()).toContain("Planned from this draft's ingredients");
       expect(text()).toContain('Nothing has checked the picture against them');
+    });
+
+    it('shows the recipe on the shared sheet, with the ingredients and the method each under its own heading', async () => {
+      await create();
+      await nameAndStart();
+
+      const sheet = root().querySelector<HTMLElement>('cp-recipe-sheet')!;
+      const ingredients = sheet.querySelector<HTMLElement>('#cp-quick-recipe-ingredients')!;
+      const method = sheet.querySelector<HTMLElement>('#cp-quick-recipe-method')!;
+
+      expect(ingredients.textContent).toContain('Ingredients');
+      expect(ingredients.closest('section')?.textContent).toContain('4 ears corn');
+      expect(method.textContent).toContain('Method');
+      expect(method.closest('section')?.textContent).toContain('Char the corn.');
+      // Both lists sit on one sheet, as ruled rows, rather than loose on the card.
+      expect(sheet.querySelector('cp-sheet ul[cpRuledList] li')?.textContent).toContain('4 ears corn');
+      expect(sheet.querySelector('cp-sheet ol[cpRuledList] li')?.textContent).toContain('Char the corn.');
+      // The picture and the title share the head above them.
+      expect(root().querySelector('.recipe-head .shot')).not.toBeNull();
+      expect(root().querySelector('.recipe-head .intro h3')?.textContent).toContain('Miso Butter Corn');
+    });
+
+    it('says nothing is open when the draft has no gaps', async () => {
+      await create();
+      await nameAndStart();
+
+      expect(root().querySelector('cp-notice[role="note"]')?.textContent ?? '').not.toContain('question');
+      expect(root().querySelector('.questions')).toBeNull();
+      expect(root().querySelector('cp-icon[name="warning"], cp-icon[data-name="warning"]')).toBeNull();
+    });
+
+    describe('a draft with questions written into it', () => {
+      const withGaps = {
+        draftOutcome: {
+          status: 'accepted',
+          operation: operation('r-draft', DRAFT_WITH_GAPS),
+          replayed: false,
+        } as AiRequestOutcome,
+        draftWatch: () =>
+          of<AiWatchOperationOutcome>({ status: 'found', operation: operation('r-draft', DRAFT_WITH_GAPS) }),
+      };
+
+      it('says it once, with a count, instead of on every line', async () => {
+        await create(withGaps);
+        await nameAndStart();
+
+        const notes = Array.from(root().querySelectorAll<HTMLElement>('cp-notice[role="note"]')).map((note) =>
+          (note.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        );
+        expect(notes.filter((note) => note.includes('written where the amount'))).toEqual([
+          '!1 ingredient line and 1 step have a question written where the amount, temperature or time belongs. Fill them in with “Change it line by line first” before you cook from this.',
+        ]);
+        // The model's open question is listed once, under one heading, and not as a notice of its own.
+        expect(root().querySelector('.questions h3')?.textContent).toContain('Needs your answer');
+        expect(root().querySelector('.questions li')?.textContent).toContain('What size of pan?');
+        expect(notes.some((note) => note.includes('What size of pan?'))).toBeFalse();
+      });
+
+      it('marks the lines and steps that carry one with a warning icon, and leaves their words exactly as written', async () => {
+        await create(withGaps);
+        await nameAndStart();
+
+        const lines = Array.from(root().querySelectorAll<HTMLElement>('ul[cpRuledList] li'));
+        const steps = Array.from(root().querySelectorAll<HTMLElement>('ol[cpRuledList] li'));
+
+        expect(lines.map((line) => line.querySelector('cp-icon[data-name="warning"]') !== null)).toEqual([true, false]);
+        expect(steps.map((step) => step.querySelector('cp-icon[data-name="warning"]') !== null)).toEqual([true, false]);
+        expect(lines[0].textContent?.trim()).toBe('Unresolved question: flour amount, all-purpose flour, sifted');
+        expect(steps[0].textContent?.trim()).toBe('Preheat the oven to Unresolved question: baking temperature.');
+      });
+    });
+
+    it('draws the picture as a skeleton card while it is being made, and says what is happening', async () => {
+      await create({ imageWatch: { status: 'found', operation: imageRun('Running') } });
+      await nameAndStart();
+
+      const shot = root().querySelector<HTMLElement>('.shot')!;
+      expect(shot.querySelector('[aria-busy="true"] cp-skeleton[data-shape="card"]')).not.toBeNull();
+      // Said as well as drawn: a busy pill naming the work, and one sentence on why it takes a while.
+      const pill = shot.querySelector<HTMLElement>('.picture-wait cp-status-pill')!;
+      expect(pill.textContent).toContain('Generating your picture');
+      expect(pill.hasAttribute('data-busy')).toBeTrue();
+      expect(pill.querySelector('cp-spinner')).not.toBeNull();
+      expect(shot.querySelector('.picture-wait p')?.textContent).toContain('being generated');
+      expect(shot.querySelector('.picture-wait p')?.textContent).toContain('a minute or two');
+      // And one always-present offscreen status, so a screen reader hears it start and stop.
+      const status = shot.querySelector<HTMLElement>('p.cp-sr-only[role="status"]')!;
+      expect(status.textContent).toContain('Making the picture');
+      // Nothing to look at yet, so nothing to enlarge, and the recipe can still be saved without it.
+      expect(control('View larger')).toBeNull();
+      expect(control('Save without the picture')).not.toBeNull();
+      expect(root().querySelector('cp-content-pipeline-staged-image')).toBeNull();
+    });
+
+    it('takes the skeleton away once the picture has arrived, and empties the status', async () => {
+      await create();
+      await nameAndStart();
+
+      expect(root().querySelector('.shot cp-skeleton[data-shape="card"]')).toBeNull();
+      expect(root().querySelector('.shot p.cp-sr-only[role="status"]')?.textContent?.trim()).toBe('');
+      expect(root().querySelector('cp-content-pipeline-staged-image')).not.toBeNull();
     });
 
     it('opens the picture large, says only its size, and gives focus back on close', async () => {

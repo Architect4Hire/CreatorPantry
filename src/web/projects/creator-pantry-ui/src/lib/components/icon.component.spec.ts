@@ -21,7 +21,8 @@ function mount(): HTMLElement {
 }
 
 describe('CpIconComponent', () => {
-  afterEach(() => (fixture.nativeElement as HTMLElement).remove());
+  // `fixture` is unset when the one test that mounts nothing runs first, and the order is random.
+  afterEach(() => (fixture?.nativeElement as HTMLElement | undefined)?.remove());
 
   it('is hidden from assistive technology and holds nothing focusable, so its control names it', () => {
     const icon = mount();

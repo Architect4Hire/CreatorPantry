@@ -618,6 +618,11 @@
       <button cpButton variant="ghost" type="button" aria-label="Remove step 2"><cp-icon name="trash" /></button>
       <button cpButton variant="secondary" type="button"><cp-icon name="trash" /> Remove</button>
     </div>
+    <p class="section-note">
+      Beside a line of text, a mark that repeats what the words say: <code>warning</code> on a line that still carries
+      an open question.
+    </p>
+    <p><cp-icon name="warning" /> Flour amount still needs your answer</p>
   </section>
 
   <section aria-labelledby="uploader-heading">
@@ -1237,6 +1242,73 @@
         <button cpChip disabled>Mine</button>
       </div>
     </cp-toolbar>
+  </section>
+
+  <section aria-labelledby="menu-select-heading">
+    <h2 id="menu-select-heading">Menu select</h2>
+    <p class="section-note">
+      A choice among a few named answers where the control sits on a surface the creator looks at all day, drawn in the
+      theme rather than by the operating system: a native select's open list is painted in the OS's blue and cannot be
+      themed. It follows the menu-button pattern — arrow keys, Home and End, Escape returns focus to the button — and
+      keeps no value of its own, so it shows a new answer only when the page passes it back. An entry in
+      <code>actions</code> does something rather than choosing a value.
+    </p>
+    <div class="showcase-stack">
+      <cp-menu-select
+        label="Switch workspace"
+        [options]="menuSelectOptions"
+        [value]="menuSelectValue()"
+        [actions]="menuSelectActions"
+        (selected)="menuSelectValue.set($event)"
+        (actionChosen)="menuSelectLastAction.set($event)"
+      />
+      <p class="cp-muted" role="status">
+        {{ menuSelectLastAction() ? 'Chose the “' + menuSelectLastAction() + '” action.' : '' }}
+      </p>
+    </div>
+  </section>
+
+  <section aria-labelledby="sheet-heading">
+    <h2 id="sheet-heading">Sheet and ruled list</h2>
+    <p class="section-note">
+      A sheet to read down, like a page from a ring binder drawn for a picture book: paper with a chunky outline, a hard
+      edge under it, a margin rule and punched holes. A ruled list gives its rows a dashed rule each, a round dot in the
+      tool's colour for a plain list or a numbered bubble for an ordered one; a row that wraps keeps its rule under its
+      last line. Paper in the light theme, lifted charcoal in the dark one, from the same tokens — no texture, no
+      handwriting.
+    </p>
+    <cp-sheet>
+      <h3>Ingredients</h3>
+      <ul cpRuledList>
+        <li>1 lb ground beef</li>
+        <li>1 tsp salt</li>
+        <li>1/2 tsp black pepper</li>
+        <li>2 lb russet potatoes, cut into fries</li>
+      </ul>
+      <h3>Method</h3>
+      <ol cpRuledList>
+        <li>In a mixing bowl, combine the ground beef, 1 tsp salt and 1/2 tsp black pepper.</li>
+        <li>
+          Form the mixture into 4 patties and make a shallow indentation in the center of each patty to help them cook
+          evenly, then set them aside while you heat the skillet.
+        </li>
+        <li>Cook until browned on the first side, then flip and cook until done to your preferred doneness.</li>
+      </ol>
+    </cp-sheet>
+  </section>
+
+  <section aria-labelledby="recipe-sheet-heading">
+    <h2 id="recipe-sheet-heading">Recipe sheet</h2>
+    <p class="section-note">
+      A recipe's ingredients and method on one sheet, drawn once for every page that reads a recipe. The part labels,
+      the group highlighter, the number bubbles and the sticky note all take the tool's tone, so this page shows the
+      evergreen of a page with none. A line that still carries the model's own question is marked with the warning icon.
+    </p>
+    <cp-recipe-sheet
+      [ingredients]="recipeSheetIngredients"
+      [steps]="recipeSheetSteps"
+      notes="Best the day it is made. Reheat the fries in a hot oven so they crisp again."
+    />
   </section>
 
   <section aria-labelledby="notice-heading">

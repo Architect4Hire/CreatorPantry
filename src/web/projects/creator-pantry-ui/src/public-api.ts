@@ -41,5 +41,8 @@ export * from './lib/components/topic-card.component';
 export * from './lib/components/facts.component';
 export * from './lib/components/toolbar-field.component';
 export * from './lib/components/chip.component';
+export * from './lib/components/menu-select.component';
 export * from './lib/components/stepper.component';
 export * from './lib/components/validation-summary.component';
+export * from './lib/components/sheet.component';
+export * from './lib/components/ruled-list.component';

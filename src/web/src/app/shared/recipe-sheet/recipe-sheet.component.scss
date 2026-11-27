@@ -1,0 +1,103 @@
+/* Laid out by the sheet's own width, so the two columns appear when this card is wide enough for both and not
+   when the window happens to be: the same sheet sits in a narrow step of a flow and a wide review page. */
+:host {
+  display: block;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6) var(--cp-space-8);
+  align-items: start;
+}
+
+/* The method is the longer part, so it takes the larger share. */
+@container (min-width: 44rem) {
+  .columns {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  /* A part is only as wide as its words, so the label below hugs them rather than running the column. */
+  justify-items: start;
+}
+
+/* Everything that lays out the rows themselves runs the full column. */
+.part > ul,
+.part > ol,
+.part > p {
+  justify-self: stretch;
+}
+
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* A part's name, as a label stuck on the top of it: the tool's soft fill and its text colour, in the rounded
+   display face, with an edge of the tool's colour under it. It follows the route's tone — purple in the Recipe
+   Studio, evergreen where there is none — and both themes, because it is drawn from the tone tokens alone. */
+h3 {
+  display: inline-block;
+  padding: var(--cp-space-1) var(--cp-space-4);
+  border: 2px solid var(--cp-tone);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-tone-soft);
+  color: var(--cp-tone-text);
+  font: 600 var(--cp-font-size-lg) / 1.2 var(--cp-font-display);
+  letter-spacing: var(--cp-tracking-display);
+}
+
+/* A group within a part ("For the burgers"): a highlighter stroke under its words rather than a second label. */
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  align-self: start;
+  width: fit-content;
+  margin-block-start: var(--cp-space-2);
+  padding-inline: var(--cp-space-1);
+  background: linear-gradient(transparent 62%, var(--cp-tone-soft) 62%);
+  font: 600 var(--cp-font-size-md) / 1.3 var(--cp-font-display);
+}
+
+/* The notes: a sticky note stuck under the two lists, in the tool's soft fill with a dashed edge. */
+.notes {
+  margin-block-start: var(--cp-space-6);
+  padding: var(--cp-space-4) var(--cp-space-5);
+  border: 2px dashed var(--cp-tone);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-tone-soft);
+}
+
+.notes h3 {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.notes p {
+  white-space: pre-line;
+}
+
+/* A step's own note and duration, under its words. */
+.extra {
+  display: block;
+  font-size: var(--cp-font-size-sm);
+}
+
+/* A line or step with a question written where its value belongs carries a warning icon before its words. The
+   words already say so and the icon is hidden from a screen reader; it is for finding the next one while
+   scrolling. The orange is the accent as text, never the raw accent. */
+.flag {
+  margin-inline-end: var(--cp-space-2);
+  color: var(--cp-orange-text);
+}

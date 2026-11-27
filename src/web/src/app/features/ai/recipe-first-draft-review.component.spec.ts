@@ -385,6 +385,88 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(fixture.componentInstance.unresolvedQuestions().length).toBe(1);
   }));
 
+  describe('answering the questions', () => {
+    /** The model's own question written where a line's amount and a step's temperature belong. */
+    function withQuestionsInTheText(): AiProposedChange[] {
+      return fullDraftChanges().map((entry) =>
+        entry.changeId === 'l1-add'
+          ? { ...entry, afterValue: 'Unresolved question: doubanjiang amount' }
+          : entry.changeId === 's1-add'
+            ? { ...entry, afterValue: 'Fry the paste at Unresolved question: heat level.' }
+            : entry,
+      );
+    }
+
+    const question: AiProposalWarning = { kind: 'UnresolvedQuestion', message: 'How much?', changeId: null };
+    const warningIcons = (selector: string): NodeListOf<Element> =>
+      element().querySelectorAll(`${selector} cp-icon[data-name="warning"]`);
+
+    it('says where to answer, since nothing in the list takes an answer, and counts what is still open', fakeAsync(() => {
+      service.statuses = [ready(withQuestionsInTheText(), [question])];
+      render();
+
+      const guide = element().querySelector('.draft-answer-guide')!;
+      expect(guide.textContent).toContain('You answer them by editing the line or step each one is about');
+      expect(guide.textContent).toContain('1 ingredient line and 1 step still to answer');
+      expect(Array.from(guide.querySelectorAll('button')).map((button) => button.textContent?.trim())).toEqual([
+        'Ingredients',
+        'Method',
+      ]);
+    }));
+
+    it('takes the creator to the part named', fakeAsync(() => {
+      service.statuses = [ready(withQuestionsInTheText(), [question])];
+      render();
+      const ingredients = element().querySelector<HTMLElement>('#cp-draft-ingredients')!;
+      const scrolled = spyOn(ingredients, 'scrollIntoView');
+
+      Array.from(element().querySelectorAll<HTMLButtonElement>('.draft-answer-guide button'))
+        .find((button) => button.textContent?.trim() === 'Ingredients')!
+        .click();
+
+      expect(scrolled).toHaveBeenCalledTimes(1);
+    }));
+
+    it('marks the lines and steps that still carry a question, and no others', fakeAsync(() => {
+      service.statuses = [ready(withQuestionsInTheText(), [question])];
+      render();
+
+      expect(warningIcons('.draft-line').length).toBe(1);
+      expect(warningIcons('.draft-step').length).toBe(1);
+      // Shown as the draft wrote them: nothing is rewritten for the creator.
+      expect(text()).toContain('Unresolved question: doubanjiang amount');
+    }));
+
+    it('draws no mark on a draft with no question in its lines', fakeAsync(() => {
+      service.statuses = [ready()];
+      render();
+
+      expect(warningIcons('.draft-line').length).toBe(0);
+      expect(warningIcons('.draft-step').length).toBe(0);
+    }));
+
+    it('takes the mark and the count away as the creator types the answer in', fakeAsync(() => {
+      service.statuses = [ready(withQuestionsInTheText(), [question])];
+      render();
+      const component = fixture.componentInstance;
+
+      const target = component.editTarget(
+        'l1-add',
+        'displayText',
+        'Ingredient',
+        'Unresolved question: doubanjiang amount',
+      );
+      component.startEdit(target);
+      component.editDraft.set('2 tbsp doubanjiang');
+      component.applyEdit(target);
+      settle();
+
+      expect(warningIcons('.draft-line').length).toBe(0);
+      expect(warningIcons('.draft-step').length).toBe(1);
+      expect(element().querySelector('.draft-answer-guide')!.textContent).toContain('0 ingredient lines and 1 step');
+    }));
+  });
+
   it('keeps unresolved questions out of the ordinary warning list', fakeAsync(() => {
     service.statuses = [
       ready(fullDraftChanges(), [
@@ -999,6 +1081,36 @@ describe('RecipeFirstDraftReviewComponent', () => {
       expect(heading!.getAttribute('tabindex')).toBe('-1');
     }
   }));
+
+  describe('going to a section from the nav', () => {
+    function activate(reduceMotion: boolean): { scrolled: jasmine.Spy; heading: HTMLElement; focused: jasmine.Spy } {
+      service.statuses = [ready()];
+      render();
+
+      const item = fixture.componentInstance.sections().find((section) => section.targetId === 'cp-draft-method')!;
+      const heading = element().querySelector<HTMLElement>(`#${item.targetId}`)!;
+      const scrolled = spyOn(heading, 'scrollIntoView');
+      const focused = spyOn(heading, 'focus');
+      spyOn(window, 'matchMedia').and.returnValue({ matches: reduceMotion } as MediaQueryList);
+
+      fixture.componentInstance.onSectionActivated(item);
+
+      return { scrolled, heading, focused };
+    }
+
+    it('scrolls smoothly, and moves focus without a second scroll cutting it short', fakeAsync(() => {
+      const { scrolled, focused } = activate(false);
+
+      expect(scrolled).toHaveBeenCalledOnceWith({ behavior: 'smooth', block: 'start' });
+      expect(focused).toHaveBeenCalledOnceWith({ preventScroll: true });
+    }));
+
+    it('jumps instead when the creator has asked for reduced motion', fakeAsync(() => {
+      const { scrolled } = activate(true);
+
+      expect(scrolled).toHaveBeenCalledOnceWith({ behavior: 'auto', block: 'start' });
+    }));
+  });
 
   it('names each edit control by the field it edits', fakeAsync(() => {
     service.statuses = [ready()];
@@ -1760,9 +1872,11 @@ describe('RecipeFirstDraftReviewComponent', () => {
         expect(facts.join(' ')).toContain('Serves 4');
         expect(facts.join(' ')).toContain('10 min');
         expect(text()).not.toContain('Not suggested');
-        expect(element().querySelector('ol.preview-steps')?.textContent).toContain('Fry the paste.');
+        expect(element().querySelector('cp-recipe-sheet ol[cpRuledList]')?.textContent).toContain('Fry the paste.');
         // A note the line already says is not said again under it.
-        expect(element().querySelector('.preview-ingredients')?.textContent?.trim()).toBe('2 tbsp doubanjiang');
+        expect(element().querySelector('cp-recipe-sheet ul[cpRuledList]')?.textContent?.trim()).toBe(
+          '2 tbsp doubanjiang',
+        );
         expect(text()).toContain('Wok');
         // What made it is there, folded away.
         const made = element().querySelector<HTMLDetailsElement>('details.preview-provenance')!;

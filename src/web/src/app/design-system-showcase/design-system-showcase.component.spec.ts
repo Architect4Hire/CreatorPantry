@@ -390,6 +390,49 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(chips[0].getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('shows a sheet holding a ruled list and a numbered ruled list', async () => {
+    const fixture = await createFixture();
+    const sheet = fixture.nativeElement.querySelector('cp-sheet') as HTMLElement;
+
+    expect(sheet.querySelectorAll('ul[cpRuledList] > li').length).toBe(4);
+    expect(sheet.querySelectorAll('ol[cpRuledList] > li').length).toBe(3);
+    expect(sheet.querySelector('ol[cpRuledList]')!.getAttribute('role')).toBe('list');
+  });
+
+  it('shows the recipe sheet with groups, an optional line, a flagged line, numbered steps and notes', async () => {
+    const fixture = await createFixture();
+    const sheet = fixture.nativeElement.querySelector('cp-recipe-sheet') as HTMLElement;
+
+    expect(Array.from(sheet.querySelectorAll('h3')).map((heading) => heading.textContent?.trim())).toEqual([
+      'Ingredients',
+      'Method',
+      'Notes',
+    ]);
+    expect(sheet.querySelectorAll('h4').length).toBe(4);
+    expect(sheet.querySelectorAll('ol[cpRuledList] > li').length).toBe(5);
+    expect(sheet.querySelector('cp-badge')?.textContent).toContain('Optional');
+    expect(sheet.querySelectorAll('cp-icon[data-name="warning"]').length).toBe(1);
+  });
+
+  it('shows a menu select that changes its answer only when a row is picked', async () => {
+    const fixture = await createFixture();
+    const trigger = fixture.nativeElement.querySelector(
+      'cp-menu-select button[aria-haspopup="menu"]',
+    ) as HTMLButtonElement;
+
+    expect(trigger.textContent).toContain('Cozy Fall Kitchen');
+
+    trigger.click();
+    fixture.detectChanges();
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('cp-menu-select [role="menu"] button'),
+    ) as HTMLButtonElement[];
+    rows[1].click();
+    fixture.detectChanges();
+
+    expect(trigger.textContent).toContain('Weeknight Suppers');
+  });
+
   it('shows a stepper that says each state in a word and follows Back and Continue', async () => {
     const fixture = await createFixture();
     const stepper = fixture.nativeElement.querySelector('cp-stepper') as HTMLElement;

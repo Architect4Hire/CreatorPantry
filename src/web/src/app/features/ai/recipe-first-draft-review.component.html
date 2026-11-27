@@ -127,6 +127,29 @@
           <p class="draft-section-note">
             The model wouldn't guess at these. They're questions for you, not problems with the draft.
           </p>
+          <!--
+            Nothing here takes an answer, and saying so is the point: an answer is the edited line or step it is
+            about, so this says where, and how many are still open. The count falls as the creator types them in.
+          -->
+          <p class="draft-section-note draft-answer-guide">
+            You answer them by editing the line or step each one is about: use Edit beside it in
+            <button cpButton type="button" variant="text" size="sm" (click)="goToSection('cp-draft-ingredients')"
+              >Ingredients</button
+            >
+            or
+            <button cpButton type="button" variant="text" size="sm" (click)="goToSection('cp-draft-method')"
+              >Method</button
+            >. A line or step still carrying a question is marked <cp-icon name="warning" class="draft-flag-icon" />,
+            and the mark goes once you've replaced the words.
+            @if (openInLines(); as open) {
+              @if (open.lines + open.steps > 0) {
+                {{ open.lines }} {{ open.lines === 1 ? 'ingredient line' : 'ingredient lines' }} and {{ open.steps }}
+                {{ open.steps === 1 ? 'step' : 'steps' }} still to answer.
+              } @else {
+                None are left in the lines or steps.
+              }
+            }
+          </p>
           <ul class="draft-flags" role="list">
             @for (question of unresolvedQuestions(); track $index) {
               <li class="draft-flag" data-kind="UnresolvedQuestion">
@@ -345,6 +368,9 @@
                   @for (line of group.items; track line.changeId) {
                     <li class="draft-line">
                       <div class="draft-line-main">
+                        @if (hasOpenQuestion(valueOf(line.changeId + ':displayText', line.displayText))) {
+                          <cp-icon name="warning" class="draft-flag-icon" />
+                        }
                         <span class="draft-line-text">{{
                           valueOf(line.changeId + ':displayText', line.displayText)
                         }}</span>
@@ -412,6 +438,9 @@
                   @for (step of group.items; track step.changeId; let si = $index) {
                     <li class="draft-step">
                       <div class="draft-step-main">
+                        @if (hasOpenQuestion(valueOf(step.changeId + ':text', step.text))) {
+                          <cp-icon name="warning" class="draft-flag-icon" />
+                        }
                         <span class="draft-step-text">{{ valueOf(step.changeId + ':text', step.text) }}</span>
                         @if (isEdited(step.changeId + ':text')) {
                           <cp-badge tone="blue">Your wording</cp-badge>
@@ -676,70 +705,14 @@
       }
     }
 
-    <div class="preview-columns">
-      <section class="preview-part" aria-labelledby="cp-draft-ingredients">
-        <h3 id="cp-draft-ingredients" class="preview-heading">Ingredients</h3>
-        @if (ingredientCount() === 0) {
-          <p class="plain cp-muted">The draft didn’t propose any ingredients.</p>
-        }
-        @for (group of p.ingredientGroups; track group.changeId; let gi = $index) {
-          @if (groupHeading(group, gi, p.ingredientGroups.length); as heading) {
-            <h4 class="preview-group">
-              {{ heading }}
-              @if (group.isOptional) {
-                <cp-badge tone="orange">Optional</cp-badge>
-              }
-            </h4>
-          }
-          <ul class="preview-list preview-ingredients">
-            @for (line of group.items; track line.changeId) {
-              <li>
-                {{ valueOf(line.changeId + ':displayText', line.displayText) }}
-                @if (preparationNoteShown(line); as note) {
-                  <span class="cp-muted">({{ note }})</span>
-                }
-                @if (line.isOptional) {
-                  <cp-badge tone="orange">Optional</cp-badge>
-                }
-                @if (unitIsUnrecognised(line.unitText)) {
-                  <cp-status-pill tone="warning">Unit “{{ line.unitText?.trim() }}” not recognised</cp-status-pill>
-                }
-              </li>
-            }
-          </ul>
-        }
-      </section>
-
-      <section class="preview-part" aria-labelledby="cp-draft-method">
-        <h3 id="cp-draft-method" class="preview-heading">Method</h3>
-        @if (stepCount() === 0) {
-          <p class="plain cp-muted">The draft didn’t propose any steps.</p>
-        }
-        @for (group of p.instructionGroups; track group.changeId; let gi = $index) {
-          @if (groupHeading(group, gi, p.instructionGroups.length); as heading) {
-            <h4 class="preview-group">
-              {{ heading }}
-              @if (group.isOptional) {
-                <cp-badge tone="orange">Optional</cp-badge>
-              }
-            </h4>
-          }
-          <ol class="preview-steps">
-            @for (step of group.items; track step.changeId) {
-              <li>
-                {{ step.text }}
-                @if (step.note) {
-                  <span class="preview-step-extra cp-muted">{{ step.note }}</span>
-                }
-                @if (step.durationMinutes) {
-                  <span class="preview-step-extra cp-muted">About {{ step.durationMinutes }} minutes.</span>
-                }
-              </li>
-            }
-          </ol>
-        }
-      </section>
-    </div>
+    <cp-recipe-sheet
+      [ingredients]="previewIngredients()"
+      [steps]="previewSteps()"
+      emptyIngredients="The draft didn’t propose any ingredients."
+      emptyMethod="The draft didn’t propose any steps."
+      ingredientsId="cp-draft-ingredients"
+      methodId="cp-draft-method"
+    />
 
     @if (p.equipment.length > 0) {
       <section class="preview-part" aria-labelledby="cp-draft-equipment">

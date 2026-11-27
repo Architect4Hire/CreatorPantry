@@ -240,6 +240,18 @@ A filter in a toolbar is one of two controls, and what decides is how many answe
 
 Chips are not tabs, not a choice in a form (`CpChoiceGroupComponent`) and not a badge that can be clicked. A chip never navigates and never removes itself.
 
+### A menu select or a select
+
+A native `<select>` is the right control for a field in a form and a filter in a toolbar (`cp-field`, `cp-select-field`): it is accessible everywhere, and on a phone it opens the system picker. Its open list is the operating system's, though, so its hover and selected rows come out in the OS's blue in both themes and no stylesheet can change them.
+
+`cp-menu-select` is for a choice that sits on a surface the creator looks at all day and whose open list should read as part of the product — the sidebar's workspace switcher. It is drawn like the library's native controls (edge, fill, hover edge, focus ring, a caret that turns over) and opens a card of rows that hover and select in the sheet's own tokens; the chosen row has a fill, a heavier label and a ✓, so it is never told by colour alone. What the menu does rather than chooses ("Create workspace…") is an `actions` entry below a divider, not an option. It is controlled — the page owns `value` — and a feature draws no listbox, popup menu or dropdown of its own.
+
+### A sheet to read down
+
+A recipe's ingredients and method are read down the page, a line at a time, so they sit on a **sheet** (`cp-sheet`): raised paper, like an index card pinned to the page. It is `--cp-surface-subtle` with a chunky 2px outline in `--cp-border-strong`, a hard un-blurred edge under it, rounded corners, a margin rule down the left and a few punched holes in it, like a page from a ring binder drawn for a picture book — warm paper in the light theme and a slightly lifted charcoal in the dark one, which stays neutral, so the same tokens carry both. A **ruled list** (`ul[cpRuledList]`, `ol[cpRuledList]`) puts a dashed rule under each row, under its last line when it wraps; a plain list gets a round dot in the tool's colour and an ordered one a numbered bubble in the tool's soft fill, both from `--cp-tone*`, so they follow the route's tone and both themes. `cp-recipe-sheet` adds the part labels (a rounded tag in the tool's colours), a highlighter stroke under a group's title and a sticky note for the recipe's notes. It is playful and no more: no torn edge, texture or handwriting, because the product is a food blog with a working tool underneath and anything further is decoration the creator reads past on every recipe. A literal notepad was considered and left out — the dark theme cannot hold warm paper, and ruled lines drawn at a fixed pitch cut through every row that wraps.
+
+The recipe's two lists have one home in the product: `cp-recipe-sheet` (`src/app/shared/recipe-sheet/`), which the Quick Recipe review and the "Create a recipe" workflow's draft preview both use. It takes a small view model — groups of lines, each with its text, an optional note, an optional duration, an Optional badge, a unit warning and a flag for a line that still carries the model's own question — and a page maps its own draft with `ingredientSheetGroups` and `stepSheetGroups`, so what is shown is the same everywhere and a line is never rewritten. It lays the two lists side by side or stacked by its own width, not the window's. It **shows**: a page where each line is edited in place (the full draft review, the recipe editor) is a form and does not use it, and the Kitchen View, which ticks ingredients off, numbers steps through its sections and prints, keeps its own list.
+
 ### The two shapes: a library and a detail page
 
 Most pages are one of two things, and DAM is the reference for both. Build a new one from the same parts in the same order rather than from a feature stylesheet.
@@ -573,6 +585,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
+| `ruled-list` | a stylesheet styles `.ruled`, `.ruled-list`, `.ruled-rows`, `.notepad`, `.ingredient-lines` or `.method-steps` | `ul[cpRuledList]` / `ol[cpRuledList]`, on a `cp-sheet` |
 | `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's old `.concept-card`, `.concept-title` or `.concept-dietary` | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
 | `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
@@ -706,7 +719,7 @@ showing it is described by it, so a form that moves focus to a refused section r
 reason. `sectionId` gives the `<section>` an id for a form that scrolls or focuses it; it is already
 `tabindex="-1"`, and never in the tab order.
 
-**A field is a white sheet with an edge you can find.** `CpFieldComponent` draws every projected control on `--cp-field-bg` with a `--cp-border-control` edge, a ring of the action colour on focus (`--cp-ring-width`, solid rather than tinted — see "The focus ring" — inside a transparent outline so forced-colours mode keeps the system focus line), a drawn caret on a single `select`, and an error that carries a `!` glyph as well as its colour. Consecutive form sections are ruled off from one another by a hairline, the way a magazine rules between two parts of one piece; the form is still one thing under one Save.
+**A field is a white sheet with an edge you can find.** `CpFieldComponent` draws every projected control on `--cp-field-bg` with a `--cp-border-control` edge, a ring of the action colour on focus (`--cp-ring-width`, solid rather than tinted — see "The focus ring" — inside a transparent outline so forced-colours mode keeps the system focus line), a drawn caret on a single `select`, a drawn pair of up and down arrows on a `type="number"` (the browser's own spin buttons are kept, invisible, over the same corner, so a click, a held press and the wheel still step the value; Firefox, which has none to restyle, keeps its own), and an error that carries a `!` glyph as well as its colour. Consecutive form sections are ruled off from one another by a hairline, the way a magazine rules between two parts of one piece; the form is still one thing under one Save.
 
 **Fields stack, one per line, each capped at `--cp-measure-field`.** That is the default and it is most of
 what a form is: a single column of controls at a readable width, with the rest of the card left empty beside
