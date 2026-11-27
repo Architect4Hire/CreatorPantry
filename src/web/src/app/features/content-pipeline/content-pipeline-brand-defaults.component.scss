@@ -10,6 +10,11 @@
   gap: var(--cp-space-2);
 }
 
+/* The badge's own padding is tuned for a card's tag row; a value read on its own wants more room round it. */
+.values cp-badge {
+  padding: var(--cp-space-1) var(--cp-space-3);
+}
+
 .lines {
   display: grid;
   /* minmax(0, …) so one long line cannot hold the column wider than the card (DESIGN-SYSTEM.md). */
