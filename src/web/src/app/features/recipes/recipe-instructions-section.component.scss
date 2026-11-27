@@ -55,12 +55,6 @@
   border-top: 1px solid var(--cp-border);
 }
 
-.group h3 {
-  margin: 0 0 var(--cp-space-2);
-  font: 600 var(--cp-font-size-md) / var(--cp-leading-tight) var(--cp-font-sans);
-  color: var(--cp-text);
-}
-
 .group ul,
 .group ol {
   margin: 0;
@@ -86,6 +80,29 @@
 
 .group-header cp-field {
   flex: 1 1 auto;
+}
+
+/* Closed, the heading is a line of the method like a step's words: level with its buttons, at reading size. */
+.group-header--closed {
+  align-items: center;
+}
+
+/* A phase heading is a heading, so it is set as the design system sets one a step below a card's: Fredoka, 500, at
+   --cp-font-size-lg. The steps under it are body copy and keep the body size, so the heading reads above them
+   rather than being smaller than the words it introduces. */
+.group-header .group-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font: 500 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+  overflow-wrap: anywhere;
+}
+
+/* A phase with no name yet says so, quieter than one that has one. */
+.group-header .group-title--empty {
+  color: var(--cp-text-muted);
+  font-style: italic;
 }
 
 /* The buttons at the head of the instructions, as the ingredient editor's toolbar is. */
@@ -129,19 +146,30 @@
   display: grid;
 }
 
+/* The number in the margin, the dashed rule under each row and the row's own padding are the library's
+   (`cpRuledList`), as they are on a recipe's method wherever it is read; what is set here is only what a row of an
+   editor holds that a read-only one does not: its handle, its words and its buttons. */
 .step {
   display: grid;
-  grid-template-columns: auto 2.5rem minmax(0, 1fr) auto;
-  grid-template-areas: 'handle number body controls';
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'handle body controls';
   align-items: start;
   column-gap: var(--cp-space-3);
-  padding-block: var(--cp-space-4);
-  border-top: 1px solid var(--cp-border);
 }
 
-.step:first-child {
-  padding-top: var(--cp-space-2);
-  border-top: 0;
+/* The number sits level with the row's buttons, which set its height, rather than with the top of a row that is
+   taller than a line of words. */
+.steps > .step::before {
+  inset-block-start: calc(var(--cp-space-2) + 1.25rem - 0.9375rem);
+}
+
+.steps > .step--open::before {
+  inset-block-start: calc(var(--cp-space-3) + 1.25rem - 0.9375rem);
+}
+
+/* An open step takes more room than a line does: its fields are the thing being worked on. */
+.steps > .step--open {
+  padding-block: var(--cp-space-3);
 }
 
 /* The handle a step is moved by: quiet, at the start of its line, and the cursor says it can be picked up. */
@@ -175,19 +203,6 @@
   }
 }
 
-/* The tool's colour, quiet: the one place on a step the eye goes first, and the order at a glance. */
-.step-number {
-  grid-area: number;
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  background: var(--cp-tone-soft);
-  color: var(--cp-tone-text);
-  font: 400 var(--cp-font-size-lg) / 1 var(--cp-font-display);
-}
-
 .step-body {
   grid-area: body;
   display: grid;
@@ -201,6 +216,30 @@
 .step-text {
   field-sizing: content;
   min-height: 2.75rem;
+}
+
+/* Closed, a step is a line of the method at reading size, level with its number: all of it, so the list reads as the
+   recipe does. An open step keeps the top alignment its text field needs. */
+.step:not(.step--open) {
+  align-items: center;
+}
+
+.step-line {
+  margin: 0;
+  color: var(--cp-text);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+/* A step with nothing in it yet says so, quieter than one that has words. */
+.step-line--empty {
+  color: var(--cp-text-muted);
+  font-style: italic;
+}
+
+/* The duration and the note a closed step carries, under its words. */
+.step-extras {
+  overflow-wrap: anywhere;
 }
 
 /* "+ Note" and "+ Duration": a line of quiet offers under the words, not fields. "Remove note" is the same kind of
@@ -221,10 +260,10 @@
 /* Narrow — a phone, or 200% zoom: the words take the width beside the number, and the controls go under them. */
 @container cp-steps (max-width: 34rem) {
   .step {
-    grid-template-columns: auto 2.5rem minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      'handle number body'
-      '. . controls';
+      'handle body'
+      '. controls';
     row-gap: var(--cp-space-2);
   }
 

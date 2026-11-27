@@ -5,8 +5,10 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +20,8 @@ import {
   CpFieldRowComponent,
   CpFormSectionComponent,
   CpIconComponent,
+  CpRuledListComponent,
+  CpSheetComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -52,6 +56,8 @@ const INSTRUCTION_GROUP_ANCHOR_PREFIX = 'instruction-group-';
     CpFieldRowComponent,
     CpFormSectionComponent,
     CpIconComponent,
+    CpRuledListComponent,
+    CpSheetComponent,
     FormsModule,
   ],
   templateUrl: './recipe-instructions-section.component.html',
@@ -106,7 +112,8 @@ export class RecipeInstructionsSectionComponent {
 
     const host = this.elementRef.nativeElement;
     host.querySelector(`#${item.targetId}`)?.scrollIntoView({ block: 'start' });
-    host.querySelector<HTMLElement>(`#group-title-${groupKey}`)?.focus();
+    // The heading field when it is showing, the heading itself when it is closed to its words.
+    host.querySelector<HTMLElement>(`#group-title-${groupKey}, #group-heading-${groupKey}`)?.focus();
   }
 
   /**
@@ -114,6 +121,80 @@ export class RecipeInstructionsSectionComponent {
    * request to write the next step, and leaving focus on the button would mean finding the step and clicking
    * into it as well. See the ingredient editor's `addRow`.
    */
+  /**
+   * The steps whose fields are showing. A method opens with every step closed to its own words, so it reads as a
+   * method rather than a wall of fields; the creator opens the one to change. Which are open is this screen's alone
+   * — nothing is saved or sent — and a closed step keeps every value it holds. The ingredient editor's rule.
+   */
+  private readonly openSteps = signal<ReadonlySet<string>>(new Set());
+
+  /** The phases whose heading field is showing, on the same terms: closed, a phase is its heading as it reads. */
+  private readonly openGroups = signal<ReadonlySet<string>>(new Set());
+
+  constructor() {
+    // A step the server refused opens, so its sentence and the field it is about are in view, never folded away
+    // behind a line that reads as fine. Opened rather than held open, so the creator can still close it again.
+    effect(() => {
+      const refused = [...this.form.instructionStepErrors().keys()];
+      untracked(() => refused.forEach((stepKey) => this.openStep(stepKey)));
+    });
+    effect(() => {
+      const refused = [...this.form.instructionGroupErrors().keys()];
+      untracked(() => refused.forEach((groupKey) => this.openGroup(groupKey)));
+    });
+  }
+
+  /** Whether this step's fields are showing. */
+  isStepOpen(stepKey: string): boolean {
+    return this.openSteps().has(stepKey);
+  }
+
+  /** Opens a step's fields, or closes them again. Focus stays on the button, which does not move. */
+  toggleStep(stepKey: string): void {
+    this.openSteps.update((open) => {
+      const next = new Set(open);
+      if (!next.delete(stepKey)) next.add(stepKey);
+      return next;
+    });
+  }
+
+  /** Whether this phase's heading field is showing. */
+  isGroupOpen(groupKey: string): boolean {
+    return this.openGroups().has(groupKey);
+  }
+
+  /** Opens a phase's heading field, or closes it again. Focus stays on the button, which does not move. */
+  toggleGroup(groupKey: string): void {
+    this.openGroups.update((open) => {
+      const next = new Set(open);
+      if (!next.delete(groupKey)) next.add(groupKey);
+      return next;
+    });
+  }
+
+  private openGroup(groupKey: string): void {
+    if (!this.openGroups().has(groupKey)) this.openGroups.update((open) => new Set(open).add(groupKey));
+  }
+
+  private openStep(stepKey: string): void {
+    if (!this.openSteps().has(stepKey)) this.openSteps.update((open) => new Set(open).add(stepKey));
+  }
+
+  /**
+   * What a closed step has beyond its words — its duration and its note — as one line, or '' when it has neither.
+   * The duration is the creator's own number of minutes, shown as they entered it.
+   */
+  stepExtras(step: { readonly durationMinutes: number | null; readonly note: string }): string {
+    const parts: string[] = [];
+    if (step.durationMinutes !== null && step.durationMinutes !== undefined && String(step.durationMinutes) !== '') {
+      parts.push(`${step.durationMinutes} min`);
+    }
+    const note = step.note.trim();
+    if (note !== '') parts.push(`Note: ${note}`);
+
+    return parts.join(' · ');
+  }
+
   /** What the last move did, in words, for the section's polite live region: a drag or a key moves in silence. */
   protected readonly moveAnnouncement = signal('');
 
@@ -164,12 +245,16 @@ export class RecipeInstructionsSectionComponent {
 
   addStep(groupKey?: string): void {
     const stepKey = this.form.addInstructionStep(groupKey);
+    // Open, since it has no words yet to show closed, and the click was a request to write it.
+    this.openStep(stepKey);
     this.revealAndFocus(`step-text-${stepKey}`);
   }
 
   /** Adds a phase and focuses its heading field, which is the first thing a new phase needs. */
   addGroup(): void {
     const groupKey = this.form.addInstructionGroup();
+    // Open, since it has no name yet to show closed, and the click was a request to name it.
+    this.openGroup(groupKey);
     this.revealAndFocus(`group-title-${groupKey}`);
   }
 
@@ -235,6 +320,27 @@ export class RecipeInstructionsSectionComponent {
       () =>
         this.elementRef.nativeElement
           .querySelector<HTMLElement>(`button[aria-label="Add a note to step ${stepIndex + 1}"]`)
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * Takes this step's duration away and puts "+ Duration" back, for a step whose duration is not wanted: an AI draft
+   * wrote one the creator does not need, or it was opened and never filled in. The field was only ever offered, so
+   * the creator can put it away as well as open it.
+   *
+   * It goes at once, with no question: a number of minutes is not words the creator wrote, and typing it again costs
+   * nothing. Focus goes to the offer that comes back — leaving it on a button that has just removed itself would
+   * strand a keyboard user — once the render that draws it has run.
+   */
+  removeStepDuration(groupKey: string, stepKey: string, stepIndex: number): void {
+    this.form.updateInstructionStep(groupKey, stepKey, { durationMinutes: null, showDuration: false });
+
+    afterNextRender(
+      () =>
+        this.elementRef.nativeElement
+          .querySelector<HTMLElement>(`button[aria-label="Add a duration to step ${stepIndex + 1}"]`)
           ?.focus(),
       { injector: this.injector },
     );
