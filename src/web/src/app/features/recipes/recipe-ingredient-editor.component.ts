@@ -29,6 +29,8 @@ import {
   CpFieldRowComponent,
   CpIconComponent,
   CpNoticeComponent,
+  CpRuledListComponent,
+  CpSheetComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -447,6 +449,8 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
     CpFieldComponent,
     CpIconComponent,
     CpNoticeComponent,
+    CpRuledListComponent,
+    CpSheetComponent,
     CpStatusPillComponent,
     IngredientPasteReviewComponent,
     IngredientUnitPickerComponent,
