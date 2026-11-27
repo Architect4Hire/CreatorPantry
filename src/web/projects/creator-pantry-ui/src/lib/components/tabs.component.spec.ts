@@ -201,6 +201,21 @@ describe('CpTabsComponent', () => {
       expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
     }
   });
+
+  it('sets the shown panel clear of the tab strip, and leaves a hidden one hidden', async () => {
+    const fixture = await createFixture();
+    fixture.detectChanges();
+
+    const panels = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('cp-tab-panel'));
+    const shown = panels.find((panel) => !panel.hidden)!;
+    const hidden = panels.find((panel) => panel.hidden)!;
+
+    // Under the global stylesheet the token is a length; here it is unset, so give it one to measure.
+    (fixture.nativeElement as HTMLElement).style.setProperty('--cp-space-4', '16px');
+
+    expect(getComputedStyle(shown).paddingTop).toBe('16px');
+    expect(getComputedStyle(hidden).display).toBe('none');
+  });
 });
 
 @Component({
