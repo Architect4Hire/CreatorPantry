@@ -94,21 +94,63 @@
 
       @if (shows('about')) {
         <div class="brief">
-          <cp-recipe-picker
-            [workspaceSlug]="workspaceSlug()"
-            [session]="session"
-            [suggested]="hosted?.suggestedRecipeId ?? null"
-            idPrefix="cp-studio-recipe"
-            (announced)="onAnnounced($event)"
-            (linkedRecipe)="onRecipeNamed($event)"
-          />
-          <cp-content-pipeline-setup-step
-            [config]="config()"
-            [showDay]="false"
-            [show]="hosted ? 'subject' : 'everything'"
-            [linkedRecipeTitle]="linkedRecipeTitle()"
-            (changed)="onConfig($event)"
-          />
+          <!-- One question, answered one way: a recipe, a dish name or a description. A linked recipe is the way
+               and is shown alone with its Remove button; the choice is offered only while none is linked, so a
+               link never works unseen behind another answer. What a creator wrote in a way they have left is kept,
+               not cleared. -->
+          <cp-form-section heading="What is the picture of?" sectionId="cp-studio-recipe">
+            @if (linkedRecipe() === null) {
+              <cp-choice-group
+                label="Start from"
+                layout="segmented"
+                [options]="wayChoices"
+                [value]="[way()]"
+                (valueChange)="chooseWay($event)"
+              />
+            }
+
+            @switch (way()) {
+              @case ('recipe') {
+                <cp-recipe-picker
+                  [workspaceSlug]="workspaceSlug()"
+                  [session]="session"
+                  [suggested]="hosted?.suggestedRecipeId ?? null"
+                  idPrefix="cp-studio-recipe"
+                  [bare]="true"
+                  (announced)="onAnnounced($event)"
+                  (linkedRecipe)="onRecipeNamed($event)"
+                />
+              }
+              @case ('name') {
+                <cp-content-pipeline-setup-step
+                  [config]="config()"
+                  [showDay]="false"
+                  show="name"
+                  [bare]="true"
+                  (changed)="onConfig($event)"
+                />
+              }
+              @case ('describe') {
+                <cp-content-pipeline-setup-step
+                  [config]="config()"
+                  [showDay]="false"
+                  show="concept"
+                  [bare]="true"
+                  (changed)="onConfig($event)"
+                />
+              }
+            }
+          </cp-form-section>
+          @if (!hosted) {
+            <!-- Where it is going, how many to try, the scene and the style: asked here because no earlier step
+                 has. A guided run has asked them already and shows them as defaults below. -->
+            <cp-content-pipeline-setup-step
+              [config]="config()"
+              [showDay]="false"
+              show="defaults"
+              (changed)="onConfig($event)"
+            />
+          }
           @if (hosted; as host) {
             <!-- Shown, not asked: the brand's look as the server will use it, and how many pictures a run tries,
                  with one way to change either for this work. -->
@@ -161,9 +203,6 @@
       @if (shows('about') || shows('plan')) {
         <cp-form-section [heading]="extrasHeading()" [intro]="extrasIntro()" sectionId="cp-studio-extras">
           @if (shows('about')) {
-            <p class="cp-muted">
-              Something you have written about this shoot. It is read as source material, never as instructions.
-            </p>
             <cp-content-pipeline-document-picker
               [workspaceSlug]="workspaceSlug()"
               kind="brief"

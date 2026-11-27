@@ -1,22 +1,17 @@
-<!-- The intro says the name is carried as written. The pipeline's next step reads it into a suggested cuisine,
-     dish type and method the creator can change; the name itself is never rewritten (.claude/rules/recipes.md). -->
-@if (asksSubject()) {
-  <cp-form-section
-    heading="What it is"
-    intro="The dish the picture is of. Your name for it is carried through the idea, the looks and the prompt exactly as you write it. What kind of dish it is and how it is cooked are yours to say on the next step."
-  >
-    <cp-field label="What it is called" forId="cp-pipeline-subject" [hint]="subjectHint()">
-      <input
-        id="cp-pipeline-subject"
-        name="pipelineSubject"
-        type="text"
-        autocomplete="off"
-        [maxlength]="limits.subjectMaxLength"
-        [ngModel]="config().subject"
-        (ngModelChange)="setSubject($event)"
-      />
-    </cp-field>
-  </cp-form-section>
+<!-- The name is the fallback for a recipe that is not in the library, so it is asked only while no recipe is
+     linked: a linked recipe always wins (`contentSubjectOf`), and a field that nothing reads would only ask the
+     creator to fill in a second answer to the same question. The name they typed is not cleared when it goes
+     away — it is kept on the work and comes back, as they wrote it, if the recipe is unlinked
+     (.claude/rules/recipes.md). The pipeline's next step reads it into a suggested cuisine, dish type and method
+     the creator can change; the name itself is never rewritten. -->
+@if (asksName() && linkedRecipeTitle() === null) {
+  @if (bare()) {
+    <ng-container [ngTemplateOutlet]="nameField" />
+  } @else {
+    <cp-form-section heading="Or name the dish">
+      <ng-container [ngTemplateOutlet]="nameField" />
+    </cp-form-section>
+  }
 }
 
 @if (asksDefaults() || (asksSubject() && showDay())) {
@@ -94,26 +89,14 @@
   </cp-form-section>
 }
 
-@if (asksSubject()) {
-  <cp-form-section
-    heading="What you already have in mind"
-    intro="Your own words, written down once so every later step starts from them."
-  >
-    <cp-field
-      label="The picture you have in mind"
-      forId="cp-pipeline-concept"
-      hint="Describe it however you like, up to 1000 characters. This stays exactly as you wrote it."
-    >
-      <textarea
-        id="cp-pipeline-concept"
-        name="pipelineConcept"
-        rows="4"
-        [maxlength]="limits.conceptMaxLength"
-        [ngModel]="config().concept"
-        (ngModelChange)="setConcept($event)"
-      ></textarea>
-    </cp-field>
-  </cp-form-section>
+@if (asksConcept()) {
+  @if (bare()) {
+    <ng-container [ngTemplateOutlet]="conceptField" />
+  } @else {
+    <cp-form-section heading="What you already have in mind">
+      <ng-container [ngTemplateOutlet]="conceptField" />
+    </cp-form-section>
+  }
 }
 
 @if (asksDefaults()) {
@@ -202,3 +185,32 @@
     }
   </cp-form-section>
 }
+
+<!-- The two answers to "what is it?" the creator writes themselves, as fields, so a host can put each in its own
+     section or — `bare` — under a choice of ways it has already named. -->
+<ng-template #nameField>
+  <cp-field label="Dish name" forId="cp-pipeline-subject">
+    <input
+      id="cp-pipeline-subject"
+      name="pipelineSubject"
+      type="text"
+      autocomplete="off"
+      [maxlength]="limits.subjectMaxLength"
+      [ngModel]="config().subject"
+      (ngModelChange)="setSubject($event)"
+    />
+  </cp-field>
+</ng-template>
+
+<ng-template #conceptField>
+  <cp-field class="wide" label="Describe it" forId="cp-pipeline-concept">
+    <textarea
+      id="cp-pipeline-concept"
+      name="pipelineConcept"
+      rows="4"
+      [maxlength]="limits.conceptMaxLength"
+      [ngModel]="config().concept"
+      (ngModelChange)="setConcept($event)"
+    ></textarea>
+  </cp-field>
+</ng-template>

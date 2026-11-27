@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -102,6 +103,7 @@ const FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 'saved'
   selector: 'cp-recipe-picker',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     RouterLink,
     CpButtonComponent,
     CpComboboxComponent,
@@ -111,6 +113,7 @@ const FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 'saved'
     CpNoticeComponent,
     CpSkeletonComponent,
   ],
+  host: { '[class.bare]': 'bare()' },
   templateUrl: './recipe-picker.component.html',
   styleUrl: './recipe-picker.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -125,9 +128,12 @@ export class RecipePickerComponent {
   /** Unique on the page, so two pickers never share a control id. */
   readonly idPrefix = input('cp-recipe-picker');
   /** What linking a recipe does on this surface, which differs: only the pipeline has an idea to build. */
-  readonly intro = input(
-    'Link the recipe this picture is of, and the looks and the prompt are planned around it. Optional.',
-  );
+  readonly intro = input('The looks and the prompt are planned around it.');
+  /**
+   * Drops the section — its heading, intro and rule — and keeps what is in it. For a host that names the part
+   * itself and shows this as one way of answering it, so the part is not named twice.
+   */
+  readonly bare = input(false);
 
   /** One sentence for the surface's polite live region when the link changes. */
   readonly announced = output<string>();
@@ -192,7 +198,7 @@ export class RecipePickerComponent {
     if (status === 'loading') return 'Searching your recipes…';
     if (status === 'unavailable') return "Your recipes couldn't be searched right now.";
 
-    return 'No recipes match that.';
+    return 'No recipes match that. Archived recipes are not shown.';
   });
 
   protected readonly resultsLabel = computed(() => {
