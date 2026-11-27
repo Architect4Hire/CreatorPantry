@@ -6,7 +6,7 @@ CreatorPantry is a focused production workspace for food bloggers and content cr
 
 ## Layers
 
-1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, the loading bar's and a skeleton's sweep, `--cp-duration-sweep`, and a busy button's spinner, `--cp-duration-spinner`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
+1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, the loading bar's and a skeleton's sweep, `--cp-duration-sweep`, and a busy button's spinner, `--cp-duration-spinner`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`), and a sheet's inside edge (`--cp-card-padding`, `--cp-space-6`, `--cp-space-4` at `40rem` and narrower) — see "On a phone".
 2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a control's edge and a field's fill; the edge — of a field, a select, a checkbox's box, a radio's mark, a secondary button — holds 3:1 against the fill and every surface, WCAG 1.4.11, and specs check it as a token and as each control paints it), `--cp-card-edge` (the edge of a sheet — card, dialog, lightbox — a hairline in light and a stronger line in dark, where the sheet's fill barely stands off the page), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), and a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"), and a skeleton's resting shape and the band of shine that sweeps across it (`--cp-skeleton-base`, `--cp-skeleton-shine`), seen on the page and a sheet but held to no text ratio, since a skeleton is decorative.
 3. Angular primitives implement interaction and accessibility. A new one — and a new feature component — keeps its template and styles in their own files beside its class (`name.component.html` and `name.component.css`, through `templateUrl` and `styleUrl`), as `cp-field`, `cp-spinner` and `cp-loading-bar` do. A spec's test host may stay inline, and the older parts whose templates are inline are not moved for this alone.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
@@ -68,6 +68,28 @@ Every signed-in page sits in one frame, and the app shell owns it. `AppShellComp
 - **On paper the frame is nothing.** Under `@media print` it gives up its padding and its width, as `<main>` gives up its own offsets, so a feature's print rules lay out the content and nothing else.
 
 `scripts/check-page-contract.mjs` runs first in `npm test`. Its `frame` rule follows every route the shell mounts to its component's stylesheet and fails when a `:host` rule sets `padding`, `margin`, `width` or `max-width`. Sign-in, sign-up and confirm-email sit outside the shell and are not in the frame; the public pages have a frame of their own ("The public page"). The rest of what it holds a page to is under "What the build checks".
+
+### On a phone
+
+A phone is not the main way CreatorPantry is used, but everything a creator does at a desk must still be possible
+on one. The app adapts at two lines, and nothing else needs a phone layout of its own.
+
+- **At `900px` and narrower the sidebar is a menu.** The shell's `SHELL_COMPACT_QUERY` and its stylesheet share
+  that line. The menu slides in over the page behind a scrim, and while it is open the bar and the page are
+  `inert` and the page does not scroll. Choosing a section closes it (the page already showing included) and
+  focus goes to the page. Its close button, a tap on the scrim and Escape also close it, and focus then goes
+  back to the menu button. A closed menu is `visibility: hidden`, so its links are not in the Tab order. Its
+  links are 44px tall. Widening the window past the line closes it.
+- **The bar holds only the menu, "+" and the theme there.** The account — name, the AI allowance and Sign out —
+  moves to the foot of the menu. An allowance pill that needs attention stays in the bar.
+- **At `40rem` and narrower the frame tightens.** The gutter drops to `--cp-space-4`, the bar to `3.5rem`
+  (`--cp-topbar-height`, which every sticky offset already reads), the frame's top to `--cp-space-5`, and a
+  sheet's inside edge (`--cp-card-padding`, read by `cp-card`, `cp-topic-card` and `cp-dialog`) to
+  `--cp-space-4`. Cards nest in flows and forms, and the wider edge was being paid twice. A dialog keeps a
+  `--cp-space-3` margin and is held to the dynamic viewport height, and a toast spans the screen less a margin.
+- **A page does not add phone rules of its own** for the gutter, the bar or a card's padding. A page that does
+  not fit a phone usually has a row that should wrap, or a fixed width that should be a measure. Check it at
+  393px wide for sideways scrolling before reaching for a media query.
 
 ### The public page
 

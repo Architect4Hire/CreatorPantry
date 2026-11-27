@@ -1,10 +1,12 @@
 :host {
   display: block;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .sidebar {
@@ -80,12 +82,16 @@ nav a {
   color: var(--cp-text-faint);
   transition: color var(--cp-duration-fast);
 }
-nav a:hover {
-  background: var(--cp-surface-subtle);
-  color: var(--cp-text);
-}
-nav a:hover .nav-icon {
-  color: var(--cp-text-muted);
+/* Only where there is a pointer to hover with: on a touch screen :hover sticks to the link last tapped, and a
+   menu that opens with a stale highlight on it reads as two pages chosen. */
+@media (hover: hover) {
+  nav a:hover {
+    background: var(--cp-surface-subtle);
+    color: var(--cp-text);
+  }
+  nav a:hover .nav-icon {
+    color: var(--cp-text-muted);
+  }
 }
 /* The page you are on: a fill, a heavier label and a bar at the edge, so it is never told by colour alone. */
 nav a.active {
@@ -103,6 +109,13 @@ nav a.active::before {
   width: 3px;
   border-radius: var(--cp-radius-full);
   background: var(--cp-primary);
+}
+
+/* Shown only on a narrow screen (below); beside the wide sidebar the close button and the account are the bar's. */
+.nav-close,
+.nav-scrim,
+.sidebar-account {
+  display: none;
 }
 
 .dev-link {
@@ -195,6 +208,7 @@ main {
   margin-left: var(--cp-sidebar-width);
   padding-top: var(--cp-topbar-height);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 /* The content region takes focus only from script, when the shell removes something the creator was standing
    on (dismissing the low-credit notice takes its own button with it). It is a destination, not a control and
@@ -216,20 +230,110 @@ main:focus {
 .page-frame[data-page-width='wide'] {
   max-width: var(--cp-page-width-wide);
 }
+/* On a phone the page's title starts a little nearer the bar: 32px of nothing is a tenth of the screen there. */
+@media (max-width: 40rem) {
+  .page-frame {
+    padding-top: var(--cp-space-5);
+  }
+}
 
+/* The same line as SHELL_COMPACT_QUERY in the component; the two move together. */
 @media (max-width: 900px) {
+  /*
+   * A menu over the page. Hidden by visibility as well as by moving it off screen, and only once it has finished
+   * sliding out, so a closed menu's links are not in the Tab order or read out — a keyboard user on a narrow
+   * screen otherwise tabbed through fourteen invisible links before reaching the page.
+   */
   .sidebar {
+    width: min(18rem, 85vw);
+    padding-top: var(--cp-space-4);
     transform: translateX(-103%);
-    transition: transform 0.2s;
+    visibility: hidden;
+    overscroll-behavior: contain;
+    box-shadow: none;
+    transition:
+      transform var(--cp-duration-normal) var(--cp-ease),
+      visibility 0s linear var(--cp-duration-normal);
   }
   .sidebar.open {
     transform: none;
+    visibility: visible;
+    box-shadow: var(--cp-shadow-lg);
+    transition: transform var(--cp-duration-normal) var(--cp-ease);
   }
+  /* Over the page and the bar, under the menu: the scrim comes first in the shell, so at the same layer the menu
+     paints above it. */
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--cp-z-sidebar);
+    background: var(--cp-scrim);
+  }
+  .nav-close {
+    display: inline-grid;
+    place-items: center;
+    position: absolute;
+    top: var(--cp-space-3);
+    right: var(--cp-space-3);
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    border-radius: var(--cp-radius-md);
+    background: transparent;
+    color: var(--cp-text);
+    cursor: pointer;
+    font-size: 1.25rem;
+  }
+  .nav-close:hover {
+    background: var(--cp-surface-subtle);
+  }
+  /* The mark at a size that leaves the menu's links on the first screen of a phone, and clear of the close button. */
+  .brand cp-logo {
+    max-width: 5.5rem;
+  }
+  /* A finger is less exact than a pointer: the menu's links grow to 44px. */
+  nav a {
+    min-height: 2.75rem;
+  }
+  /* The account, at the foot of the menu. `margin-top: auto` keeps it at the bottom of a short menu. */
+  .sidebar-account {
+    display: grid;
+    justify-items: start;
+    gap: var(--cp-space-2);
+    margin-top: auto;
+    padding-top: var(--cp-space-4);
+    border-top: 1px solid var(--cp-border);
+  }
+  .sidebar-account-name {
+    color: var(--cp-text);
+    font-size: var(--cp-font-size-sm);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .sidebar-account .allowance-link {
+    padding: 0;
+  }
+  /* The design-system link follows the account rather than pushing it up. */
+  .sidebar-account ~ .dev-link {
+    margin-top: 0;
+  }
+
   .topbar {
     left: 0;
+    gap: var(--cp-space-2);
+    padding: 0 var(--cp-page-gutter);
   }
   .mobile {
-    display: block;
+    display: inline-grid;
+    place-items: center;
+    font-size: 1.25rem;
+  }
+  /* The ghost Sign out, and an allowance with nothing to say, are in the menu here. A pill that needs attention
+     stays in sight. */
+  .topbar-sign-out,
+  .topbar .allowance-link:not(.needs-attention) {
+    display: none;
   }
   main {
     margin-left: 0;
@@ -243,9 +347,15 @@ main:focus {
     display: none;
   }
 
-  /* "+ Task" becomes "+" here; its name is its aria-label, so nothing is lost to a screen reader. */
+  /* "+ Task" becomes "+" here; its name is its aria-label, so nothing is lost to a screen reader. A square, the
+     size of the icon buttons beside it, rather than a narrow upright pill. */
   .capture-word {
     display: none;
+  }
+  .topbar .capture-opener {
+    width: 2.5rem;
+    min-width: 2.5rem;
+    padding-inline: 0;
   }
 }
 

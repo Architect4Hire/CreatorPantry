@@ -84,11 +84,19 @@
   /* cp-drawer's two widths: a short form, and a comparison or a preview. At 40rem and narrower the drawer is
      a full-screen sheet and neither applies. */
   --cp-drawer-width: 30rem;
+  /* The inside edge of a sheet — cp-card (and so cp-topic-card) and cp-dialog. Narrower on a phone, below. */
+  --cp-card-padding: var(--cp-space-6);
   --cp-drawer-width-wide: 48rem;
 }
 
 @media (max-width: 40rem) {
   :root {
     --cp-page-gutter: var(--cp-space-4);
+    /* On a phone the bar holds a menu button and a few icons, not the account as well (the menu does), so it
+       gives the page back a little of the screen it has least of: height. */
+    --cp-topbar-height: 3.5rem;
+    /* A card's inside edge, and a dialog's. At a phone's width the page gutter and a card's padding are taken
+       twice over when cards nest, and 24px a side left a form a little over two-thirds of the screen. */
+    --cp-card-padding: var(--cp-space-4);
   }
 }

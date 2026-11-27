@@ -165,6 +165,60 @@ describe('WorkspaceGateComponent', () => {
     expect(fixture.nativeElement.querySelector('input[name="workspaceName"]')).toBeTruthy();
   });
 
+  it('keeps the create form mounted while create() refreshes the memberships through loading, and navigates', async () => {
+    // The real refresh is load(), which sets 'loading' before it sets 'ready' again. The test above goes straight
+    // from ready to ready and passed while this path dropped the output and left the creator on the form.
+    const liveState = signal<{ status: string; memberships?: unknown[] }>({ status: 'ready', memberships: [] });
+    navigateSpy = jasmine.createSpy('navigate').and.resolveTo(true);
+    ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.callFake(async () => {});
+    loadSpy = jasmine.createSpy('load').and.callFake(async () => {});
+    let fixture!: ReturnType<typeof TestBed.createComponent<WorkspaceGateComponent>>;
+    createSpy = jasmine.createSpy('create').and.callFake(async () => {
+      liveState.set({ status: 'loading' });
+      fixture.detectChanges();
+      liveState.set({
+        status: 'ready',
+        memberships: [
+          {
+            workspaceId: 'w9',
+            workspaceSlug: 'new-workspace',
+            workspaceName: 'New',
+            membershipId: 'm9',
+            role: 'Owner',
+            status: 'Active',
+          },
+        ],
+      });
+      fixture.detectChanges();
+      return { status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome;
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [WorkspaceGateComponent],
+      providers: [
+        {
+          provide: WorkspaceMembershipService,
+          useValue: { state: liveState, ensureLoaded: ensureLoadedSpy, load: loadSpy, create: createSpy },
+        },
+        { provide: Router, useValue: { navigate: navigateSpy } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(WorkspaceGateComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('input[name="workspaceName"]') as HTMLInputElement;
+    input.value = 'New';
+    input.dispatchEvent(new Event('input'));
+    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(createSpy).toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith(['/', 'new-workspace', 'dashboard']);
+  });
+
   it('shows an error state with a working retry that calls load(), not ensureLoaded()', async () => {
     state = { status: 'error' };
     const fixture = await createFixture();

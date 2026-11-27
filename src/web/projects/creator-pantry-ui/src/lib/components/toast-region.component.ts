@@ -106,6 +106,23 @@ interface CpToastTimerState {
       .message {
         flex: 1;
       }
+      /* On a phone a toast spans the screen less a margin, rather than a fixed 16rem pinned to one corner. */
+      @media (max-width: 40rem) {
+        .region {
+          left: var(--cp-space-3);
+          right: var(--cp-space-3);
+        }
+        .region.polite {
+          bottom: var(--cp-space-3);
+        }
+        .region.assertive {
+          top: var(--cp-space-3);
+        }
+        .toast {
+          min-width: 0;
+          max-width: none;
+        }
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

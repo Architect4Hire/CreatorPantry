@@ -38,8 +38,9 @@ import { cpCaptureFocus, cpLockBodyScroll, cpTrapTab } from './modal-surface';
       .dialog {
         width: min(38rem, 100%);
         max-height: 90vh;
+        max-height: 90dvh;
         overflow: auto;
-        padding: var(--cp-space-6);
+        padding: var(--cp-card-padding);
         border: 1px solid var(--cp-card-edge);
         border-radius: var(--cp-radius-xl);
         background: var(--cp-surface);
@@ -84,6 +85,18 @@ import { cpCaptureFocus, cpLockBodyScroll, cpTrapTab } from './modal-surface';
        * It lays them out the same way. A wrapper that brings its own layout — .cp-actions, or a class of the consumer's —
        * keeps it: the selector is :where(), so it never outweighs one.
        */
+      /*
+       * On a phone the dialog keeps a hairline of the page around it, so it still reads as raised over something,
+       * and the dynamic viewport height above keeps its footer clear of a browser's toolbar.
+       */
+      @media (max-width: 40rem) {
+        .backdrop {
+          padding: var(--cp-space-3);
+        }
+        h2 {
+          font-size: 1.5rem;
+        }
+      }
       :host ::ng-deep :where(footer > [cpDialogActions]:not(button, a, .cp-actions)) {
         display: flex;
         flex-wrap: wrap;

@@ -13,7 +13,7 @@ import { booleanAttribute, ChangeDetectionStrategy, Component, input } from '@an
     `
       :host {
         display: block;
-        padding: var(--cp-space-6);
+        padding: var(--cp-card-padding);
         border: 1px solid var(--cp-card-edge);
         border-radius: var(--cp-radius-lg);
         background: var(--cp-surface);

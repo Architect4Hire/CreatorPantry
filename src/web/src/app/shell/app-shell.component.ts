@@ -1,19 +1,24 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DOCUMENT,
   DestroyRef,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
+  effect,
   inject,
   isDevMode,
   signal,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 import {
   CpButtonComponent,
+  CpIconComponent,
   CpLoadingBarComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
@@ -115,6 +120,12 @@ const NAV_GROUPS: readonly ShellNavGroup[] = [
 
 const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
+/**
+ * The width at and below which the sidebar is a menu that slides in over the page rather than a column beside it.
+ * The stylesheet's `@media (max-width: 900px)` is the same line, and the two must move together.
+ */
+export const SHELL_COMPACT_QUERY = '(max-width: 900px)';
+
 @Component({
   selector: 'cp-app-shell',
   standalone: true,
@@ -123,6 +134,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
     RouterLink,
     RouterLinkActive,
     CpButtonComponent,
+    CpIconComponent,
     CpLoadingBarComponent,
     CpStatusPillComponent,
     WorkspaceSwitcherComponent,
@@ -134,6 +146,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown.escape)': 'onEscape()' },
 })
 export class AppShellComponent {
   private readonly router = inject(Router);
@@ -258,14 +271,111 @@ export class AppShellComponent {
     this.mainRegion()?.nativeElement.focus({ preventScroll: true });
   }
 
+  private readonly document = inject(DOCUMENT);
+
+  /**
+   * Whether the window is narrow enough that the sidebar is a menu over the page (a phone, a narrow window, or
+   * 200% zoom) rather than a column beside it. Read from the same media query the stylesheet uses.
+   */
+  readonly compact = signal(false);
+
   constructor() {
     void this.membershipService.ensureLoaded();
     void this.usage.ensureLoaded();
 
     // A page opens the one dialog through the service (13A.32); there is one only while the workspace offers it.
     const unregister = inject(QuickCaptureService).register((options) => this.quickCapture()?.open(options));
-    inject(DestroyRef).onDestroy(unregister);
+    const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(unregister);
+
+    const query = this.document.defaultView?.matchMedia?.(SHELL_COMPACT_QUERY);
+    if (query) {
+      this.compact.set(query.matches);
+      const onChange = (event: MediaQueryListEvent) => {
+        this.compact.set(event.matches);
+        // Widened past the line with the menu open: the sidebar is a column again, so there is nothing to close
+        // later, and a scroll lock left behind would hold the page still.
+        if (!event.matches) this.menuOpen.set(false);
+      };
+      query.addEventListener('change', onChange);
+      destroyRef.onDestroy(() => query.removeEventListener('change', onChange));
+    }
+
+    // Any navigation while the menu is open puts it away — the browser's Back included, not only a link in it.
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(destroyRef),
+      )
+      .subscribe(() => this.leaveMenu());
+
+    // While the menu covers the page on a narrow screen, the page under it does not scroll: a swipe on the scrim
+    // would otherwise move a page the creator cannot see.
+    effect((onCleanup) => {
+      if (!this.pageInert()) return;
+      const body = this.document.body;
+      const previous = body.style.overflow;
+      body.style.overflow = 'hidden';
+      onCleanup(() => (body.style.overflow = previous));
+    });
   }
+
+  /** The button that opens the menu on a narrow screen, given focus back when the menu is closed from inside it. */
+  private readonly menuToggle = viewChild<ElementRef<HTMLButtonElement>>('menuToggle');
+
+  /** The menu's own close button, focused when it opens so the keyboard starts inside what just appeared. */
+  private readonly menuClose = viewChild<ElementRef<HTMLButtonElement>>('menuClose');
+
+  protected toggleMenu(): void {
+    if (this.menuOpen()) {
+      this.closeMenu();
+      return;
+    }
+    this.menuOpen.set(true);
+    this.afterRender(() => this.menuClose()?.nativeElement.focus());
+  }
+
+  /**
+   * Puts the menu away — from its close button, the scrim behind it or Escape — and gives focus back to the
+   * button that opened it, so a keyboard user is where they started.
+   */
+  protected closeMenu(): void {
+    if (!this.menuOpen()) return;
+    this.menuOpen.set(false);
+    this.afterRender(() => this.menuToggle()?.nativeElement.focus());
+  }
+
+  /**
+   * Runs once the view has caught up with a change to the menu. Focus has to wait for it: the page and the bar are
+   * inert while the menu is open, and an inert element refuses focus until the attribute is actually gone.
+   */
+  private afterRender(read: () => void): void {
+    afterNextRender({ read }, { injector: this.injector });
+  }
+
+  /**
+   * Choosing where to go is what the menu is for, so choosing puts it away — from the link itself, because the link
+   * to the page the creator is already on starts no navigation. Focus goes to the page, not back to the menu button:
+   * the link chosen is about to be hidden, and the creator is here to read on.
+   */
+  protected leaveMenu(): void {
+    if (!this.menuOpen()) return;
+    this.menuOpen.set(false);
+    this.afterRender(() => this.mainRegion()?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  /**
+   * The menu is modal while it covers the page: the bar and the page under the scrim are inert, so neither Tab nor a
+   * screen reader's browse mode reaches what the creator cannot see. Beside the wide sidebar nothing is.
+   */
+  readonly pageInert = computed(() => this.menuOpen() && this.compact());
+
+  /** Escape anywhere while the menu is open on a narrow screen. */
+  protected onEscape(): void {
+    if (this.pageInert()) this.closeMenu();
+  }
+
+  private readonly injector = inject(Injector);
 
   /** The content region, focused when the shell removes something the creator was standing on. */
   private readonly mainRegion = viewChild<ElementRef<HTMLElement>>('mainRegion');

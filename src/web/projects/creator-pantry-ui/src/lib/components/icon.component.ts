@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /** The icons `cp-icon` draws. Grown one at a time, by a control that needs one. */
-export const CP_ICON_NAMES = ['trash', 'warning'] as const;
+export const CP_ICON_NAMES = ['trash', 'warning', 'menu', 'close'] as const;
 export type CpIconName = (typeof CP_ICON_NAMES)[number];
 
 /**
  * A small line icon for a control whose action is better shown than spelled out — `trash` for removing something —
- * or a mark beside a line of text that needs a second look — `warning` for a line that carries an open question.
+ * or a mark beside a line of text that needs a second look — `warning` for a line that carries an open question. `menu`
+ * and `close` open and close a navigation panel on a narrow screen.
  * Either way it only repeats what the words beside it say.
  *
  * **A control's picture, not a picture.** `1.25em` square — a line drawing reads at a little above the text it stands in for — in `currentColor`, stroked like the shell's sidebar icons, so

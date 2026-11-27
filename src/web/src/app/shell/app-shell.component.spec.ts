@@ -5,7 +5,7 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { CpLoadingBarComponent, CpThemeService } from '@creator-pantry/ui';
 import { EMPTY, Observable, Subject } from 'rxjs';
 
-import { AppShellComponent } from './app-shell.component';
+import { AppShellComponent, SHELL_COMPACT_QUERY } from './app-shell.component';
 import { QuickCaptureComponent } from '../shared/quick-capture/quick-capture.component';
 import { QuickCaptureService } from '../shared/quick-capture/quick-capture.service';
 import { AuthService, SessionState } from '../services/auth.service';
@@ -465,6 +465,197 @@ describe('AppShellComponent', () => {
 
     expect(toggle.getAttribute('aria-controls')).toBe('cp-shell-sidebar');
     expect(sidebar).toBeTruthy();
+  });
+
+  describe('the menu on a narrow screen', () => {
+    /** Answers the shell's own query as a phone would, and every other query as the browser does. */
+    function narrowScreen(matches = true) {
+      const listeners: ((event: MediaQueryListEvent) => void)[] = [];
+      const query = {
+        get matches() {
+          return matches;
+        },
+        addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) => listeners.push(listener),
+        removeEventListener: () => undefined,
+      };
+      const original = window.matchMedia.bind(window);
+      spyOn(window, 'matchMedia').and.callFake((text: string) =>
+        text === SHELL_COMPACT_QUERY ? (query as unknown as MediaQueryList) : original(text),
+      );
+      return {
+        widen() {
+          matches = false;
+          for (const listener of listeners) listener({ matches: false } as MediaQueryListEvent);
+        },
+      };
+    }
+
+    const authenticated: SessionState = { status: 'authenticated', displayName: 'Robert' };
+
+    function parts(fixture: ComponentFixture<AppShellComponent>) {
+      const el = fixture.nativeElement as HTMLElement;
+      return {
+        toggle: el.querySelector('.icon-btn.mobile') as HTMLButtonElement,
+        close: el.querySelector('.nav-close') as HTMLButtonElement,
+        scrim: () => el.querySelector('.nav-scrim') as HTMLElement | null,
+        topbar: el.querySelector('.topbar') as HTMLElement,
+        main: el.querySelector('main') as HTMLElement,
+        sidebar: el.querySelector('#cp-shell-sidebar') as HTMLElement,
+      };
+    }
+
+    /**
+     * The test window is wider than the line, so the stylesheet hides the menu's two buttons; shown inline here so
+     * the browser lets them take focus, as it does on a phone.
+     */
+    function showPhoneButtons(fixture: ComponentFixture<AppShellComponent>) {
+      parts(fixture).toggle.style.display = 'inline-grid';
+      parts(fixture).close.style.display = 'inline-grid';
+    }
+
+    async function open(fixture: ComponentFixture<AppShellComponent>) {
+      parts(fixture).toggle.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+
+    afterEach(() => (document.body.style.overflow = ''));
+
+    it('opens from its button, says so, and starts the keyboard on its close button', async () => {
+      narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      document.body.appendChild(fixture.nativeElement);
+      showPhoneButtons(fixture);
+      const { toggle, close, sidebar } = parts(fixture);
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+      await open(fixture);
+
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(sidebar.classList).toContain('open');
+      expect(document.activeElement).toBe(close);
+      fixture.nativeElement.remove();
+    });
+
+    it('makes the bar and the page inert and holds the page still while it is open, and gives both back', async () => {
+      narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      const { topbar, main } = parts(fixture);
+
+      await open(fixture);
+      expect(topbar.hasAttribute('inert')).toBeTrue();
+      expect(main.hasAttribute('inert')).toBeTrue();
+      expect(document.body.style.overflow).toBe('hidden');
+
+      parts(fixture).close.click();
+      fixture.detectChanges();
+      expect(topbar.hasAttribute('inert')).toBeFalse();
+      expect(main.hasAttribute('inert')).toBeFalse();
+      expect(document.body.style.overflow).toBe('');
+    });
+
+    it('closes from its close button and gives focus back to the menu button', async () => {
+      narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      document.body.appendChild(fixture.nativeElement);
+      showPhoneButtons(fixture);
+      await open(fixture);
+
+      parts(fixture).close.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(parts(fixture).toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(document.activeElement).toBe(parts(fixture).toggle);
+      fixture.nativeElement.remove();
+    });
+
+    it('closes from a tap on the scrim, and from Escape', async () => {
+      narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      await open(fixture);
+      expect(parts(fixture).scrim()).not.toBeNull();
+
+      parts(fixture).scrim()!.click();
+      fixture.detectChanges();
+      expect(parts(fixture).toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(parts(fixture).scrim()).toBeNull();
+
+      await open(fixture);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+      expect(parts(fixture).toggle.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('closes when a section is chosen — the page already showing included — and puts focus on the page', async () => {
+      narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      document.body.appendChild(fixture.nativeElement);
+      await open(fixture);
+
+      // The router is a stub here, so this navigates nowhere: exactly the case of the page already showing.
+      (fixture.nativeElement.querySelector('nav a') as HTMLAnchorElement).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(parts(fixture).toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(document.activeElement).toBe(parts(fixture).main);
+      fixture.nativeElement.remove();
+    });
+
+    it('closes on any navigation, the browser’s Back included', async () => {
+      narrowScreen();
+      const events = new Subject<unknown>();
+      const fixture = await createFixture(
+        authenticated,
+        'cozy-fall',
+        'recipes',
+        fakeRouteTree('cozy-fall', 'recipes'),
+        { status: 'loading' },
+        events,
+      );
+      await open(fixture);
+
+      events.next(new NavigationEnd(2, '/cozy-fall/dashboard', '/cozy-fall/dashboard'));
+      fixture.detectChanges();
+
+      expect(parts(fixture).toggle.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('puts itself away when the window widens past the line, so no lock is left on the page', async () => {
+      const screen = narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      await open(fixture);
+
+      screen.widen();
+      fixture.detectChanges();
+
+      expect(parts(fixture).sidebar.classList).not.toContain('open');
+      expect(parts(fixture).main.hasAttribute('inert')).toBeFalse();
+      expect(document.body.style.overflow).toBe('');
+    });
+
+    it('holds the account — name, allowance and Sign out — at its foot, which signs out', async () => {
+      narrowScreen();
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      const account = fixture.nativeElement.querySelector('#cp-shell-sidebar .sidebar-account') as HTMLElement;
+
+      expect(account.textContent).toContain('Robert');
+      expect(account.querySelector('a.allowance-link')?.textContent?.trim()).toBe('AI allowance');
+
+      (account.querySelector('button') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      expect(logoutSpy).toHaveBeenCalled();
+    });
+
+    it('makes nothing inert and locks nothing beside the wide sidebar', async () => {
+      narrowScreen(false);
+      const fixture = await createFixture(authenticated, 'cozy-fall');
+      await open(fixture);
+
+      expect(parts(fixture).main.hasAttribute('inert')).toBeFalse();
+      expect(document.body.style.overflow).toBe('');
+    });
   });
 
   it('marks decorative nav icons aria-hidden so only the label is announced', async () => {

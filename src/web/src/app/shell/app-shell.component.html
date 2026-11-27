@@ -1,8 +1,20 @@
 <div class="shell">
+  <!--
+    Behind the menu on a narrow screen: it dims the page and a tap on it puts the menu away. Not a control of its
+    own — the menu's close button and Escape are the keyboard's ways out — so it is hidden from assistive technology.
+    The stylesheet never shows it beside the wide sidebar.
+  -->
+  @if (menuOpen()) {
+    <div class="nav-scrim" aria-hidden="true" (click)="closeMenu()"></div>
+  }
   <aside class="sidebar" id="cp-shell-sidebar" [class.open]="menuOpen()">
     <div class="brand brand-mark">
       <cp-logo sizes="8.5rem" />
     </div>
+    <!-- Only on a narrow screen, where the sidebar is a menu over the page and needs a way out of itself. -->
+    <button #menuClose class="nav-close" type="button" aria-label="Close menu" (click)="closeMenu()">
+      <cp-icon name="close" />
+    </button>
 
     <cp-workspace-switcher [currentSlug]="currentWorkspaceSlug()" />
 
@@ -20,6 +32,7 @@
                     routerLinkActive="active"
                     #rla="routerLinkActive"
                     [attr.aria-current]="rla.isActive ? 'page' : null"
+                    (click)="leaveMenu()"
                   >
                     <span aria-hidden="true" class="nav-icon"><cp-shell-nav-icon [name]="item.icon" /></span>
                     <span>{{ item.label }}</span>
@@ -32,20 +45,43 @@
       }
     </nav>
 
+    <!--
+      The account, at the foot of the menu on a narrow screen. The bar has room there for a menu button and a few
+      icons, and Sign out next to them was the easiest thing on the page to tap by mistake. Beside the wide sidebar
+      the bar holds it, as before, and this is not shown.
+    -->
+    @if (session(); as currentSession) {
+      @if (currentSession.status === 'authenticated') {
+        <div class="sidebar-account">
+          <span class="sidebar-account-name">{{ currentSession.displayName }}</span>
+          <a class="allowance-link" routerLink="/app/ai-usage" routerLinkActive="active" (click)="leaveMenu()">
+            @if (allowanceNeedsAttention()) {
+              <cp-status-pill [tone]="allowanceTone()">{{ allowanceLabel() }}</cp-status-pill>
+            } @else {
+              <span>{{ allowanceLabel() }}</span>
+            }
+          </a>
+          <button cpButton variant="secondary" size="sm" type="button" (click)="signOut()">Sign out</button>
+        </div>
+      }
+    }
+
     @if (isDevMode) {
       <a class="dev-link" routerLink="/design-system">Design system (dev only)</a>
     }
   </aside>
 
-  <header class="topbar">
+  <header class="topbar" [attr.inert]="pageInert() ? '' : null">
     <button
+      #menuToggle
       class="icon-btn mobile"
-      aria-label="Toggle menu"
+      type="button"
+      aria-label="Menu"
       aria-controls="cp-shell-sidebar"
       [attr.aria-expanded]="menuOpen()"
-      (click)="menuOpen.set(!menuOpen())"
-      >☰</button
-    >
+      (click)="toggleMenu()"
+      ><cp-icon [name]="menuOpen() ? 'close' : 'menu'"
+    /></button>
     <span class="spacer"></span>
     <!-- Quick capture (13A.31): on every signed-in workspace page, for anyone who can keep work there. -->
     @if (currentWorkspaceSlug() && canKeepWork()) {
@@ -76,7 +112,13 @@
           workspace in the URL, and an allowance belongs to the person across all of them. It draws attention
           to itself only when there is something to say, and says it in words rather than by changing colour.
         -->
-        <a class="allowance-link" routerLink="/app/ai-usage" routerLinkActive="active">
+        <!-- On a narrow screen only a pill that needs attention stays up here; the rest moves into the menu. -->
+        <a
+          class="allowance-link"
+          [class.needs-attention]="allowanceNeedsAttention()"
+          routerLink="/app/ai-usage"
+          routerLinkActive="active"
+        >
           @if (allowanceNeedsAttention()) {
             <cp-status-pill [tone]="allowanceTone()">{{ allowanceLabel() }}</cp-status-pill>
           } @else {
@@ -84,7 +126,9 @@
           }
         </a>
         <span class="display-name">{{ currentSession.displayName }}</span>
-        <button cpButton variant="ghost" size="sm" (click)="signOut()">Sign out</button>
+        <button class="topbar-sign-out" cpButton variant="ghost" size="sm" type="button" (click)="signOut()"
+          >Sign out</button
+        >
       }
     }
     <!-- Along the bar's bottom edge, over its rule: the one place on every signed-in page that is there before the
@@ -105,7 +149,7 @@
   <!-- tabindex="-1" so the shell can put focus back somewhere sensible when it removes something the
        creator was standing on — dismissing the low-credit notice takes its own button away with it. Not a tab
        stop. -->
-  <main #mainRegion tabindex="-1">
+  <main #mainRegion tabindex="-1" [attr.inert]="pageInert() ? '' : null">
     <!-- The one gutter and the one width every signed-in page has; a route picks its width with
          `data: { pageWidth }`, and a tool its tone with `data: { tone }` — set here and nowhere else, so the nav
          and the top bar, outside this frame, never take it. No title here: the page's one h1 is its own

@@ -34,35 +34,41 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
     @let state = memberships.state();
     <!-- Always present, and outside the busy card (AU.7): one place the page says what it is waiting on. -->
     <p class="cp-sr-only" role="status">{{ statusWords() }}</p>
-    @switch (state.status) {
-      @case ('loading') {
-        <!-- The page as it will arrive: a card. -->
-        <cp-card
-          ><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div
-        ></cp-card>
-      }
-      @case ('error') {
-        <cp-empty-state
-          title="Couldn't load your workspaces"
-          description="Check your connection and try again."
-          icon="⚠"
-        >
-          <div cpEmptyStateActions>
-            <button cpButton (click)="retry()">Try again</button>
-          </div>
-        </cp-empty-state>
-      }
-      @case ('ready') {
-        @if (firstUse()) {
+    <!--
+      The latch is read before the status, not inside 'ready': creating the workspace refreshes the memberships,
+      and the refresh passes through 'loading' on its way back to 'ready'. Inside the switch that pass tore the form
+      down while create() was still in flight, its (created) output was dropped (NG0953), and the creator was left
+      on this page with a workspace they could only reach from the switcher.
+    -->
+    @if (firstUse()) {
+      <cp-empty-state
+        title="Create your first workspace"
+        description="You don't belong to a workspace yet. Create one to get started, or ask a workspace owner to invite you."
+        variant="first-use"
+        icon="✦"
+      >
+        <cp-create-workspace-form cpEmptyStateActions (created)="onCreated($event)" />
+      </cp-empty-state>
+    } @else {
+      @switch (state.status) {
+        @case ('loading') {
+          <!-- The page as it will arrive: a card. -->
+          <cp-card
+            ><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div
+          ></cp-card>
+        }
+        @case ('error') {
           <cp-empty-state
-            title="Create your first workspace"
-            description="You don't belong to a workspace yet. Create one to get started, or ask a workspace owner to invite you."
-            variant="first-use"
-            icon="✦"
+            title="Couldn't load your workspaces"
+            description="Check your connection and try again."
+            icon="⚠"
           >
-            <cp-create-workspace-form cpEmptyStateActions (created)="onCreated($event)" />
+            <div cpEmptyStateActions>
+              <button cpButton (click)="retry()">Try again</button>
+            </div>
           </cp-empty-state>
-        } @else {
+        }
+        @case ('ready') {
           <!-- On the way to the dashboard: the same card, until the route changes. -->
           <cp-card
             ><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div
