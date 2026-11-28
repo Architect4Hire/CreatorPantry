@@ -3,14 +3,14 @@
   gap: var(--cp-space-4);
 }
 
+/* The whole width of what holds it, as wide as the rows it filters. */
 .search {
   display: grid;
   gap: var(--cp-space-2);
-  max-width: var(--cp-measure-field);
 }
 
-/* Not in a toolbar, so nothing beside it sets its width: it takes the measure above rather than the browser's
-   default of about twenty characters, which cut the placeholder short. Still never wider than its container. */
+/* Not in a toolbar, so nothing beside it sets its width: it takes its container's rather than the browser's
+   default of about twenty characters, which cut the placeholder short. */
 .search input {
   width: 100%;
 }

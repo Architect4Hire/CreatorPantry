@@ -10,8 +10,11 @@ import {
 
 import { CpCardComponent } from './card.component';
 
-/** The level of a topic card's heading: 2 under a page head, 3 inside something that already has one. */
-export type CpTopicCardHeadingLevel = 2 | 3;
+/**
+ * The level of a topic card's heading: 2 under a page head, 3 inside something that already has one, 4 inside a
+ * group that is itself under a section heading.
+ */
+export type CpTopicCardHeadingLevel = 2 | 3 | 4;
 
 let nextId = 0;
 
@@ -41,10 +44,16 @@ let nextId = 0;
   host: { '[class.cp-topic-card--wide]': 'wide()' },
   template: `<cp-card [featured]="featured()">
     <section [attr.aria-labelledby]="resolvedHeadingId()">
-      @if (headingLevel() === 3) {
-        <h3 #title class="heading" tabindex="-1" [id]="resolvedHeadingId()">{{ heading() }}</h3>
-      } @else {
-        <h2 #title class="heading" tabindex="-1" [id]="resolvedHeadingId()">{{ heading() }}</h2>
+      @switch (headingLevel()) {
+        @case (3) {
+          <h3 #title class="heading" tabindex="-1" [id]="resolvedHeadingId()">{{ heading() }}</h3>
+        }
+        @case (4) {
+          <h4 #title class="heading" tabindex="-1" [id]="resolvedHeadingId()">{{ heading() }}</h4>
+        }
+        @default {
+          <h2 #title class="heading" tabindex="-1" [id]="resolvedHeadingId()">{{ heading() }}</h2>
+        }
       }
       <ng-content />
       <div class="actions"><ng-content select="[cpTopicCardActions]" /></div>
@@ -95,7 +104,7 @@ let nextId = 0;
 export class CpTopicCardComponent {
   /** What this card is about. It heads the card and names its region. */
   readonly heading = input.required<string>();
-  /** 2 under a page head; 3 when the card sits inside something that already has a heading. */
+  /** 2 under a page head; 3 when the card sits inside something that already has a heading; 4 a level below that. */
   readonly headingLevel = input<CpTopicCardHeadingLevel>(2);
   /** Lifts the reading measure, for a table or a preview. A bare `wide` attribute is enough. */
   readonly wide = input(false, { transform: booleanAttribute });

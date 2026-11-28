@@ -86,6 +86,45 @@ const NEED_LINKS: Readonly<Record<string, string>> = {
   'content-board': 'Open your board',
 };
 
+/** The headings the goals are filed under, so like work sits together rather than where the catalogue left it. */
+export type GoalGroupId = 'recipes' | 'pictures' | 'posts' | 'planning' | 'brand' | 'other';
+
+/** The groups, in the order the page shows them. */
+const GOAL_GROUPS: readonly { readonly id: GoalGroupId; readonly heading: string }[] = [
+  { id: 'recipes', heading: 'Recipes' },
+  { id: 'pictures', heading: 'Pictures' },
+  { id: 'posts', heading: 'Writing and posts' },
+  { id: 'planning', heading: 'Planning' },
+  { id: 'brand', heading: 'Your brand' },
+  { id: 'other', heading: 'More you can do' },
+];
+
+/**
+ * Where each goal sits on the hub, by card id: a catalogue workflow's key, or a local journey's id. The hub's own
+ * presentation, not the catalogue's — a shipped definition is frozen, and moving a card is no new version of it.
+ * A key not listed here (a workflow the server added since) goes under "More you can do", in the server's order.
+ */
+const GOAL_PLACES: Readonly<Record<string, { readonly group: GoalGroupId; readonly rank: number }>> = {
+  'recipe.create': { group: 'recipes', rank: 10 },
+  'quick-recipe': { group: 'recipes', rank: 20 },
+  'recipe.improve': { group: 'recipes', rank: 30 },
+  'recipe.test-and-approve': { group: 'recipes', rank: 40 },
+  'images.create': { group: 'pictures', rank: 10 },
+  'assets.organize': { group: 'pictures', rank: 20 },
+  'content-pipeline': { group: 'posts', rank: 10 },
+  [LONG_FORM_DEFINITION_KEY]: { group: 'posts', rank: 20 },
+  'social.create': { group: 'posts', rank: 30 },
+  'publishing.plan-and-publish': { group: 'planning', rank: 10 },
+  'planning.day-and-week': { group: 'planning', rank: 20 },
+  'brand.voice': { group: 'brand', rank: 10 },
+};
+
+export interface GoalGroup {
+  readonly id: GoalGroupId;
+  readonly heading: string;
+  readonly cards: readonly GoalCard[];
+}
+
 /** A read the hub makes, as it stands: not answered yet, answered, or not answerable right now. */
 type Read<T> =
   { readonly state: 'loading' } | { readonly state: 'read'; readonly value: T } | { readonly state: 'unavailable' };
@@ -645,6 +684,23 @@ export class WorkflowsHubComponent {
       const text = `${card.goal} ${card.description} ${card.outcome}`.toLowerCase();
       return words.every((word) => text.includes(word));
     });
+  });
+
+  /**
+   * The goals on show, filed under their headings and ranked within each. Each group is its own masonry list, so a
+   * group is never split across the foot of one column and the head of the next. A group with nothing in it — none
+   * of its workflows offered, or none matching the search — is not shown.
+   */
+  readonly goalGroups = computed<readonly GoalGroup[]>(() => {
+    const shown = this.shownGoals();
+    const rank = (card: GoalCard) => GOAL_PLACES[card.id]?.rank ?? Number.MAX_SAFE_INTEGER;
+    return GOAL_GROUPS.map((group) => ({
+      ...group,
+      // A stable sort, so cards with no rank keep the server's order.
+      cards: shown
+        .filter((card) => (GOAL_PLACES[card.id]?.group ?? 'other') === group.id)
+        .sort((a, b) => rank(a) - rank(b)),
+    })).filter((group) => group.cards.length > 0);
   });
 
   readonly matchText = computed(() => {

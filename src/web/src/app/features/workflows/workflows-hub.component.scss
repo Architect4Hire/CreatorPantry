@@ -17,28 +17,36 @@
   margin: 0;
 }
 
+/* The goals filed under their headings: a group's own cards sit close under it, and the groups further apart, so
+   the heading reads as belonging to the cards below it rather than to the ones above. */
+.goal-groups {
+  display: grid;
+  gap: var(--cp-space-8);
+}
+
+.goal-group {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.goal-group > h3 {
+  margin: 0;
+}
+
 .plain {
   margin: 0;
 }
 
+/* The whole width of the section, as the work-in-progress cards above it and the goals below it are. */
 .search {
   display: grid;
   gap: var(--cp-space-2);
-  max-width: var(--cp-measure-field);
 }
 
-/* Not in a toolbar, so nothing beside it sets its width: it takes the measure above rather than the browser's
-   default of about twenty characters, which cut the placeholder short. Still never wider than the page. */
+/* Not in a toolbar, so nothing beside it sets its width: it takes the section's rather than the browser's default
+   of about twenty characters, which cut the placeholder short. */
 .search input {
   width: 100%;
-}
-
-/* The work-in-progress cards are as wide as the search box under "What do you want to accomplish?" — the field
-   measure — rather than stretching to fill whatever room the grid's columns leave. The grid's own floor is that
-   measure too (in the template), so a column is never narrower than the cap; on a narrow screen both give way to
-   the page. */
-.topics > li {
-  max-width: var(--cp-measure-field);
 }
 
 /* A short list inside a topic card: what the work is, and the one way into it. */

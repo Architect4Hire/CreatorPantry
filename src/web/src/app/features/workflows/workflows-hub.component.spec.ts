@@ -266,7 +266,7 @@ function text(): string {
 
 function card(heading: string): HTMLElement | null {
   const found = Array.from(root().querySelectorAll('cp-topic-card')).find(
-    (candidate) => candidate.querySelector('h2, h3')?.textContent?.trim() === heading,
+    (candidate) => candidate.querySelector('h2, h3, h4')?.textContent?.trim() === heading,
   );
   return (found as HTMLElement | undefined) ?? null;
 }
@@ -278,7 +278,15 @@ function rows(heading: string): string[] {
 }
 
 function goals(): string[] {
-  return Array.from(root().querySelectorAll('section.goals cp-topic-card h3')).map((h) => h.textContent?.trim() ?? '');
+  return Array.from(root().querySelectorAll('section.goals cp-topic-card h4')).map((h) => h.textContent?.trim() ?? '');
+}
+
+/** The goals filed under one group's heading, in the order shown. */
+function goalsIn(heading: string): string[] {
+  const group = Array.from(root().querySelectorAll('section.goals .goal-group')).find(
+    (candidate) => candidate.querySelector(':scope > h3')?.textContent?.trim() === heading,
+  );
+  return Array.from(group?.querySelectorAll('cp-topic-card h4') ?? []).map((h) => h.textContent?.trim() ?? '');
 }
 
 function control(scope: Element | null, label: string): HTMLElement | null {
@@ -311,30 +319,92 @@ describe('WorkflowsHubComponent', () => {
       expect(card('Continue where you left off')).toBeNull();
       expect(card('Needs attention')).toBeNull();
       expect(card('Recent outcomes')).toBeNull();
+      // Filed by what they make, not in the catalogue's order with the page's own journeys last.
       expect(goals()).toEqual([
         'Create a recipe',
-        'Create my brand voice',
+        'Draft a recipe from a dish name',
+        'Make a picture and posts from one idea',
         'Write a blog post or newsletter',
         'Plan and publish content',
-        'Make a picture and posts from one idea',
-        'Draft a recipe from a dish name',
+        'Create my brand voice',
       ]);
     });
 
-    it('packs the goals in columns, so a card with a notice in it does not stretch its neighbours', async () => {
+    it('files the goals under headings, leaving out a group with nothing in it', async () => {
       await create();
 
-      const list = root().querySelector('section.goals ul[aria-labelledby="hub-goals-heading"]')!;
-      expect(list.getAttribute('data-flow')).toBe('masonry');
+      const headings = Array.from(root().querySelectorAll('section.goals .goal-group > h3')).map((h) =>
+        h.textContent?.trim(),
+      );
+      // No pictures workflow is offered here, so there is no "Pictures" heading over nothing.
+      expect(headings).toEqual(['Recipes', 'Writing and posts', 'Planning', 'Your brand']);
+      expect(goalsIn('Recipes')).toEqual(['Create a recipe', 'Draft a recipe from a dish name']);
     });
 
-    it('gives the search the field measure, wide enough to show its whole placeholder', async () => {
+    it('ranks a group by the page’s order, whatever order the server sends', async () => {
+      await create({
+        definitions: [
+          definition('assets.organize', 'Organize your pictures'),
+          definition('recipe.test-and-approve', 'Test and approve a recipe'),
+          definition('images.create', 'Create food images'),
+          definition('recipe.improve', 'Improve a recipe'),
+          definition('recipe.create', 'Create a recipe'),
+        ],
+      });
+
+      expect(goalsIn('Recipes')).toEqual([
+        'Create a recipe',
+        'Draft a recipe from a dish name',
+        'Improve a recipe',
+        'Test and approve a recipe',
+      ]);
+      expect(goalsIn('Pictures')).toEqual(['Create food images', 'Organize your pictures']);
+    });
+
+    it('puts a workflow the page has no place for last, in the server’s order', async () => {
+      await create({
+        definitions: [
+          definition('later.second', 'A newer journey'),
+          definition('recipe.create', 'Create a recipe'),
+          definition('later.first', 'Another newer journey'),
+        ],
+      });
+
+      const headings = Array.from(root().querySelectorAll('section.goals .goal-group > h3')).map((h) =>
+        h.textContent?.trim(),
+      );
+      expect(headings.at(-1)).toBe('More you can do');
+      expect(goalsIn('More you can do')).toEqual(['A newer journey', 'Another newer journey']);
+    });
+
+    it('packs each group in columns of its own, so a group is never split across one', async () => {
       await create();
 
-      const search = root().querySelector<HTMLElement>('section.goals .search')!;
-      const input = search.querySelector<HTMLInputElement>('input[type="search"]')!;
-      expect(input.getBoundingClientRect().width).toBeCloseTo(search.getBoundingClientRect().width, 0);
-      expect(input.scrollWidth).toBeLessThanOrEqual(input.clientWidth);
+      const groups = Array.from(root().querySelectorAll('section.goals .goal-group'));
+      expect(groups.length).toBeGreaterThan(1);
+      for (const group of groups) {
+        const heading = group.querySelector(':scope > h3')!;
+        const list = group.querySelector(':scope > ul[cpCardGrid]')!;
+        expect(list.getAttribute('data-flow')).withContext(heading.textContent!).toBe('masonry');
+        expect(list.getAttribute('aria-labelledby')).toBe(heading.id);
+      }
+    });
+
+    it('gives the search the whole width of the section, wide enough to show its whole placeholder', async () => {
+      // A field measure narrower than the section, so a search still held to it would show.
+      const page = document.documentElement.style;
+      page.setProperty('--cp-measure-field', '10ch');
+      try {
+        await create();
+        const section = root().querySelector<HTMLElement>('section.goals')!;
+        const search = section.querySelector<HTMLElement>('.search')!;
+        const input = search.querySelector<HTMLInputElement>('input[type="search"]')!;
+        expect(search.getBoundingClientRect().width).toBeCloseTo(section.getBoundingClientRect().width, 0);
+        expect(input.getBoundingClientRect().width).toBeCloseTo(search.getBoundingClientRect().width, 0);
+        expect(input.scrollWidth).toBeLessThanOrEqual(input.clientWidth);
+      } finally {
+        page.removeProperty('--cp-measure-field');
+      }
     });
 
     it('never shows a workflow that is not built, or any word of how one is built', async () => {
@@ -537,20 +607,45 @@ describe('WorkflowsHubComponent', () => {
         }
       });
 
-      it('is as wide as the search box under the goals, whatever room the page leaves', async () => {
-        // The specs load no design tokens, so the measure a real page has is given here, and given back after.
+      it('takes the whole width of the page, as "Needs attention" does, with its rows across all of it', async () => {
+        // The specs load no design tokens, so the measures a real page has are given here, and given back after.
         const page = document.documentElement.style;
         page.setProperty('--cp-measure-field', '60ch');
+        page.setProperty('--cp-measure-prose', '65ch');
+        // Attached, and wider than either measure, so a card held to one would show it.
+        const frame = document.createElement('div');
+        frame.style.width = '1400px';
+        document.body.appendChild(frame);
         try {
-          await create({ runs: work(1) });
+          await create({
+            runs: {
+              ...work(1),
+              attention: { items: [summary('needs-1', { attentionReasons: ['StaleSource'] })], nextCursor: null },
+            },
+          });
+          frame.appendChild(harness.fixture.nativeElement);
+          harness.detectChanges();
 
-          const panel = root().querySelector<HTMLElement>('ul.topics > li')!;
-          const goalsSearch = root().querySelector<HTMLElement>('section.goals .search')!;
-
-          expect(goalsSearch.getBoundingClientRect().width).toBeGreaterThan(0);
-          expect(panel.getBoundingClientRect().width).toBeCloseTo(goalsSearch.getBoundingClientRect().width, 0);
+          const hub = root().querySelector<HTMLElement>('.hub')!.getBoundingClientRect().width;
+          expect(hub).toBeGreaterThan(1000);
+          for (const heading of ['Continue where you left off', 'Needs attention']) {
+            const topic = card(heading)!;
+            expect(topic.getBoundingClientRect().width).withContext(heading).toBeCloseTo(hub, 0);
+            // `wide`, so the rows — and the Continue or Open at the end of each — reach the card's far edge.
+            expect(topic.querySelector<HTMLElement>('section')!.getBoundingClientRect().width)
+              .withContext(heading)
+              .toBeGreaterThan(1000);
+          }
+          // Its search too: as wide as the rows it narrows, not held to the field measure.
+          const continuing = card('Continue where you left off')!;
+          const filter = continuing.querySelector<HTMLElement>('cp-list-filter')!.getBoundingClientRect().width;
+          const input = continuing.querySelector<HTMLElement>('input[type="search"]')!.getBoundingClientRect().width;
+          expect(filter).toBeGreaterThan(1000);
+          expect(input).toBeCloseTo(filter, 0);
         } finally {
+          frame.remove();
           page.removeProperty('--cp-measure-field');
+          page.removeProperty('--cp-measure-prose');
         }
       });
 
@@ -1028,8 +1123,8 @@ describe('WorkflowsHubComponent', () => {
       await settle();
 
       expect(status().textContent).toBe('Loading what you can do…');
-      expect(goals()).toEqual(['Make a picture and posts from one idea', 'Draft a recipe from a dish name']);
-      const placeholders = root().querySelectorAll('section.goals li.goal-loading[aria-hidden="true"]');
+      expect(goals()).toEqual(['Draft a recipe from a dish name', 'Make a picture and posts from one idea']);
+      const placeholders = root().querySelectorAll('section.goals ul[aria-hidden="true"] > li.goal-loading');
       expect(placeholders.length).toBe(3);
 
       holdDefinitions!();
@@ -1058,7 +1153,7 @@ describe('WorkflowsHubComponent', () => {
       await create({ definitions: 'unavailable' });
 
       expect(text()).toContain('Some of what you can do couldn’t be loaded right now.');
-      expect(goals()).toEqual(['Make a picture and posts from one idea', 'Draft a recipe from a dish name']);
+      expect(goals()).toEqual(['Draft a recipe from a dish name', 'Make a picture and posts from one idea']);
 
       definitions[SLUG] = DEFINITIONS;
       control(root().querySelector('section.goals'), 'Try again')!.click();
@@ -1112,7 +1207,7 @@ describe('WorkflowsHubComponent', () => {
       await create({ runs: { mine: { items: [summary('run-1')], nextCursor: null } } });
 
       expect(root().querySelectorAll('h1').length).toBe(1);
-      const levels = Array.from(root().querySelectorAll('h1, h2, h3')).map((h) => Number(h.tagName[1]));
+      const levels = Array.from(root().querySelectorAll('h1, h2, h3, h4')).map((h) => Number(h.tagName[1]));
       levels.forEach((level, i) => {
         if (i > 0)
           expect(level - levels[i - 1])

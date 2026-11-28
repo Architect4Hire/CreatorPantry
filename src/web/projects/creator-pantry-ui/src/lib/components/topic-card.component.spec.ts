@@ -116,8 +116,18 @@ describe('CpTopicCardComponent', () => {
     expect(getComputedStyle(heading).outlineStyle).toBe(heading.matches(':focus-visible') ? 'solid' : 'none');
   });
 
-  it('keeps the heading focusable at either level', () => {
-    mount((h) => h.level.set(3));
-    expect((card().querySelector('h3') as HTMLElement).tabIndex).toBe(-1);
+  it('heads the card at level 4 when asked, for a card inside a group under a section heading', () => {
+    mount((h) => h.level.set(4));
+    expect(card().querySelector('h4')?.textContent).toBe('Versions');
+    expect(card().querySelector('h2, h3')).toBeNull();
+    expect(section().getAttribute('aria-labelledby')).toBe(card().querySelector('h4')!.id);
+  });
+
+  it('keeps the heading focusable at every level', () => {
+    for (const level of [3, 4] as const) {
+      mount((h) => h.level.set(level));
+      expect((card().querySelector(`h${level}`) as HTMLElement).tabIndex).toBe(-1);
+      el.remove();
+    }
   });
 });
