@@ -1,3 +1,15 @@
+/* Bare, the name and the description are not projected into a section, so its cap at the reading measure does not
+   reach them; it is put here, on the field itself, for the same reason the section has it. */
+:host(.bare) cp-field {
+  max-width: var(--cp-measure-field);
+}
+
+/* The description is prose in a box that grows, so it takes the whole width its host gives it rather than the
+   measure a one-line field keeps. */
+:host(.bare) cp-field.wide {
+  max-width: none;
+}
+
 /* A field and its Remove sit on one line where there is room, and stack where there is not. The field itself
    keeps the reading measure; the space beside it is the layout working (DESIGN-SYSTEM.md). */
 .rows {

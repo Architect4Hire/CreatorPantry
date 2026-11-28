@@ -40,10 +40,7 @@
 }
 
 @if (offersStatedFacets()) {
-  <cp-form-section
-    heading="What you already know"
-    intro="Say any of these and every idea will use it. Leave one alone and it stays a suggestion you can keep or swap. Where the name you typed says one, it is filled in for you and marked — change any that are wrong."
-  >
+  <cp-form-section heading="What you already know" intro="Every idea will use what you pick here.">
     <cp-field-row>
       @for (facet of statableFacets; track facet) {
         <cp-field [label]="facetLabels[facet]" [forId]="'cp-pipeline-stated-' + facet" [hint]="facetHints()[facet]">
@@ -107,15 +104,7 @@
 }
 
 @if (seed() === null && state().status === 'idle') {
-  @if (recipe()) {
-    <p>No idea yet. We can put one together around the recipe you linked, with your own weekly theme.</p>
-  } @else {
-    <p>
-      No idea yet. We can put one together from the cooking vocabulary and your own weekly theme, using anything you
-      stated above.
-    </p>
-  }
-  <div class="cp-actions">
+  <div class="cp-actions suggest">
     <button cpButton type="button" variant="primary" (click)="tryAnother()">Suggest an idea</button>
   </div>
 }
@@ -185,18 +174,21 @@
       @for (row of rows(); track row.name) {
         <li>
           @if (row.options.length > 0 && !accepted()) {
-            <label class="facet-label" [for]="'cp-pipeline-facet-' + row.name">{{ row.label }}</label>
-            <select
-              class="facet-value"
-              [id]="'cp-pipeline-facet-' + row.name"
-              [name]="'pipelineFacet' + row.name"
-              [ngModel]="row.key"
-              (ngModelChange)="setFacet(row.name, $event)"
-            >
-              @for (option of row.options; track option.value) {
-                <option [value]="option.value">{{ option.label }}</option>
-              }
-            </select>
+            <!-- The library's own select, so it is drawn as every other one is. It names the select for a screen
+                 reader, so the label beside it is not read a second time. -->
+            <span class="facet-label" aria-hidden="true">{{ row.label }}</span>
+            <cp-select-field class="facet-value" [label]="row.label">
+              <select
+                [id]="'cp-pipeline-facet-' + row.name"
+                [name]="'pipelineFacet' + row.name"
+                [ngModel]="row.key"
+                (ngModelChange)="setFacet(row.name, $event)"
+              >
+                @for (option of row.options; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </cp-select-field>
           } @else {
             <span class="facet-label">{{ row.label }}</span>
             <span class="facet-value">{{ row.displayName }}</span>
@@ -264,10 +256,9 @@
 }
 
 <details class="cp-disclosure">
-  <summary>Come back to an idea you have seen before</summary>
+  <summary>Use an idea code</summary>
   <p class="cp-muted">
-    Every idea has a short code. Keep a code and the same idea comes back — as long as the vocabulary and that day's
-    theme have not changed since.
+    A code brings the same idea back, unless the vocabulary or that day's theme has changed since.
   </p>
 
   @if (seed(); as idea) {
@@ -280,7 +271,7 @@
   <cp-field
     label="Idea code"
     forId="cp-pipeline-token"
-    hint="Letters, digits, hyphens and underscores. A code of your own works too."
+    hint="Letters, digits, hyphens and underscores."
     [error]="tokenError()"
   >
     <input
@@ -295,7 +286,7 @@
     />
   </cp-field>
 
-  <div class="cp-actions">
+  <div class="cp-actions code-actions">
     <button cpButton type="button" variant="secondary" [disabled]="!canReproduce()" (click)="reproduce()">
       Show that idea
     </button>

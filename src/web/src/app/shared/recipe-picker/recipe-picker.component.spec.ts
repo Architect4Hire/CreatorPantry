@@ -21,6 +21,7 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
     [workspaceSlug]="slug()"
     [session]="session"
     [suggested]="suggested()"
+    [bare]="bare()"
     (announced)="announcements.push($event)"
     (linkedRecipe)="named.push($event)"
   />`,
@@ -28,6 +29,7 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 class HostComponent {
   readonly slug = signal(SLUG);
   readonly suggested = signal<string | null>(null);
+  readonly bare = signal(false);
   readonly announcements: string[] = [];
   readonly named: ({ readonly id: string; readonly title: string } | null)[] = [];
 
@@ -134,14 +136,30 @@ describe('RecipePickerComponent', () => {
   });
 
   describe('searching', () => {
-    it('names its search box, and says the link is optional', async () => {
+    it('names its search box, and does not announce the link as optional', async () => {
       await mount();
 
       expect(
         box().getAttribute('aria-labelledby') ?? el.querySelector(`label[for="${box().id}"]`)?.textContent,
       ).toBeTruthy();
       expect(el.textContent).toContain('Find a recipe');
-      expect(el.textContent).toContain('Optional');
+      expect(el.textContent).not.toMatch(/optional/i);
+    });
+
+    it('is a section of its own by default, and only its content when bare', async () => {
+      await mount();
+
+      expect(el.querySelector('cp-form-section')).not.toBeNull();
+      expect(el.textContent).toContain('A recipe');
+
+      host.bare.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(el.querySelector('cp-form-section')).toBeNull();
+      expect(el.querySelector('h2')).toBeNull();
+      expect(el.textContent).toContain('Find a recipe');
+      expect(box()).not.toBeNull();
     });
 
     it('finds recipes by part of their name', async () => {

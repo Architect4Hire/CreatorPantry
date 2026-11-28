@@ -121,6 +121,18 @@ describe('RecipeIngredientEditorComponent', () => {
     const editButton = (fixture: ComponentFixture<RecipeIngredientEditorComponent>, n: number) =>
       element(fixture).querySelector<HTMLButtonElement>(`button[aria-label="Edit ingredient ${n}"]`)!;
 
+    it('sits on a sheet, its lines ruled one under another rather than boxed one by one', async () => {
+      const fixture = await loaded();
+      const list = element(fixture).querySelector('cp-sheet ul[cpRuledList]');
+
+      expect(list).withContext('the lines are on a sheet, ruled like a recipe’s ingredients').toBeTruthy();
+      // Tokens are not loaded under test, and a rule drawn with an unset one is dropped whole.
+      element(fixture).style.setProperty('--cp-border-strong', '#888888');
+      const row = list!.querySelector<HTMLElement>('.row')!;
+      expect(getComputedStyle(row).borderBlockEndStyle).withContext('a dashed rule under the line').toBe('dashed');
+      expect(getComputedStyle(row).backgroundColor).withContext('no card behind a line').toBe('rgba(0, 0, 0, 0)');
+    });
+
     it('opens with every line closed to its words, its buttons beside them and no fields', async () => {
       const fixture = await loaded();
 

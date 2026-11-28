@@ -113,14 +113,11 @@ export class ContentPipelineBrandDefaultsComponent {
     return count === 1 ? '1 picture' : `${count} pictures`;
   });
 
-  /** Whose answer the count is, said beside it. */
-  protected readonly pictureCountSource = computed(() => {
-    const brand = this.brandPictureCount();
+  /** True when the creator's own choice differs from the brand's: the one case worth saying beside the count. */
+  protected readonly pictureCountChangedHere = computed(() => {
     const config = this.config();
 
-    if (config.variantCountChosen === true && config.variantCount !== brand) return 'For this run';
-
-    return brand === null ? 'CreatorPantry’s default' : 'From your brand';
+    return config.variantCountChosen === true && config.variantCount !== this.brandPictureCount();
   });
 
   protected readonly guideLink = computed(() => {

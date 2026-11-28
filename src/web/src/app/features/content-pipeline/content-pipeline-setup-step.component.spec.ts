@@ -19,6 +19,7 @@ const CHANNELS: readonly ContentChannel[] = [
     [showDay]="showDay()"
     [linkedRecipeTitle]="linkedRecipeTitle()"
     [show]="show()"
+    [bare]="bare()"
     [pictureCountDefault]="pictureCountDefault()"
     (changed)="apply($event)"
   />`,
@@ -27,7 +28,8 @@ class HostComponent {
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly showDay = signal(true);
   readonly linkedRecipeTitle = signal<string | null>(null);
-  readonly show = signal<'everything' | 'subject' | 'defaults'>('everything');
+  readonly show = signal<'everything' | 'subject' | 'name' | 'concept' | 'defaults'>('everything');
+  readonly bare = signal(false);
   readonly pictureCountDefault = signal<number | null>(null);
   readonly emitted: ContentPipelineConfig[] = [];
 
@@ -141,6 +143,92 @@ describe('ContentPipelineSetupStepComponent', () => {
     expect(el.textContent).not.toContain('Add a scene element');
     expect(el.textContent).not.toContain('Add a style direction');
     expect(channelReads).withContext('no channel field, so no channel list is read').toBe(0);
+  });
+
+  it('asks only the name when a host lays the two halves of the subject out apart', async () => {
+    let channelReads = 0;
+    TestBed.overrideProvider(BrandProfileService, {
+      useValue: { listContentChannels: () => ((channelReads += 1), Promise.resolve(channels)) },
+    });
+    fixture = TestBed.createComponent(HostComponent);
+    host = fixture.componentInstance;
+    host.show.set('name');
+    el = fixture.nativeElement;
+    await settle();
+
+    expect(byId('cp-pipeline-subject')).not.toBeNull();
+    expect(byId('cp-pipeline-concept')).toBeNull();
+    expect(byId('cp-pipeline-channel')).toBeNull();
+    expect(el.querySelector('[aria-label="Which day is it for?"]')).toBeNull();
+    expect(el.textContent).not.toContain('How many pictures to try');
+    expect(channelReads).withContext('nothing here asks for a channel, so none is read').toBe(0);
+  });
+
+  it('asks only the picture in mind for the other half, and reports it as written', async () => {
+    let channelReads = 0;
+    TestBed.overrideProvider(BrandProfileService, {
+      useValue: { listContentChannels: () => ((channelReads += 1), Promise.resolve(channels)) },
+    });
+    fixture = TestBed.createComponent(HostComponent);
+    host = fixture.componentInstance;
+    host.show.set('concept');
+    el = fixture.nativeElement;
+    await settle();
+
+    expect(byId('cp-pipeline-concept')).not.toBeNull();
+    expect(byId('cp-pipeline-subject')).toBeNull();
+    expect(byId('cp-pipeline-channel')).toBeNull();
+    expect(channelReads).toBe(0);
+
+    const concept = byId<HTMLTextAreaElement>('cp-pipeline-concept');
+    concept.value = '  Torn open, steam rising  ';
+    concept.dispatchEvent(new Event('input'));
+    await settle();
+
+    expect(latest().concept).toBe('  Torn open, steam rising  ');
+  });
+
+  it('asks the name and the description as bare fields, with no section round either, when its host names the part', async () => {
+    fixture = TestBed.createComponent(HostComponent);
+    host = fixture.componentInstance;
+    host.bare.set(true);
+    host.show.set('name');
+    el = fixture.nativeElement;
+    await settle();
+
+    expect(byId('cp-pipeline-subject')).not.toBeNull();
+    expect(el.querySelector('cp-form-section')).toBeNull();
+    expect(el.textContent).not.toContain('Or name the dish');
+
+    host.show.set('concept');
+    await settle();
+
+    expect(byId('cp-pipeline-concept')).not.toBeNull();
+    expect(el.querySelector('cp-form-section')).toBeNull();
+    expect(el.querySelector('h2')).toBeNull();
+  });
+
+  it('gives the description the whole width, and the one-line name only the reading measure', async () => {
+    fixture = TestBed.createComponent(HostComponent);
+    host = fixture.componentInstance;
+    host.bare.set(true);
+    host.show.set('concept');
+    el = fixture.nativeElement;
+    el.style.display = 'block';
+    el.style.width = '90rem';
+    // The library's tokens are not loaded in a spec, so the measure is given here as the app's stylesheet gives it.
+    el.style.setProperty('--cp-measure-field', '30rem');
+    document.body.appendChild(el);
+    await settle();
+
+    const hostWidth = el.getBoundingClientRect().width;
+    expect(byId('cp-pipeline-concept').getBoundingClientRect().width).toBeGreaterThan(hostWidth - 2);
+
+    host.show.set('name');
+    await settle();
+
+    expect(byId('cp-pipeline-subject').closest('cp-field')!.getBoundingClientRect().width).toBeLessThanOrEqual(480);
+    el.remove();
   });
 
   it('asks only what a run may change about its brand’s answers, starting from the brand’s count', async () => {
@@ -280,23 +368,29 @@ describe('ContentPipelineSetupStepComponent', () => {
       expect(byId<HTMLInputElement>('cp-pipeline-subject').maxLength).toBe(200);
     });
 
-    it('says the name is what everything is planned around while no recipe is linked', async () => {
+    it('asks for the name as the way in when there is no recipe, with nothing said about being optional', async () => {
       await mount();
 
-      const hint = el.querySelector('#cp-pipeline-subject')!.closest('cp-field')!.textContent ?? '';
-      expect(hint).toContain('not in your library yet');
+      expect(el.textContent).toContain('Or name the dish');
+      const field = el.querySelector('#cp-pipeline-subject')!.closest('cp-field')!;
+      expect(field.textContent).not.toMatch(/optional/i);
+      expect(field.querySelector('[aria-required="true"]')).toBeNull();
     });
 
-    it('says the linked recipe wins, and that the name is kept rather than asking for it to be deleted', async () => {
+    it('stops asking for a name while a recipe is linked, keeps what was typed, and asks again when it is unlinked', async () => {
       await mount({ ...emptyContentPipelineConfig(), subject: 'Soda bread' });
       host.linkedRecipeTitle.set("Nan's Soda Bread");
       await settle();
 
-      const field = el.querySelector('#cp-pipeline-subject')!.closest('cp-field')!.textContent ?? '';
-      expect(field).toContain("Nan's Soda Bread");
-      expect(field).toContain('This name is kept');
+      // One answer to "what is it?" at a time: the recipe wins, so a name field would be a second answer nothing reads.
+      expect(byId('cp-pipeline-subject')).toBeNull();
+      expect(el.textContent).not.toContain('Or name the dish');
+      // The creator's own words are not cleared by it going away.
+      expect(host.config().subject).toBe('Soda bread');
 
-      // The creator's own words stay on screen: nothing here clears them.
+      host.linkedRecipeTitle.set(null);
+      await settle();
+
       expect(byId<HTMLInputElement>('cp-pipeline-subject').value).toBe('Soda bread');
     });
   });

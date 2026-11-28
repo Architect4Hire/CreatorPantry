@@ -126,18 +126,18 @@ describe('ContentPipelineBrandDefaultsComponent', () => {
     await mount();
 
     expect(fact('Posts are written for')).toBe('Instagram Blog');
-    expect(fact('Pictures to try')).toBe('3 pictures From your brand');
+    expect(fact('Pictures to try')).toBe('3 pictures');
     expect(fact('The look')).toContain('House style');
-    expect(fact('The look')).toContain('Version 3 of your style guide');
+    expect(fact('The look')).toContain('Version 3');
     expect(fact('The look')).toContain('Soft window light, linen, nothing glossy.');
     expect(fact('The look')).toContain('No studio flash.');
     expect(text()).not.toContain('Added for this run');
   });
 
-  it('says the count is the product’s own when the brand states none', async () => {
+  it('shows the product’s own count, without a label, when the brand states none', async () => {
     await mount((each) => each.pictureCount.set(null));
 
-    expect(fact('Pictures to try')).toBe('2 pictures CreatorPantry’s default');
+    expect(fact('Pictures to try')).toBe('2 pictures');
   });
 
   it('says a count, a channel and added lines are this run’s, beside what the brand says', async () => {
@@ -153,6 +153,7 @@ describe('ContentPipelineBrandDefaultsComponent', () => {
     );
 
     expect(fact('Pictures to try')).toBe('1 picture For this run');
+    expect(text()).not.toContain('are read from your brand');
     expect(fact('This picture is for')).toBe('Blog For this run');
     expect(fact('Added for this run')).toBe('A marble board Moody');
     // The brand's own answers are still shown: a run adds to them, it does not replace them.
@@ -166,25 +167,29 @@ describe('ContentPipelineBrandDefaultsComponent', () => {
       each.pictureCount.set(null);
     });
 
-    expect(text()).toContain('no brand settings yet');
-    expect(fact('Posts are written for')).toContain('No default channels yet');
-    expect(fact('Pictures to try')).toBe('2 pictures CreatorPantry’s default');
+    expect(text()).toContain('No brand settings yet');
+    // A fact with nothing behind it is left out, not printed as an absence.
+    expect(fact('Posts are written for')).toBe('');
+    expect(panel().textContent).not.toContain('No default channels');
+    expect(fact('Pictures to try')).toBe('2 pictures');
 
     host.status.set('unavailable');
     await settle();
 
     expect(text()).toContain('could not be loaded');
+    expect(text()).not.toContain('No brand settings yet');
     expect(buttonWith('Adjust for this run', panel())).toBeTruthy();
   });
 
-  it('says there is no active style guide rather than inventing a look', async () => {
+  it('leaves the look out when no style guide is active, rather than inventing one', async () => {
     guide = {
       status: 'found',
       guide: { ...GUIDE, activeGuide: null, hasVisualGuidance: false, styleLines: [], negativeGuidance: null },
     };
     await mount();
 
-    expect(fact('The look')).toBe('No style guide is active, so the looks are planned without one.');
+    expect(fact('The look')).toBe('');
+    expect(panel().textContent).not.toContain('No style guide');
     expect(panel().querySelector('a[href$="/brand/style-guide/g1"]')).toBeNull();
   });
 

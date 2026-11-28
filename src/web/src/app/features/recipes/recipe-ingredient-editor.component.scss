@@ -69,15 +69,19 @@
   }
 }
 
+/* No panel behind a group: the sheet is the surface, and a group inside it is told apart by its heading and a rule,
+   as the method's phases are. */
 .group {
   display: grid;
   gap: var(--cp-space-3);
-  padding: var(--cp-space-4);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
   /* Jumped to from the nav, which is sticky at wide widths — without this the group's own heading lands under
      it. The ring belongs to the heading field onGroupNavClick() focuses, not to the section that scrolled. */
   scroll-margin-top: var(--cp-sticky-below-bars);
+}
+
+.group + .group {
+  padding-top: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
 }
 
 /* Its own width, not the group's: a full-width bar under the lines would read as a divider, not a button. */
@@ -103,28 +107,31 @@
   flex-shrink: 0;
 }
 
-/* Closed, the lines are a list of the recipe's ingredients, a little apart; an open one takes the room it needs. */
+/* Closed, the lines are the recipe's ingredients ruled one under another, as on a recipe's sheet; an open one takes the
+   room it needs. The dot in the margin, the dashed rule under each row and the row's padding are the library's
+   (`cpRuledList`); what is set here is what an editable row holds that a read-only one does not. */
 .rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
   display: grid;
-  gap: var(--cp-space-2);
 }
 
 .row {
   display: grid;
   gap: var(--cp-space-3);
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface);
 }
 
-/* The line being edited stands out from the closed ones around it: more room, and the control edge. */
-.row--open {
-  padding: var(--cp-space-3);
-  border-color: var(--cp-border-control);
+/* The dot sits level with the row's buttons, which set its height, rather than with the top of a row that is
+   taller than a line of words. */
+.rows > .row::before {
+  inset-block-start: calc(var(--cp-space-2) + 1.25rem - 0.25rem);
+}
+
+/* The line being edited takes more room than a line does: its fields are the thing being worked on. */
+.rows > .row--open {
+  padding-block: var(--cp-space-3);
+}
+
+.rows > .row--open::before {
+  inset-block-start: calc(var(--cp-space-3) + 1.25rem - 0.25rem);
 }
 
 /* The handle a line is moved by: quiet, at the start of its line, and the cursor says it can be picked up. */
@@ -139,9 +146,13 @@
   opacity: 0.4;
 }
 
-/* The line in hand, lifted out of its list, with the board's floating shadow. */
+/* The line in hand, lifted out of its list: on the surface it came from, with the board's floating shadow. */
 .row.cdk-drag-preview {
   list-style: none;
+  padding-inline: var(--cp-space-3);
+  border: 1px solid var(--cp-border-control);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
   box-shadow: var(--cp-shadow-lg);
   cursor: grabbing;
 }
@@ -302,5 +313,4 @@
 /* The row itself, so a refused line is findable by scrolling and not only by reading every sentence. */
 .row:has(.row-problem) {
   border-inline-start: 3px solid var(--cp-danger);
-  padding-inline-start: var(--cp-space-3);
 }

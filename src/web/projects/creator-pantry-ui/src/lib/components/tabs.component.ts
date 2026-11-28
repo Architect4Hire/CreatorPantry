@@ -161,6 +161,17 @@ export class CpTabsComponent {
   template: `@if (hasActivated()) {
     <ng-content />
   }`,
+  styles: [
+    `
+      /* Room between the tab strip and what it opens, so a panel's first line is not set against the strip's rule.
+         The :not([hidden]) is because an unconditional display would override the native hidden attribute and show
+         every panel at once. A consumer that lays its panel out itself sets its own padding and wins. */
+      :host(:not([hidden])) {
+        display: block;
+        padding-block-start: var(--cp-space-4);
+      }
+    `,
+  ],
   host: {
     role: 'tabpanel',
     '[attr.id]': "'panel-'+id()",

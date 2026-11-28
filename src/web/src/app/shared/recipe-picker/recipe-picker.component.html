@@ -1,4 +1,14 @@
-<cp-form-section heading="A recipe" [intro]="intro()" [sectionId]="idPrefix()">
+<!-- Its own section by default. `bare` is for a host that has already named the part and put this under a choice
+     of ways to answer it: the same content, with no heading or intro of its own to say it twice. -->
+@if (bare()) {
+  <ng-container [ngTemplateOutlet]="content" />
+} @else {
+  <cp-form-section heading="A recipe" [intro]="intro()" [sectionId]="idPrefix()">
+    <ng-container [ngTemplateOutlet]="content" />
+  </cp-form-section>
+}
+
+<ng-template #content>
   @if (action(); as state) {
     @if (state.status === 'working') {
       <p class="cp-muted" role="status">{{ state.sentence }}</p>
@@ -123,7 +133,7 @@
 
     <!-- Server-filtered, so `filterLocally` is off: a library is too large to hold in a browser, and filtering
          the search's own answers again would hide matches it found by something other than the title. -->
-    <cp-field label="Find a recipe" [forId]="inputId()" hint="Type part of its name. Archived recipes are not shown.">
+    <cp-field label="Find a recipe" [forId]="inputId()">
       <cp-combobox
         [inputId]="inputId()"
         [options]="options()"
@@ -140,4 +150,4 @@
       </cp-combobox>
     </cp-field>
   }
-</cp-form-section>
+</ng-template>

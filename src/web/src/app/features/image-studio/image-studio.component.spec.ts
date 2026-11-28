@@ -608,9 +608,27 @@ function showStep(part: StudioStep): boolean {
   return moved;
 }
 
+/** Pick one of the first step's three ways by the words on its segment, which the picked one prefixes with a tick. */
+async function chooseWay(label: string): Promise<void> {
+  const segment = Array.from(root().querySelectorAll<HTMLLabelElement>('cp-choice-group label')).find(
+    (each) => each.textContent?.replace('✓', '').trim() === label,
+  );
+  segment!.click();
+  await settle();
+}
+
+/** Ensures the way that shows a field is the one on screen, as a creator would by picking it. */
+async function showWayFor(selector: string, label: string): Promise<void> {
+  if (showStep('about')) await settle();
+  const offered = Array.from(root().querySelectorAll('cp-choice-group label')).some(
+    (each) => each.textContent?.replace('✓', '').trim() === label,
+  );
+  if (root().querySelector(selector) === null && offered) await chooseWay(label);
+}
+
 /** Typed once the step's fields have taken their values: a field typed into in the tick it mounts is overwritten. */
 async function typeConcept(value: string): Promise<void> {
-  if (showStep('about')) await settle();
+  await showWayFor('#cp-pipeline-concept', 'A description');
   const concept = root().querySelector<HTMLTextAreaElement>('#cp-pipeline-concept')!;
   concept.value = value;
   concept.dispatchEvent(new Event('input'));
@@ -619,12 +637,12 @@ async function typeConcept(value: string): Promise<void> {
 
 /** Read after the step's fields have had their tick when the step changed: a field it shows takes its value a beat later. */
 async function subjectValue(): Promise<string> {
-  if (showStep('about')) await settle();
+  await showWayFor('#cp-pipeline-subject', 'A dish name');
   return root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!.value;
 }
 
 async function typeSubject(value: string): Promise<void> {
-  if (showStep('about')) await settle();
+  await showWayFor('#cp-pipeline-subject', 'A dish name');
   const field = root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!;
   field.value = value;
   field.dispatchEvent(new Event('input'));
@@ -632,7 +650,7 @@ async function typeSubject(value: string): Promise<void> {
 }
 
 async function conceptValue(): Promise<string> {
-  if (showStep('about')) await settle();
+  await showWayFor('#cp-pipeline-concept', 'A description');
   return root().querySelector<HTMLTextAreaElement>('#cp-pipeline-concept')!.value;
 }
 
@@ -812,13 +830,10 @@ describe('ImageStudioComponent', () => {
         Array.from(root().querySelectorAll('cp-form-section h2')).map((heading) => heading.textContent?.trim());
 
       expect(headings()).toEqual([
-        'A recipe',
-        // Directly under the picker, because the two answer the same question: a recipe from the library, or
-        // the name of one that is not in it yet.
-        'What it is',
+        // One question, answered one way: a recipe, a dish name or a description.
+        'What is the picture of?',
         'Where it is going',
         'How many pictures to try',
-        'What you already have in mind',
         'Scene',
         'Style',
         'A brief',
@@ -852,12 +867,18 @@ describe('ImageStudioComponent', () => {
       expect(text()).not.toContain('Which day is it for?');
     });
 
-    it('says once what is needed, and marks no field optional or required', async () => {
+    it('says nothing is needed on the first step, and what is needed on the second, and never labels a field optional', async () => {
       await create();
 
-      expect(text()).toContain('Only the prompt is needed to make pictures');
+      // The first step asks for nothing, so it says nothing: an optional thing is not announced as one.
+      expect(root().querySelector('.legend')).toBeNull();
+      expect(text()).not.toMatch(/optional/i);
       expect(root().querySelectorAll('[aria-required="true"]').length).toBe(0);
-      expect(text()).not.toContain('(optional)');
+
+      showStep('plan');
+
+      expect(text()).toContain('Only the prompt is needed to make pictures');
+      expect(text()).not.toContain('Everything on this step is optional');
     });
 
     it('has one polite live region, and announcements land in it', async () => {
@@ -1549,6 +1570,7 @@ describe('ImageStudioComponent', () => {
 
   describe('a linked recipe', () => {
     async function linkSodaBread(): Promise<void> {
+      await showWayFor('#cp-studio-recipe-search', 'A recipe');
       const box = root().querySelector<HTMLInputElement>('#cp-studio-recipe-search')!;
       box.focus();
       box.value = 'soda';
@@ -1575,8 +1597,10 @@ describe('ImageStudioComponent', () => {
 
     it('is named, with its pinned version, on the photography-concept request', async () => {
       await create({ url: `/${SLUG}/image-studio/context/ctx-shared`, setup: (fake) => fake.seed(SLUG, 'ctx-shared') });
-      await linkSodaBread();
+      // The description is written first: once a recipe is linked it is the one way on screen, and what was
+      // written is kept beside it.
       await typeConcept('A tight crop.');
+      await linkSodaBread();
 
       await click('Plan some looks');
 
@@ -1745,6 +1769,81 @@ describe('ImageStudioComponent', () => {
       expect(button('Start over')).withContext('the run has its own').toBeNull();
       expect(root().querySelector('.legend')).withContext('the step’s card carries the shell’s legend').toBeNull();
       expect(root().querySelector('cp-card')).withContext('no card inside the step’s card').toBeNull();
+    });
+
+    const ways = (): { recipe: boolean; name: boolean; describe: boolean } => ({
+      recipe: root().querySelector('cp-recipe-picker') !== null,
+      name: root().querySelector('#cp-pipeline-subject') !== null,
+      describe: root().querySelector('#cp-pipeline-concept') !== null,
+    });
+
+    it('asks what the picture is of one way at a time, starting from a recipe', async () => {
+      await hosted((host) => (host.part = 'about'));
+
+      const segments = Array.from(root().querySelectorAll('cp-choice-group label')).map((each) =>
+        each.textContent?.replace('✓', '').trim(),
+      );
+      expect(segments).toEqual(['A recipe', 'A dish name', 'A description']);
+      expect(ways()).toEqual({ recipe: true, name: false, describe: false });
+
+      await chooseWay('A dish name');
+      expect(ways()).toEqual({ recipe: false, name: true, describe: false });
+
+      await chooseWay('A description');
+      expect(ways()).toEqual({ recipe: false, name: false, describe: true });
+
+      await chooseWay('A recipe');
+      expect(ways()).toEqual({ recipe: true, name: false, describe: false });
+    });
+
+    it('keeps what was written in a way the creator has left, and shows it again when they come back', async () => {
+      await hosted((host) => (host.part = 'about'));
+
+      await chooseWay('A dish name');
+      const name = root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!;
+      name.value = 'Brown butter soda bread';
+      name.dispatchEvent(new Event('input'));
+      await settle();
+
+      await chooseWay('A description');
+      expect(ways().name).toBeFalse();
+
+      await chooseWay('A dish name');
+      expect(root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!.value).toBe('Brown butter soda bread');
+    });
+
+    it('stays on the way being typed in when the field is cleared, rather than jumping to another', async () => {
+      await hosted((host) => (host.part = 'about'));
+
+      await chooseWay('A description');
+      const concept = root().querySelector<HTMLTextAreaElement>('#cp-pipeline-concept')!;
+      concept.value = 'Torn open, steam rising';
+      concept.dispatchEvent(new Event('input'));
+      await settle();
+      concept.value = '';
+      concept.dispatchEvent(new Event('input'));
+      await settle();
+
+      expect(ways()).toEqual({ recipe: false, name: false, describe: true });
+    });
+
+    it('remembers the way when the creator goes on and comes back', async () => {
+      await create();
+
+      await chooseWay('A description');
+      showStep('plan');
+      await settle();
+      showStep('about');
+      await settle();
+
+      expect(ways()).toEqual({ recipe: false, name: false, describe: true });
+    });
+
+    it('says nothing is optional and puts no asterisk on a step that asks for nothing', async () => {
+      await hosted((host) => (host.part = 'about'));
+
+      expect(text()).not.toMatch(/optional/i);
+      expect(root().querySelectorAll('[aria-required="true"]').length).toBe(0);
     });
 
     it('plans on the second part — the idea, the look, a reference and the prompt — and makes nothing there', async () => {

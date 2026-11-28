@@ -1,7 +1,6 @@
-<cp-form-section
-  heading="From your brand"
-  intro="Where the posts go, how many pictures to try and the look are read from your brand, so you are not asked each time. Change any of it for this run only."
->
+<!-- Only what the brand has to say: a fact with nothing behind it (no channels, no style guide) is left out rather
+     than printed as an absence, and the heading already says whose answers these are. -->
+<cp-form-section heading="From your brand">
   <!-- Always here, so the sentence is heard when it is set; the skeleton is the shape of the facts coming. -->
   <p class="cp-sr-only" role="status">{{ brandStatus() === 'loading' ? 'Loading your brand…' : '' }}</p>
   @if (brandStatus() === 'loading') {
@@ -9,30 +8,27 @@
   }
   @if (brandStatus() === 'unavailable') {
     <cp-notice tone="warning" role="status">
-      Your brand settings could not be loaded, so this run is using CreatorPantry’s own defaults. Everything else still
-      works.
+      Your brand settings could not be loaded, so CreatorPantry’s defaults are used.
     </cp-notice>
   }
   @if (brandStatus() === 'none') {
     <cp-notice role="note">
-      This workspace has no brand settings yet, so this run is using CreatorPantry’s own defaults.
+      No brand settings yet, so CreatorPantry’s defaults are used.
       <a [routerLink]="brandLink()">Set up your brand</a>
     </cp-notice>
   }
 
   @if (brandStatus() !== 'loading') {
     <dl cpFacts>
-      <div cpFact label="Posts are written for">
-        @if (channelNames().length > 0) {
+      @if (channelNames().length > 0) {
+        <div cpFact label="Posts are written for">
           <span class="values">
             @for (name of channelNames(); track name) {
               <cp-badge tone="success">{{ name }}</cp-badge>
             }
           </span>
-        } @else {
-          No default channels yet. You choose where each post goes on the last step.
-        }
-      </div>
+        </div>
+      }
 
       @if (runChannel(); as name) {
         <div cpFact label="This picture is for">
@@ -46,49 +42,43 @@
       <div cpFact label="Pictures to try">
         <span class="values">
           <cp-badge tone="success">{{ pictureCountText() }}</cp-badge>
-          <span class="cp-muted">{{ pictureCountSource() }}</span>
+          @if (pictureCountChangedHere()) {
+            <span class="cp-muted">For this run</span>
+          }
         </span>
       </div>
 
-      <div cpFact label="The look">
-        @switch (guide().status) {
-          @case ('loading') {
+      @if (guide(); as state) {
+        @if (state.status === 'loading') {
+          <div cpFact label="The look">
             <span class="cp-sr-only">Loading your style guide…</span>
             <cp-skeleton shape="line" />
-          }
-          @case ('unavailable') {
+          </div>
+        } @else if (state.status === 'unavailable') {
+          <div cpFact label="The look">
             Your style guide could not be loaded just now. If one is active, the looks are still planned from it.
-          }
-          @default {
-            @if (guide(); as state) {
-              @if (state.status === 'ready') {
-                @if (state.guide.activeGuide; as active) {
-                  <span class="values">
-                    <cp-badge tone="purple">{{ active.name }}</cp-badge>
-                    <span class="cp-muted">Version {{ active.versionNumber }} of your style guide</span>
-                  </span>
-                  @if (state.guide.styleLines.length > 0) {
-                    <ul class="lines">
-                      @for (line of state.guide.styleLines; track line.label) {
-                        <li
-                          ><strong>{{ line.label }}.</strong> {{ line.summary }}</li
-                        >
-                      }
-                    </ul>
-                  } @else {
-                    <p class="note cp-muted">This guide does not describe a look for pictures yet.</p>
-                  }
-                  @if (state.guide.negativeGuidance; as avoid) {
-                    <p class="note"><strong>Kept out of the picture.</strong> {{ avoid }}</p>
-                  }
-                } @else {
-                  No style guide is active, so the looks are planned without one.
+          </div>
+        } @else if (state.status === 'ready' && state.guide.activeGuide; as active) {
+          <div cpFact label="The look">
+            <span class="values">
+              <cp-badge tone="purple">{{ active.name }}</cp-badge>
+              <span class="cp-muted">Version {{ active.versionNumber }}</span>
+            </span>
+            @if (state.guide.styleLines.length > 0) {
+              <ul class="lines">
+                @for (line of state.guide.styleLines; track line.label) {
+                  <li
+                    ><strong>{{ line.label }}.</strong> {{ line.summary }}</li
+                  >
                 }
-              }
+              </ul>
             }
-          }
+            @if (state.guide.negativeGuidance; as avoid) {
+              <p class="note"><strong>Kept out of the picture.</strong> {{ avoid }}</p>
+            }
+          </div>
         }
-      </div>
+      }
 
       @if (additions().length > 0) {
         <div cpFact label="Added for this run">
@@ -117,7 +107,7 @@
 <cp-drawer
   [open]="open()"
   heading="Adjust for this run"
-  description="These changes are for this run only, and are kept as you make them. Your brand settings and style guide stay as they are."
+  description="For this run only. Your brand settings stay as they are."
   (closeRequested)="close()"
 >
   @if (open()) {

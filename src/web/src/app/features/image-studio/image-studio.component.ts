@@ -16,6 +16,8 @@ import { combineLatest, map } from 'rxjs';
 import {
   CpButtonComponent,
   CpCardComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
@@ -78,6 +80,18 @@ import { ImageStudioHost, ImageStudioPart } from './image-studio-host';
  * reading the one the address names can end — and neither opens as an empty studio. `filing_failed` is work
  * found on this device that could not be put on a context: it stays where it is until that works.
  */
+/**
+ * The three ways the first step lets a creator say what the picture is of, one at a time: a recipe from the library,
+ * the name of a dish that is not in it, or the picture in their own words.
+ */
+type StudioWay = 'recipe' | 'name' | 'describe';
+
+const WAY_CHOICES: readonly CpChoiceOption[] = [
+  { value: 'recipe', label: 'A recipe' },
+  { value: 'name', label: 'A dish name' },
+  { value: 'describe', label: 'A description' },
+];
+
 type Phase =
   | 'loading'
   | 'unavailable'
@@ -215,6 +229,7 @@ function memoryFiling(): CreativeContextFilingStore {
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
+    CpChoiceGroupComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
     CpProgressComponent,
@@ -325,13 +340,12 @@ export class ImageStudioComponent {
   );
 
   /**
-   * The sentence above the sections, said once: what is needed, and that the rest is optional. Hosted, the step's
-   * card already carries the shell's legend, so the studio prints none of its own.
+   * The sentence above the sections, said once, and only where something is needed: the first step asks for nothing,
+   * so it says nothing, and the second says what it takes to make pictures. Optional things are never labelled.
+   * Hosted, the step's card already carries the shell's legend, so the studio prints none of its own.
    */
   protected readonly legend = computed(() =>
-    this.hosted || this.currentPart() === 'make'
-      ? null
-      : 'Everything on this step is optional. Only the prompt is needed to make pictures.',
+    this.hosted || this.currentPart() !== 'plan' ? null : 'Only the prompt is needed to make pictures.',
   );
 
   protected readonly extrasHeading = computed(() =>
@@ -340,8 +354,8 @@ export class ImageStudioComponent {
 
   protected readonly extrasIntro = computed(() =>
     this.currentPart() === 'about'
-      ? 'Something you have written about this shoot, if you have it.'
-      : 'A photograph to take cues from, if you have one.',
+      ? 'Notes you have written about this shoot. They are read as source material, never as instructions.'
+      : 'A photograph to take cues from.',
   );
 
   /** The piece of work as the server last answered it, for a step that names what it made. */
@@ -500,6 +514,36 @@ export class ImageStudioComponent {
 
   protected readonly prompt = computed(() => this.draft().prompt);
   protected readonly config = computed(() => this.draft().config);
+
+  /**
+   * Which of the three ways the creator has chosen to answer "what is the picture of?", or null while they have not
+   * said, in which case it is read from what the work already holds. It is pinned the moment anything is changed
+   * (`keep`), so clearing a field never makes the way jump to another while they are typing in it.
+   */
+  private readonly chosenWay = signal<StudioWay | null>(null);
+
+  protected readonly wayChoices = WAY_CHOICES;
+
+  /**
+   * The way on screen. A linked recipe is always the way: it is what the run is planned around, and it is shown with
+   * its Remove button rather than hidden behind another choice, so no link works unseen. Otherwise the creator's
+   * choice, else whatever they had already written, else a recipe.
+   */
+  protected readonly way = computed<StudioWay>(() => {
+    if (this.linkedRecipe() !== null) return 'recipe';
+
+    const chosen = this.chosenWay();
+    if (chosen !== null) return chosen;
+
+    const { subject, concept } = this.config();
+    if (subject.trim() !== '') return 'name';
+    return concept.trim() !== '' ? 'describe' : 'recipe';
+  });
+
+  protected chooseWay(values: readonly string[]): void {
+    const value = values[0];
+    if (value === 'recipe' || value === 'name' || value === 'describe') this.chosenWay.set(value);
+  }
 
   /** The work in the shape the pipeline's idea step reads. The same answers; nothing is copied anywhere. */
   protected readonly ideaDraft = computed(() => ImageStudioComponent.asPipeline(this.draft()));
@@ -664,6 +708,7 @@ export class ImageStudioComponent {
     this.filedContextId = null;
     this.session.close();
     this.loaded.set(false);
+    this.chosenWay.set(null);
     this.filingFailed.set(false);
     this.deviceRefused.set(false);
     this.draft.set(emptyImageStudioDraft());
@@ -838,6 +883,8 @@ export class ImageStudioComponent {
     const owner = this.loadedOwner;
     if (owner === null || !this.loaded()) return;
 
+    if (this.chosenWay() === null) this.chosenWay.set(this.way());
+
     // A brief chosen from the description or the idea follows what it was chosen from, as it does in the
     // pipeline: correcting the description corrects it, and un-picking the idea lets go of it.
     const followed = contentPipelineBriefAfter(
@@ -1001,6 +1048,7 @@ export class ImageStudioComponent {
     this.session.begin(this.workspaceSlug(), this.drafts.filing(current));
     this.showAddress(this.startLink());
     this.draft.set(emptyImageStudioDraft());
+    this.chosenWay.set(null);
     this.deviceRefused.set(false);
     this.discarded.set(false);
     this.step.set('about');

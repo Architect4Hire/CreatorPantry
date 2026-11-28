@@ -2,6 +2,12 @@
   display: block;
 }
 
+/* A section caps the fields projected into it at the reading measure. Bare, this component's own field is one
+   level further down than that rule reaches, so the cap is put on the whole. */
+:host(.bare) {
+  max-width: var(--cp-measure-field);
+}
+
 .linked {
   display: grid;
   gap: var(--cp-space-3);

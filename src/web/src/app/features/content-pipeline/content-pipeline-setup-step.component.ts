@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -75,6 +76,7 @@ type ChannelsState =
   selector: 'cp-content-pipeline-setup-step',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     CpSkeletonComponent,
     FormsModule,
     CpButtonComponent,
@@ -86,6 +88,7 @@ type ChannelsState =
   ],
   templateUrl: './content-pipeline-setup-step.component.html',
   styleUrl: './content-pipeline-setup-step.component.scss',
+  host: { '[class.bare]': 'bare()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineSetupStepComponent implements OnInit {
@@ -95,9 +98,9 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   /**
    * The linked recipe's title, or null when none is linked.
    *
-   * Only ever shown, in the hint beside the name: a creator who has linked a recipe needs telling that the
-   * recipe is what the work is planned around, so a name they typed earlier does not read as the answer in
-   * use. The precedence itself is `contentSubjectOf`'s, not this component's.
+   * While one is linked the name is not asked at all: the recipe is what the work is planned around, and a field
+   * nothing reads would be a second answer to the same question. The precedence itself is `contentSubjectOf`'s,
+   * not this component's.
    */
   readonly linkedRecipeTitle = input<string | null>(null);
   /**
@@ -112,8 +115,17 @@ export class ContentPipelineSetupStepComponent implements OnInit {
    * with from the brand and may change for itself — the channel, the count, scene and style. The Content
    * Pipeline asks them in two places, the second only when the creator wants to change something; the Image
    * Studio asks `everything` on one screen.
+   *
+   * `name` and `concept` are the two halves of `subject`, for a host that lays them out apart — the Image Studio's
+   * first step puts the name under the recipe and the picture in mind beside them, on a card wide enough for two
+   * columns. Each asks nothing else, so two instances beside one another never ask a question twice.
    */
-  readonly show = input<'everything' | 'subject' | 'defaults'>('everything');
+  readonly show = input<'everything' | 'subject' | 'name' | 'concept' | 'defaults'>('everything');
+  /**
+   * Drops the section round the name or the description and keeps its field, for a host that has named the part
+   * and shows each as one way of answering it. Only the `name` and `concept` modes mean anything by it.
+   */
+  readonly bare = input(false);
   /**
    * How many pictures the run tries until the creator says otherwise here, or null to show the config's own.
    * The brand's default: shown as the answer already given, and replaced by the first choice made.
@@ -164,23 +176,10 @@ export class ContentPipelineSetupStepComponent implements OnInit {
     return state.channels.filter((channel) => channel.isActive || channel.key === chosen);
   });
 
-  /**
-   * What the name field says about itself: which answer is in use, and what the other one is for.
-   *
-   * It never asks the creator to delete the name they typed. A linked recipe can be unlinked, and the name is
-   * then the subject again — so saying it is kept is the honest sentence, and clearing it would be this screen
-   * throwing away the creator's own words (.claude/rules/recipes.md).
-   */
-  protected readonly subjectHint = computed(() => {
-    const title = this.linkedRecipeTitle();
-
-    return title === null
-      ? `A dish name, up to ${CONTENT_PIPELINE_LIMITS.subjectMaxLength} characters. Use it when the recipe is not in your library yet.`
-      : `Planned around “${title}” from your library instead. This name is kept, and used again if you unlink that recipe.`;
-  });
-
-  protected readonly asksSubject = computed(() => this.show() !== 'defaults');
-  protected readonly asksDefaults = computed(() => this.show() !== 'subject');
+  protected readonly asksSubject = computed(() => this.show() === 'everything' || this.show() === 'subject');
+  protected readonly asksDefaults = computed(() => this.show() === 'everything' || this.show() === 'defaults');
+  protected readonly asksName = computed(() => this.asksSubject() || this.show() === 'name');
+  protected readonly asksConcept = computed(() => this.asksSubject() || this.show() === 'concept');
 
   /** The section that holds the channel, the day, or both, named for what it is asking here. */
   protected readonly placeHeading = computed(() => (this.asksDefaults() ? 'Where it is going' : 'When it is for'));

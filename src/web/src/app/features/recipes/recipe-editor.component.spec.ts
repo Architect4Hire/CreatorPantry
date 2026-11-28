@@ -307,6 +307,19 @@ function selectEditTab(harness: RouterTestingHarness, label: 'General' | 'Ingred
   expect(button).withContext(`the ${label} form tab`).toBeTruthy();
   button!.click();
   harness.detectChanges();
+  // The method opens with its steps closed to their words, as the ingredient list does; the cases below reach for
+  // the fields, so they open the steps a creator would.
+  if (label === 'Instructions') openInstructionSteps(harness);
+}
+
+/** Opens every step and phase heading of the method by its Edit button, as a creator would: it opens with them closed. */
+function openInstructionSteps(harness: RouterTestingHarness): void {
+  harness
+    .routeNativeElement!.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label^="Edit step"][aria-expanded="false"], button[aria-label^="Edit group"][aria-expanded="false"]',
+    )
+    .forEach((button) => button.click());
+  harness.detectChanges();
 }
 
 /** Opens every ingredient line by its Edit button, as a creator would: the list opens with its lines closed. */
@@ -2758,6 +2771,179 @@ describe('RecipeEditorComponent', () => {
       return { harness, component };
     }
 
+    describe('steps closed to their words', () => {
+      const METHOD: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        instructionGroups: [
+          {
+            id: 'ig1',
+            title: null,
+            sortOrder: 0,
+            steps: [
+              { text: 'Peel and cut the potatoes.', durationMinutes: null, note: null },
+              { text: 'Simmer until very tender.', durationMinutes: 15, note: 'A knife should slide in.' },
+            ].map((step, index) => ({
+              id: `s${index}`,
+              sortOrder: index,
+              text: step.text,
+              techniqueId: null,
+              durationMinutes: step.durationMinutes,
+              temperatureValue: null,
+              temperatureUnitId: null,
+              note: step.note,
+            })),
+          },
+        ],
+      };
+
+      /** The instructions tab as a creator finds it: selected, with nothing opened for them. */
+      async function openClosed(fieldErrors?: Record<string, string[]>) {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: METHOD });
+        if (fieldErrors) recipeService.updateRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        if (fieldErrors) {
+          await component.save();
+          harness.detectChanges();
+        }
+        harness
+          .routeNativeElement!.querySelector<HTMLButtonElement>('button[role="tab"][data-tab-id="instructions"]')!
+          .click();
+        harness.detectChanges();
+
+        return { harness, component, root: harness.routeNativeElement! };
+      }
+
+      it('opens with every step as a line of its words, its buttons beside it and no fields', async () => {
+        const { root } = await openClosed();
+
+        expect(root.querySelectorAll('.step-line').length).toBe(2);
+        expect(root.querySelector('.step-line')!.textContent).toContain('Peel and cut the potatoes.');
+        expect(root.querySelector('textarea[id^="step-text-"]')).toBeNull();
+        expect(root.querySelector('button[aria-label="Edit step 1"]')!.getAttribute('aria-expanded')).toBe('false');
+        expect(root.querySelector('button[aria-label="Remove step 2"]')).toBeTruthy();
+      });
+
+      it('says a closed step’s duration and note under its words, and nothing for one with neither', async () => {
+        const { root } = await openClosed();
+        const extras = Array.from(root.querySelectorAll('.step-extras')).map((each) => each.textContent?.trim());
+
+        expect(extras).toEqual(['15 min · Note: A knife should slide in.']);
+      });
+
+      it('opens one step’s fields with its Edit button, and closes them again keeping what was typed', async () => {
+        const { harness, component, root } = await openClosed();
+
+        root.querySelector<HTMLButtonElement>('button[aria-label="Edit step 1"]')!.click();
+        harness.detectChanges();
+        // ngModel writes the value to a field that has just been drawn on the next turn.
+        await harness.fixture.whenStable();
+        harness.detectChanges();
+
+        const text = root.querySelector<HTMLTextAreaElement>('textarea[id="step-text-s0"]')!;
+        expect(text.value).toBe('Peel and cut the potatoes.');
+        expect(root.querySelector('textarea[id="step-text-s1"]')).withContext('the other stays closed').toBeNull();
+        expect(root.querySelector('button[aria-label="Edit step 1"]')!.getAttribute('aria-expanded')).toBe('true');
+
+        text.value = 'Peel, then cut the potatoes.';
+        text.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+        root.querySelector<HTMLButtonElement>('button[aria-label="Edit step 1"]')!.click();
+        harness.detectChanges();
+
+        expect(root.querySelector('textarea[id="step-text-s0"]')).toBeNull();
+        expect(root.querySelector('.step-line')!.textContent).toContain('Peel, then cut the potatoes.');
+        expect(component.isDirty()).toBeTrue();
+      });
+
+      it('opens a step the server refused, and only that one', async () => {
+        const { root } = await openClosed({
+          'instructions[0].steps[1].text': ['An instruction step cannot be blank.'],
+        });
+
+        expect(root.querySelector('textarea[id="step-text-s1"]')).toBeTruthy();
+        expect(root.querySelector('textarea[id="step-text-s0"]')).toBeNull();
+        expect(root.querySelector('textarea[id="step-text-s1"]')!.closest('cp-field')!.textContent).toContain(
+          'An instruction step cannot be blank.',
+        );
+      });
+
+      describe('a phase’s heading', () => {
+        const PHASES: RecipeDetail = {
+          ...METHOD,
+          instructionGroups: [{ ...METHOD.instructionGroups[0], title: 'Cook the potatoes' }],
+        };
+
+        async function openPhases(fieldErrors?: Record<string, string[]>) {
+          const recipeService = recipeServiceSpy();
+          recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: PHASES });
+          if (fieldErrors) recipeService.updateRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors });
+          const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+          if (fieldErrors) {
+            await component.save();
+            harness.detectChanges();
+          }
+          harness
+            .routeNativeElement!.querySelector<HTMLButtonElement>('button[role="tab"][data-tab-id="instructions"]')!
+            .click();
+          harness.detectChanges();
+
+          return { harness, root: harness.routeNativeElement! };
+        }
+
+        it('reads as a heading, with its buttons beside it and no field', async () => {
+          const { root } = await openPhases();
+
+          expect(root.querySelector('h3.group-title')!.textContent).toContain('Cook the potatoes');
+          expect(root.querySelector('input[id^="group-title-"]')).toBeNull();
+          expect(root.querySelector('button[aria-label="Edit group 1"]')!.getAttribute('aria-expanded')).toBe('false');
+          expect(root.querySelector('button[aria-label="Move group 1 down"]')).toBeTruthy();
+          expect(root.querySelector('button[aria-label="Remove group 1"]')).toBeTruthy();
+        });
+
+        it('opens its field with Edit group, and closes it again keeping what was typed', async () => {
+          const { harness, root } = await openPhases();
+
+          root.querySelector<HTMLButtonElement>('button[aria-label="Edit group 1"]')!.click();
+          harness.detectChanges();
+          await harness.fixture.whenStable();
+          harness.detectChanges();
+
+          const field = root.querySelector<HTMLInputElement>('input[id^="group-title-"]')!;
+          expect(field.value).toBe('Cook the potatoes');
+
+          field.value = 'Boil the potatoes';
+          field.dispatchEvent(new Event('input'));
+          harness.detectChanges();
+          root.querySelector<HTMLButtonElement>('button[aria-label="Edit group 1"]')!.click();
+          harness.detectChanges();
+
+          expect(root.querySelector('input[id^="group-title-"]')).toBeNull();
+          expect(root.querySelector('h3.group-title')!.textContent).toContain('Boil the potatoes');
+        });
+
+        it('opens a heading the server refused, so its sentence is never folded away', async () => {
+          const { root } = await openPhases({ 'instructions[0].title': ['A heading can be at most 120 characters.'] });
+
+          expect(root.querySelector('input[id^="group-title-"]')!.closest('cp-field')!.textContent).toContain(
+            'at most 120 characters',
+          );
+        });
+      });
+
+      it('opens a step the creator has just added, since it has no words yet to show closed', async () => {
+        const { harness, root } = await openClosed();
+
+        Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+          .find((button) => button.textContent?.trim() === 'Add step')!
+          .click();
+        harness.detectChanges();
+
+        expect(root.querySelectorAll('textarea[id^="step-text-"]').length).toBe(1);
+        expect(root.querySelectorAll('.step-line').length).toBe(2);
+      });
+    });
+
     it('adds a group and a step to it, each with a labelled, keyboard-operable remove action', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
@@ -3069,6 +3255,7 @@ describe('RecipeEditorComponent', () => {
           text: 'Brown the beef.',
         });
         harness.detectChanges();
+        openInstructionSteps(harness);
 
         expect(durationBox(harness, stepKey)).withContext('no box until it is asked for').toBeNull();
         expect(revealButton(harness, 1)).withContext('the offer').toBeTruthy();
@@ -3102,6 +3289,31 @@ describe('RecipeEditorComponent', () => {
         const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
         expect(request.instructions.value![0].steps![0].durationMinutes).toBe(25);
         expect(request.instructions.value![0].steps![1].durationMinutes).toBeNull();
+      });
+
+      it('takes a duration away with Remove duration, which submits as none and brings the offer back', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
+        recipeService.updateRecipe.and.resolveTo({
+          status: 'updated',
+          recipe: { ...WITH_DURATION, concurrencyToken: 'AAAAAAAAB9I=' },
+        });
+        const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
+        expect(durationBox(harness, 's1')?.value).toBe('25');
+
+        harness
+          .routeNativeElement!.querySelector<HTMLButtonElement>('button[aria-label="Remove the duration from step 1"]')!
+          .click();
+        harness.detectChanges();
+
+        expect(durationBox(harness, 's1')).withContext('the field is put away').toBeNull();
+        expect(revealButton(harness, 1)).withContext('and the offer is back').toBeTruthy();
+        expect(component.isDirty()).withContext('removing a recorded duration is an edit').toBeTrue();
+
+        await component.save();
+
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        expect(request.instructions.value![0].steps![0].durationMinutes).toBeNull();
       });
 
       // Revealing writes no duration, so it is not an edit to the recipe. Dirty state is built from
@@ -4069,6 +4281,7 @@ describe('RecipeEditorComponent', () => {
       expect(component.form.showInstructionGroups()).toBeTrue();
 
       // The headings are now there to name, empty rather than invented — and the steps are still submitted.
+      openInstructionSteps(harness);
       await harness.fixture.whenStable();
       harness.detectChanges();
       const headings = Array.from(
@@ -4118,6 +4331,8 @@ describe('RecipeEditorComponent', () => {
       const firstKey = component.form.instructionGroups()[0].key;
       typeInto(harness, `#step-text-${component.form.instructionGroups()[0].steps[0].key}`, 'Toast the spices.');
       clickButton(harness, 'Add instruction group');
+      // The first phase was there before it had a name to show, so its heading is closed until it is opened.
+      openInstructionSteps(harness);
       typeInto(harness, `#group-title-${firstKey}`, 'The day before');
 
       const secondKey = component.form.instructionGroups()[1].key;
@@ -4419,17 +4634,22 @@ describe('RecipeEditorComponent', () => {
       const key = component.form.instructionGroups()[0].steps[0].key;
       const rect = (selector: string) => root.querySelector(selector)!.getBoundingClientRect();
       const step = rect('.step');
-      const number = rect('.step-number');
       const text = rect(`#step-text-${key}`);
       const controls = rect('.step-controls');
 
-      // The number is what the eye reads; "Step 1" is what a screen reader hears, as the text's own label.
-      expect(root.querySelector('.step-number')!.textContent?.trim()).toBe('1');
-      expect(root.querySelector('.step-number')!.getAttribute('aria-hidden')).toBe('true');
+      // The number is the ruled list's own, drawn in the margin from a counter; "Step 1" is what a screen reader
+      // hears, as the text's own label.
+      const stepElement = root.querySelector<HTMLElement>('.step')!;
+      expect(getComputedStyle(stepElement, '::before').content).toBe('counter(cp-ruled)');
+      expect(root.querySelector('cp-sheet ol[cpRuledList]'))
+        .withContext('on a sheet, ruled like a method')
+        .toBeTruthy();
       expect(root.querySelector(`label[for="step-text-${key}"]`)?.textContent).toContain('Step 1');
       expect(root.querySelector(`#step-text-${key}`)!.getAttribute('aria-required')).toBe('true');
 
-      expect(number.right).withContext('the number before the words').toBeLessThanOrEqual(text.left);
+      expect(parseFloat(getComputedStyle(stepElement).paddingInlineStart))
+        .withContext('room in the margin for the number before the words')
+        .toBeGreaterThan(0);
       expect(controls.left)
         .withContext('the controls after the words')
         .toBeGreaterThanOrEqual(text.right - 1);
@@ -4668,6 +4888,7 @@ describe('RecipeEditorComponent', () => {
         const groupKey = component.form.instructionGroups()[0].key;
         component.form.addInstructionStep(groupKey);
         harness.detectChanges();
+        openInstructionSteps(harness);
 
         const stepKey = component.form.instructionGroups()[0].steps[0].key;
         const step = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>(`#step-text-${stepKey}`);
